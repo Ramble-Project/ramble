@@ -101,4 +101,4 @@ An example of a Ramble workspace workflow might look like the following:
 8. **Archiving Pipeline**: Package logs, rendered templates, and inventory files into an archive
    via :ref:`ramble workspace archive <ramble-workspace-archive>`.
 
-For more detailed explanation of pipelines and phases, refer to the :ref:`advanced pipelines and phases <ramble-pipelines-and-phases>` documentation.
+For a more detailed explanation of pipelines and phases, refer to the :ref:`advanced pipelines and phases <ramble-pipelines-and-phases>` documentation.
