@@ -77,7 +77,7 @@ Phase Registration
 
 Phases can be defined in a variety of locations. Some base classes define phases for specific
 pipelines. Additionally, Applications, Modifiers, and Package Managers can all define and
-register their own phases to build more complex pipelines for specific usecases.
+register their own phases to build more complex pipelines for specific use cases.
 
    * :doc:`Applications <../application_list>` define core command generation, input downloading,
      license inclusion, and analysis hooks.
