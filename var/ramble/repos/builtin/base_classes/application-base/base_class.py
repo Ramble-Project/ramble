@@ -2620,10 +2620,33 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
                                     fetch_kwargs[var_name] = var_info.default
 
-                        if ext_dep_name in ws_ext_deps:
-                            fetch_kwargs.update(ws_ext_deps[ext_dep_name])
+                        conf_to_merge = (
+                            ws_ext_deps[ext_dep_name]
+                            if ext_dep_name in ws_ext_deps
+                            else ext_dep_conf
+                        ) or {}
+
+                        if hasattr(ext_dep_inst, "map_fetch_kwargs"):
+                            mapped_conf = ext_dep_inst.map_fetch_kwargs(
+                                conf_to_merge
+                            )
                         else:
-                            fetch_kwargs.update(ext_dep_conf)
+                            mapped_conf = conf_to_merge
+
+                        explicit_version_requested = any(
+                            k in mapped_conf
+                            for k in [
+                                "commit",
+                                "hash",
+                                "sha",
+                                "version",
+                                "tag",
+                                "branch",
+                                "revision",
+                            ]
+                        )
+
+                        fetch_kwargs.update(conf_to_merge)
 
                         if hasattr(ext_dep_inst, "map_fetch_kwargs"):
                             fetch_kwargs = ext_dep_inst.map_fetch_kwargs(
@@ -2635,16 +2658,6 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
                         min_version = fetch_kwargs.pop("min_version", None)
                         max_version = fetch_kwargs.pop("max_version", None)
-
-                        origin_name = obj.name
-                        origin_type = getattr(obj, "origin_type", "object")
-
-                        ext_dep_versions[ext_dep_name] = {
-                            "min_version": min_version,
-                            "max_version": max_version,
-                            "origin_name": origin_name,
-                            "origin_type": origin_type,
-                        }
 
                         for k, v in fetch_kwargs.items():
                             if isinstance(v, str):
@@ -2658,6 +2671,27 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                             or fetch_kwargs.get("revision")
                             or "latest"
                         )
+
+                        origin_name = obj.name
+                        origin_type = getattr(obj, "origin_type", "object")
+
+                        ext_dep_versions[ext_dep_name] = {
+                            "min_version": min_version,
+                            "max_version": max_version,
+                            "exact_version": (
+                                version_str
+                                if explicit_version_requested
+                                else None
+                            ),
+                            "origin_name": origin_name,
+                            "origin_type": origin_type,
+                            "explicit_version": explicit_version_requested,
+                        }
+
+                        if getattr(obj, "variables", None) is None:
+                            obj.variables = {}
+                        for k, v in fetch_kwargs.items():
+                            obj.variables[f"utility::{ext_dep_name}::{k}"] = v
                         ext_dep_dir = os.path.join(
                             workspace.shared_dir,
                             "bootstrapped_utilities",
@@ -2674,8 +2708,6 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                             sorted_kwargs_str,
                         )
 
-                        if not hasattr(obj, "variables"):
-                            obj.variables = {}
                         obj.variables[f"utility::{ext_dep_name}::path"] = (
                             ext_dep_paths[ext_dep_name]
                         )
@@ -2700,13 +2732,27 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                             allow_external = bool(allow_external)
 
                         if allow_external:
-                            if hasattr(
-                                ext_dep_inst, "is_available"
-                            ) and ext_dep_inst.is_available(
-                                workspace,
-                                min_version=min_version,
-                                max_version=max_version,
-                            ):
+                            exact_version_to_check = (
+                                version_str
+                                if explicit_version_requested
+                                else None
+                            )
+                            is_avail = False
+                            if hasattr(ext_dep_inst, "is_available"):
+                                try:
+                                    is_avail = ext_dep_inst.is_available(
+                                        workspace,
+                                        min_version=min_version,
+                                        max_version=max_version,
+                                        exact_version=exact_version_to_check,
+                                    )
+                                except TypeError:
+                                    is_avail = ext_dep_inst.is_available(
+                                        workspace,
+                                        min_version=min_version,
+                                        max_version=max_version,
+                                    )
+                            if is_avail:
                                 logger.debug(
                                     f"External dependency {ext_dep_name} is already available in the environment, skipping fetch."
                                 )
@@ -2826,7 +2872,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                             )
                         )
 
-            if not hasattr(obj, "variables"):
+            if getattr(obj, "variables", None) is None:
                 obj.variables = {}
             if source_scripts_commands:
                 obj.variables["source_scripts_command"] = "\n".join(
@@ -2864,20 +2910,37 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                     versions = ext_dep_versions.get(ext_dep_name, {})
                     min_v = versions.get("min_version")
                     max_v = versions.get("max_version")
+                    exact_v = versions.get("exact_version")
                     origin_name = versions.get("origin_name")
                     origin_type = versions.get("origin_type")
 
                     if not workspace.dry_run:
-                        if not ext_dep_inst.validate_versions(
-                            min_version=min_v,
-                            max_version=max_v,
-                            env=exp_env,
-                            origin_name=origin_name,
-                            origin_type=origin_type,
-                        ):
-                            logger.die(
-                                f"Version validation failed for {ext_dep_name} after bootstrap:\n{ext_dep_inst.availability_error}"
+                        try:
+                            validated = ext_dep_inst.validate_versions(
+                                min_version=min_v,
+                                max_version=max_v,
+                                exact_version=exact_v,
+                                env=exp_env,
+                                origin_name=origin_name,
+                                origin_type=origin_type,
                             )
+                        except TypeError:
+                            validated = ext_dep_inst.validate_versions(
+                                min_version=min_v,
+                                max_version=max_v,
+                                env=exp_env,
+                                origin_name=origin_name,
+                                origin_type=origin_type,
+                            )
+                        if not validated:
+                            if versions.get("explicit_version"):
+                                logger.warn(
+                                    f"Version validation failed for {ext_dep_name} after bootstrap, but proceeding due to explicit version request:\n{ext_dep_inst.availability_error}"
+                                )
+                            else:
+                                logger.die(
+                                    f"Version validation failed for {ext_dep_name} after bootstrap:\n{ext_dep_inst.availability_error}"
+                                )
 
             if hasattr(obj, "bootstrap_utility"):
                 obj.bootstrap_utility(workspace, ext_dep_paths)

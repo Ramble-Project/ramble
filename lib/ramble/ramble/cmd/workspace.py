@@ -850,6 +850,15 @@ def workspace_info_setup_parser(subparser):
 
 
 def workspace_info(args):
+    def _hashable_val(val):
+        if isinstance(val, (list, tuple)):
+            return tuple(_hashable_val(x) for x in val)
+        elif isinstance(val, dict):
+            return tuple(
+                (k, _hashable_val(v)) for k, v in sorted(val.items(), key=lambda x: str(x[0]))
+            )
+        return val
+
     ws = ramble.cmd.require_active_workspace("workspace info", args.dry_run)
 
     args.where = ramble.filters.resolve_and_apply_filter_groups(args, args.where)
@@ -1128,9 +1137,10 @@ def workspace_info(args):
                                     for utility_name, utility_conf in utilities.items():
                                         if utility_name not in all_utilities:
                                             all_utilities[utility_name] = set()
+
                                         conf_tuple = tuple(
                                             sorted(
-                                                (k, tuple(v) if isinstance(v, list) else v)
+                                                (k, _hashable_val(v))
                                                 for k, v in utility_conf.items()
                                                 if k != "when"
                                             )

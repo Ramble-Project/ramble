@@ -60,13 +60,86 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
             description="Name of external dependency for an experiment",
         )
 
+    def _check_exact_match_via_vcs(self, exec_path, exact_version):
+        """Check if the provided executable matches the exact version via VCS history."""
+        import os
+        import shutil
+        import subprocess
+
+        if not exec_path or not exact_version:
+            return False
+
+        # Resolve symlinks to find the actual repository directory
+        real_exec_path = os.path.realpath(exec_path)
+        exec_dir = os.path.dirname(real_exec_path)
+        if not exec_dir:
+            return False
+
+        # Git check
+        if shutil.which("git"):
+            try:
+                is_git = subprocess.run(
+                    [
+                        "git",
+                        "-C",
+                        exec_dir,
+                        "rev-parse",
+                        "--is-inside-work-tree",
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True,
+                    check=False,
+                )
+                if is_git.returncode == 0 and is_git.stdout.strip() == "true":
+                    head_hash_res = subprocess.run(
+                        ["git", "-C", exec_dir, "rev-parse", "HEAD"],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        universal_newlines=True,
+                        check=False,
+                    )
+                    exact_hash_res = subprocess.run(
+                        [
+                            "git",
+                            "-C",
+                            exec_dir,
+                            "rev-parse",
+                            f"{exact_version}^{{commit}}",
+                        ],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        universal_newlines=True,
+                        check=False,
+                    )
+                    if (
+                        head_hash_res.returncode == 0
+                        and exact_hash_res.returncode == 0
+                    ):
+                        head_hash = head_hash_res.stdout.strip()
+                        exact_hash = exact_hash_res.stdout.strip()
+                        if (
+                            head_hash
+                            and exact_hash
+                            and head_hash == exact_hash
+                        ):
+                            return True
+            except Exception:
+                pass
+
+        # Future VCS checks can be added here (e.g., hg, svn)
+
+        return False
+
     def validate_versions(
         self,
         min_version=None,
         max_version=None,
+        exact_version=None,
         env=None,
         origin_name=None,
         origin_type=None,
+        path=None,
     ):
         """Check if the provided executables are available and satisfy version constraints.
         Uses the provided environment or the system environment if None.
@@ -82,7 +155,11 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
 
         # When using a custom environment, we need to extract its PATH for shutil.which
         # Default to the current process PATH if not in the custom environment
-        search_path = check_env.get("PATH", os.environ.get("PATH", ""))
+        search_path = (
+            path
+            if path is not None
+            else check_env.get("PATH", os.environ.get("PATH", ""))
+        )
 
         # If the utility provides executables, check if they are in PATH
         if hasattr(self, "provided_executables") and self.provided_executables:
@@ -91,7 +168,8 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
                 # we just check all provided executables. In the future this could be conditionally checked.
                 for exec_info in exec_list:
                     exec_name = exec_info["executable"]
-                    if not shutil.which(exec_name, path=search_path):
+                    exec_path = shutil.which(exec_name, path=search_path)
+                    if not exec_path:
                         self.availability_error = (
                             f"Executable '{exec_name}' not found in PATH."
                         )
@@ -100,10 +178,28 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
                     version_cmd = exec_info.get("version_cmd")
                     version_regex = exec_info.get("version_regex")
 
+                    origin_str = (
+                        f" (required by {origin_type} '{origin_name}')"
+                        if origin_name and origin_type
+                        else ""
+                    )
+
+                    # Check exact version via VCS if available
+                    exact_match_via_vcs = self._check_exact_match_via_vcs(
+                        exec_path, exact_version
+                    )
+
+                    if (
+                        exact_match_via_vcs
+                        and not min_version
+                        and not max_version
+                    ):
+                        continue
+
                     if (
                         version_cmd
                         and version_regex
-                        and (min_version or max_version)
+                        and (min_version or max_version or exact_version)
                     ):
                         try:
                             import shlex
@@ -112,8 +208,9 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
                             result = subprocess.run(
                                 shlex.split(version_cmd),
                                 env=check_env,
-                                capture_output=True,
-                                text=True,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                universal_newlines=True,
                                 check=True,
                             )
                             output = result.stdout + result.stderr
@@ -121,32 +218,56 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
                             # Extract the version using the regex
                             match = re.search(version_regex, output)
                             if not match:
-                                self.availability_error = f"Could not determine version for '{exec_name}' using regex '{version_regex}'."
-                                return False
-
-                            current_version = match.group(1)
-
-                            origin_str = (
-                                f" (required by {origin_type} '{origin_name}')"
-                                if origin_name and origin_type
-                                else ""
-                            )
+                                if exact_version and exact_match_via_vcs:
+                                    # Git confirmed it, so lack of regex match is fine
+                                    current_version = None
+                                else:
+                                    self.availability_error = f"Could not determine version for '{exec_name}' using regex '{version_regex}'."
+                                    return False
+                            else:
+                                current_version = match.group(1)
 
                             # Compare versions
-                            if min_version and Version(
-                                current_version
-                            ) < Version(min_version):
+                            if (
+                                min_version
+                                and current_version
+                                and Version(current_version)
+                                < Version(min_version)
+                            ):
                                 self.availability_error = f"Version {current_version} for '{exec_name}' is less than required minimum {min_version}{origin_str}."
                                 return False
-                            if max_version and Version(
-                                current_version
-                            ) > Version(max_version):
+                            if (
+                                max_version
+                                and current_version
+                                and Version(current_version)
+                                > Version(max_version)
+                            ):
                                 self.availability_error = f"Version {current_version} for '{exec_name}' is greater than required maximum {max_version}{origin_str}."
                                 return False
+                            if exact_version and not exact_match_via_vcs:
+                                exact_version_str = str(exact_version)
+                                if not current_version or (
+                                    current_version != exact_version_str
+                                    and not re.search(
+                                        r"(?<![\w.])"
+                                        + re.escape(exact_version_str)
+                                        + r"(?![\w.])",
+                                        output,
+                                    )
+                                ):
+                                    self.availability_error = f"Version '{current_version}' (or output) for '{exec_name}' does not match required exact version '{exact_version}'{origin_str}."
+                                    return False
                         except Exception as e:
-                            # If anything fails (command fails, regex fails, version parse fails)
-                            self.availability_error = f"Error checking version for '{exec_name}': {e}"
-                            return False
+                            if exact_version and exact_match_via_vcs:
+                                pass
+                            else:
+                                # If anything fails (command fails, regex fails, version parse fails)
+                                self.availability_error = f"Error checking version for '{exec_name}': {e}"
+                                return False
+                    elif exact_version and not exact_match_via_vcs:
+                        self.availability_error = f"Exact version '{exact_version}' requested for '{exec_name}', but no version command is defined and it does not match git history."
+                        return False
+
             # If there are provided executables and we didn't return False, they are all present
             return True
 
@@ -155,12 +276,22 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
         )
         return False
 
-    def is_available(self, workspace, min_version=None, max_version=None):
+    def is_available(
+        self,
+        workspace,
+        min_version=None,
+        max_version=None,
+        exact_version=None,
+        path=None,
+    ):
         """Check if the external dependency is already available on the system.
         If this returns True, Ramble will skip bootstrapping the external dependency.
         """
         return self.validate_versions(
-            min_version=min_version, max_version=max_version
+            min_version=min_version,
+            max_version=max_version,
+            exact_version=exact_version,
+            path=path,
         )
 
     def setup_runner_environment(self, workspace, app_inst):
