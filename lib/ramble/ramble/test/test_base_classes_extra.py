@@ -430,3 +430,180 @@ def test_application_base_bootstrap_utilities_allow_external_false_bool(
 
         ws.dry_run = False
         app_inst._bootstrap_utilities(ws)
+
+
+def test_application_base_bootstrap_utilities_empty_conf_and_none_variables(
+    mutable_config, mutable_mock_workspace_path, monkeypatch, mock_applications, mock_utilities
+):
+    import ramble.workspace
+
+    ws = ramble.workspace.create("test_app_bootstrap")
+
+    # Just need a mocked application instance
+    app_inst = ramble.repository.get("basic")
+    app_inst.variables = None  # Explicitly set to None to test the getattr fallback
+    app_inst.utilities = {}  # No utilities, just bypasses
+
+    app_inst._bootstrap_utilities(ws)
+
+
+def test_application_base_is_available_typeerror_fallback(
+    mutable_config, mutable_mock_workspace_path, monkeypatch
+):
+    import ramble.workspace
+    from ramble.app.builtin.gromacs.application import Gromacs
+
+    workspace = ramble.workspace.create("test_fallback_workspace")
+    workspace.dry_run = False
+    app = Gromacs("/tmp/dummy")
+
+    class MockExpander:
+        def expand_var_name(self, name):
+            return name
+
+        def satisfies(self, when_key, variant_set):
+            return True
+
+        def expand_var(self, name):
+            return name
+
+    class MockAppInst:
+        def __init__(self):
+            self.variables = {"gromacs_version": "1.2"}
+            self.expander = MockExpander()
+
+    app_inst = MockAppInst()
+    app._app_inst = app_inst
+    app.expander = MockExpander()
+    app._is_experiment = True
+
+    class MockUtilityType:
+        def __init__(self):
+            # self.bootstrappable removed
+            self.object_variables = {}
+
+        def is_available(self, workspace, min_version=None, max_version=None):
+            return True
+
+    class MockUtilityInst:
+        def get(self, *args, **kwargs):
+            return MockUtilityType()
+
+    app.required_utilities = {
+        frozenset(): {
+            "spack": {
+                "require_utility": True,
+                "utility_name": "spack",
+                "allow_external": "True",
+                "min_version": "1.0",
+                "version": "1.0",
+                "url": "http://foo",
+            }
+        }
+    }
+    import ramble.repository
+
+    monkeypatch.setitem(
+        ramble.repository.paths, ramble.repository.ObjectTypes.utilities, MockUtilityInst()
+    )
+
+    def mock_bootstrap(workspace, ext_dep_paths):
+        pass
+
+    app.bootstrap_utility = mock_bootstrap
+
+    import ramble.config
+
+    monkeypatch.setattr(ramble.config, "get", lambda *args, **kwargs: True)
+
+    app._bootstrap_utilities(workspace)
+    assert app._bootstrapped_utility_paths["spack"] == "system"
+
+
+def test_application_base_validate_versions_typeerror_fallback(
+    mutable_config, mutable_mock_workspace_path, monkeypatch
+):
+    import ramble.workspace
+    from ramble.app.builtin.gromacs.application import Gromacs
+    from ramble.util.logger import logger
+
+    workspace = ramble.workspace.create("test_fallback_val_workspace")
+    workspace.dry_run = False
+    app = Gromacs("/tmp/dummy")
+
+    class MockExpander:
+        def expand_var_name(self, name):
+            return name
+
+        def satisfies(self, when_key, variant_set):
+            return True
+
+        def expand_var(self, name):
+            return name
+
+    class MockAppInst:
+        def __init__(self):
+            self.variables = {"gromacs_version": "1.2"}
+            self.expander = MockExpander()
+
+    app_inst = MockAppInst()
+    app._app_inst = app_inst
+    app.expander = MockExpander()
+    app._is_experiment = True
+
+    class MockUtilityType:
+        def __init__(self):
+            # self.bootstrappable removed
+            self.object_variables = {}
+            self.availability_error = "Mock error"
+
+        def is_available(self, workspace, min_version=None, max_version=None, exact_version=None):
+            return False
+
+        def setup_runner_environment(self, workspace, app_inst):
+            return None
+
+        def validate_versions(
+            self, min_version=None, max_version=None, env=None, origin_name=None, origin_type=None
+        ):
+            return False
+
+    class MockUtilityInst:
+        def get(self, *args, **kwargs):
+            return MockUtilityType()
+
+    app.required_utilities = {
+        frozenset(): {
+            "spack": {
+                "require_utility": True,
+                "utility_name": "spack",
+                "allow_external": "True",
+                "version": "1.0",
+                "url": "http://foo",
+            }
+        }
+    }
+    import ramble.repository
+
+    monkeypatch.setitem(
+        ramble.repository.paths, ramble.repository.ObjectTypes.utilities, MockUtilityInst()
+    )
+
+    def mock_bootstrap(workspace, ext_dep_paths):
+        pass
+
+    app.bootstrap_utility = mock_bootstrap
+
+    import ramble.config
+
+    monkeypatch.setattr(ramble.config, "get", lambda *args, **kwargs: True)
+
+    warn_called = []
+    monkeypatch.setattr(logger, "warn", lambda msg: warn_called.append(msg))
+    import ramble.stage
+
+    monkeypatch.setattr(ramble.stage.InputStage, "fetch", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ramble.stage.InputStage, "expand_archive", lambda *args, **kwargs: None)
+
+    app._bootstrap_utilities(workspace)
+    assert any("proceeding due to explicit version request" in msg for msg in warn_called)

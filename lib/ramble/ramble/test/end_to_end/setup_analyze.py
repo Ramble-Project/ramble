@@ -35,19 +35,17 @@ ws_cmd = RambleCommand("workspace")
 def test_setup_analyze(test_case_path, workspace_name):
     """test_setup_analyze tests ramble objects that contain a `test_cases` directory.
 
-    Specifically, it assumes the following structure for the `test_cases` directory:
+    Specifically, it assumes the following structure for the `test_cases` directory::
 
-    ```
-    test_cases/
-    └── test_scenario_1 (can have multiple scenarios)
-        ├── artifacts
-        │   └── <application-name>__<workload_name>__<experiment_name>
-        │       └── <experiment_name>.out (can have other artifacts)
-        ├── expected_analyze.out
-        ├── setup.yaml (contains workspace commands for setting up the ramble config)
-        └── configs (either this or the setup.yaml must be present)
-            └── ramble.yaml (can contain more config files)
-    ```
+        test_cases/
+        └── test_scenario_1 (can have multiple scenarios)
+            ├── artifacts
+            │   └── <application-name>__<workload_name>__<experiment_name>
+            │       └── <experiment_name>.out (can have other artifacts)
+            ├── expected_analyze.out
+            ├── setup.yaml (contains workspace commands for setting up the ramble config)
+            └── configs (either this or the setup.yaml must be present)
+                └── ramble.yaml (can contain more config files)
 
     When writing a Ramble object, if a `test_cases` directory is included, then
     the test case will be run to verify the output of analyze.
