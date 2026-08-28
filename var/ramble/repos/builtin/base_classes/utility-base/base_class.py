@@ -124,8 +124,8 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
                             and head_hash == exact_hash
                         ):
                             return True
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"VCS check for {exec_path} failed: {e}")
 
         # Future VCS checks can be added here (e.g., hg, svn)
 
