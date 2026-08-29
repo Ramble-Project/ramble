@@ -339,24 +339,25 @@ def filter_exp_results(experiments: list):
 def generate_result_index(experiments: list, all_vars=False, where_query=None):
     """Creates an index from the results in the list of experiments
 
-    Index format is:
-    {
-        "applications": {
-            application_name: {
-                workload: {
-                    "Contexts": set(),
-                    "FOMs": set(),
-                    "Template Variables": set(),
+    Index format is::
+
+        {
+            "applications": {
+                application_name: {
+                    workload: {
+                        "Contexts": set(),
+                        "FOMs": set(),
+                        "Template Variables": set(),
+                    }
                 }
             }
+            "modifiers": {
+                modifier_name: {
+                    "Contexts": set(),
+                    "FOMs": set(),
+                }
+            (all other object types)
         }
-        "modifiers": {
-            modifier_name: {
-                "Contexts": set(),
-                "FOMs": set(),
-            }
-        (all other object types)
-    }
     """
     result_index: Dict[str, dict] = {}
     for obj_name in OBJECT_NAMES.values():

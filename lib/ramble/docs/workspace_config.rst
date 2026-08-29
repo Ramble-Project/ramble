@@ -506,8 +506,9 @@ Variant Expansion
 
 Variants can be expanded like variables into a Spack-like syntax by using the syntax ``{{object_type}::variant::{variant_name}``. For example, a boolean variant with a value of ``True`` formats to ``+bool``, whereas ``False`` formats to ``~bool``. A value-based variant formats to ``key=value``.
 
+^^^^^^^^^^^^^^^^^^^^^^^^^
 Variant Expansion Example
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Suppose multiple applications in a workspace use the variant ``openmp`` (boolean) to parameterize their software specs for Spack. We can define it under the workspace ``variants:`` section:
 
