@@ -33,9 +33,9 @@ around configuring a workspace. Configuring experiments within a workspace will
 not be covered in this tutorial, however we will use pre-configured workspaces
 to illustrate the utility of the ``workspace config`` command.
 
----------------------
+------------------------
 Create Complex Workspace
----------------------
+------------------------
 
 To begin, we will construct a complex workspace to serve as an example of
 something we want to share with other users. Before configuring the workspace,
