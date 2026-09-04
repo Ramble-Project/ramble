@@ -179,6 +179,11 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         default=True,
         description="Whether to include automatically injected modifiers",
     )
+    variant(
+        namespace.containerized,
+        default=False,
+        description="Whether this experiment is run inside a container",
+    )
 
     license_names: List[str] = []
 
@@ -214,11 +219,6 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
             name=self.keywords.repeat_index,
             default=0,
             description="Index of this experiment, in repeat space",
-        )
-        self.object_variants.default_variant(
-            name=namespace.containerized,
-            default=False,
-            description="Whether this experiment is run inside a container",
         )
 
         self._vars_are_expanded = False
@@ -1073,6 +1073,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         if modifiers:
             self.modifiers = modifiers.copy()
         self.build_modifier_instances()
+        self.clear_variant_cache()
 
     def set_tags(self, tags):
         """Set experiment tags for this instance"""
@@ -1657,9 +1658,9 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                 mod_inst.expander.add_no_expand_var(var)
 
         # Define any missing modifier variables
-        self.define_missing_variables()
         if self.modifiers:
             self.clear_variant_cache()
+        self.define_missing_variables()
 
     @property
     def inventory_file(self):
@@ -1831,7 +1832,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         commands = []
         all_cleanups = {}
         for when_set, named_cleanups in self.cleanups.items():
-            if self.expander.satisfies(when_set, self.object_variants):
+            if self.expander.satisfies(when_set, self.experiment_variants()):
                 all_cleanups.update(named_cleanups)
 
         for name, cleanup_props in all_cleanups.items():
