@@ -50,7 +50,11 @@ def collect_definitions():
 
     for object_type in types_to_print:
         obj_path = ramble.repository.paths[object_type]
-        for obj_inst in obj_path.all_objects():
+        for obj_name in obj_path.all_object_names():
+            try:
+                obj_inst = obj_path.get(obj_name)
+            except Exception:
+                continue
             obj_repo = obj_path.repo_for_obj(obj_inst.name)
 
             obj_namespace = f"{obj_repo.full_namespace}.{obj_inst.name}"
@@ -164,7 +168,7 @@ def setup_parser(subparser):
         "-e",
         "--error-on-conflict",
         action="store_true",
-        help="if conflicts are found, exit code is number of conflicts",
+        help="exit with non-zero exit code if conflicts are found",
     )
 
 
@@ -184,4 +188,6 @@ def software_definitions(parser, args, unknown_args):
             color.cprint(f"{num_conflicts} conflict detected.")
         else:
             color.cprint(f"{num_conflicts} conflicts detected.")
-        sys.exit(num_conflicts)
+        return 1 if num_conflicts > 0 else 0
+
+    return 0
