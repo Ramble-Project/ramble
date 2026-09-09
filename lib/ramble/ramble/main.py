@@ -89,6 +89,9 @@ required_command_properties = ["level", "section", "description"]
 ramble_working_dir = None
 ramble_ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
 
+#: Standard POSIX offset for exit codes from signal termination (128 + signal)
+POSIX_SIGNAL_EXIT_OFFSET = 128
+
 
 def set_working_dir():
     """Change the working directory to getcwd, or ramble prefix if no cwd."""
@@ -1100,7 +1103,7 @@ def main(argv=None):
             raise
         sys.stderr.write("\n")
         logger.error("Keyboard interrupt.")
-        return signal.SIGINT.value
+        return POSIX_SIGNAL_EXIT_OFFSET + signal.SIGINT.value
 
     except SystemExit as e:
         if ramble.config.get("config:debug"):
