@@ -1592,6 +1592,15 @@ def workspace_manage_experiments_setup_parser(subparser):
         "which is likely to cause validation errors",
     )
 
+    subparser.add_argument(
+        "--success-criteria",
+        "-s",
+        dest="success_criteria",
+        action="append",
+        help="success criteria for the experiments, in the format "
+        "'name=CRITERIA,mode=TYPE,...' May be specified multiple times",
+    )
+
 
 def workspace_manage_experiments(args):
     """Perform experiment management"""
@@ -1632,6 +1641,10 @@ def workspace_manage_experiments(args):
     if args.matrix:
         matrix = args.matrix
 
+    success_criteria = []
+    if args.success_criteria:
+        success_criteria = args.success_criteria
+
     ws.add_experiments(
         args.application,
         args.workload_name_variable,
@@ -1647,6 +1660,7 @@ def workspace_manage_experiments(args):
         zips,
         matrix,
         args.overwrite,
+        success_criteria,
     )
 
     if ws.dry_run:

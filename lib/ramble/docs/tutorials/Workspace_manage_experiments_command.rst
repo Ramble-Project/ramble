@@ -355,6 +355,22 @@ Output:
 Ramble automatically generated 6 distinct experiments representing the cross-product
 of 3 node counts and 2 problem sizes.
 
+-------------------------
+Defining Success Criteria
+-------------------------
+
+You can define custom experiment :ref:`success criteria <success-criteria>` using the ``-s`` (or ``--success-criteria``) flag.
+Criteria are specified in comma-separated key=value format (e.g. ``name=CRITERIA,mode=TYPE,...``):
+
+.. code-block:: console
+
+   $ ramble -D manage-workspace workspace manage experiments hostname \
+        --wf local \
+        -s name=check_output,mode=string,match="Host.*" \
+        --overwrite
+
+If either the ``key`` or ``value`` contains a comma, equals sign, or space, you must quote the key/value.
+
 ---------------------------------------
 Previewing Configurations with Dry Runs
 ---------------------------------------

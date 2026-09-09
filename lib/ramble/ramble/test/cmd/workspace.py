@@ -3530,3 +3530,202 @@ def test_workspace_manage_filter_groups_rm_alias(workspace_name):
         )
         out = workspace("manage", "filter-groups", "list", global_args=global_args)
         assert "test-group" not in out
+
+
+def test_manage_experiments_single_success_criterion(workspace_name):
+    global_args = ["-w", workspace_name]
+
+    with ramble.workspace.create(workspace_name) as ws:
+        workspace(
+            "manage",
+            "experiments",
+            "basic",
+            "--wf",
+            "test_wl",
+            "-v",
+            "n_ranks=1",
+            "-v",
+            "n_nodes=1",
+            "-s",
+            "name=crit1,mode=string,match=SUCCESS",
+            global_args=global_args,
+        )
+
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            data = f.read()
+            assert "success_criteria:" in data
+            assert "name: crit1" in data
+            assert "mode: string" in data
+            assert "match: SUCCESS" in data
+
+
+def test_manage_experiments_multiple_success_criteria(workspace_name):
+    global_args = ["-w", workspace_name]
+
+    with ramble.workspace.create(workspace_name) as ws:
+        workspace(
+            "manage",
+            "experiments",
+            "basic",
+            "--wf",
+            "test_wl",
+            "-v",
+            "n_ranks=1",
+            "-v",
+            "n_nodes=1",
+            "-s",
+            "name=c1,mode=string,match=PASS",
+            "-s",
+            "name=c2,mode=string,anti_match=FAIL",
+            global_args=global_args,
+        )
+
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            data = f.read()
+            assert "success_criteria:" in data
+            assert "name: c1" in data
+            assert "match: PASS" in data
+            assert "name: c2" in data
+            assert "anti_match: FAIL" in data
+
+
+def test_manage_experiments_fom_success_criterion(workspace_name):
+    global_args = ["-w", workspace_name]
+
+    with ramble.workspace.create(workspace_name) as ws:
+        workspace(
+            "manage",
+            "experiments",
+            "basic",
+            "--wf",
+            "test_wl",
+            "-v",
+            "n_ranks=1",
+            "-v",
+            "n_nodes=1",
+            "-s",
+            'name=fom_c,mode=fom_comparison,fom_name=my_fom,formula="{value} > 5"',
+            global_args=global_args,
+        )
+
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            data = f.read()
+            assert "success_criteria:" in data
+            assert "name: fom_c" in data
+            assert "mode: fom_comparison" in data
+            assert "fom_name: my_fom" in data
+            assert "formula:" in data
+
+
+@pytest.mark.parametrize(
+    "crit_str,err_msg",
+    [
+        ("mode=string,match=SUCCESS", "requires a 'name' attribute"),
+        ("name=c1,match=SUCCESS", "requires a 'mode' attribute"),
+        ("name=c1,mode=invalid_mode", "mode 'invalid_mode' is invalid"),
+        ("name=c1,mode=string", "requires 'match' or 'anti_match'"),
+        (
+            "name=c1,mode=string,match=M,anti_match=A",
+            "requires exactly one of 'match' or 'anti_match'",
+        ),
+        ("name=c1,mode=fom_comparison,fom_name=my_fom", "requires 'fom_name' and 'formula'"),
+        ("name=c1,invalid_attribute", "Invalid success_criteria attribute definition"),
+    ],
+)
+def test_manage_experiments_invalid_success_criteria(workspace_name, crit_str, err_msg):
+    global_args = ["-w", workspace_name]
+
+    with ramble.workspace.create(workspace_name):
+        with pytest.raises(RambleCommandError, match=err_msg):
+            workspace(
+                "manage",
+                "experiments",
+                "basic",
+                "--wf",
+                "test_wl",
+                "-v",
+                "n_ranks=1",
+                "-v",
+                "n_nodes=1",
+                "-s",
+                crit_str,
+                global_args=global_args,
+            )
+
+
+def test_manage_experiments_duplicate_success_criteria(workspace_name):
+    global_args = ["-w", workspace_name]
+
+    with ramble.workspace.create(workspace_name):
+        with pytest.raises(RambleCommandError, match="Duplicate success criteria name 'c1'"):
+            workspace(
+                "manage",
+                "experiments",
+                "basic",
+                "--wf",
+                "test_wl",
+                "-v",
+                "n_ranks=1",
+                "-v",
+                "n_nodes=1",
+                "-s",
+                "name=c1,mode=string,match=PASS",
+                "-s",
+                "name=c1,mode=string,match=PASS2",
+                global_args=global_args,
+            )
+
+
+def test_manage_experiments_success_criteria_special_characters(workspace_name):
+    global_args = ["-w", workspace_name]
+
+    with ramble.workspace.create(workspace_name) as ws:
+        workspace(
+            "manage",
+            "experiments",
+            "basic",
+            "--wf",
+            "test_wl",
+            "-v",
+            "n_ranks=1",
+            "-v",
+            "n_nodes=1",
+            "-s",
+            (
+                "name=c_val_quotes,mode=fom_comparison,fom_name=my_fom,"
+                'formula="{value} > 5, {value} < 100"'
+            ),
+            "-s",
+            (
+                "name=c_single_quotes,mode=fom_comparison,fom_name=my_fom,"
+                "formula='{value} > 5, {value} < 100'"
+            ),
+            "-s",
+            (
+                "name=c_attr_quotes,mode=fom_comparison,fom_name=my_fom,"
+                '"formula={value} > 5, {value} < 100"'
+            ),
+            "-s",
+            (
+                "name=c_escaped,mode=fom_comparison,fom_name=my_fom,"
+                'formula=\\"{value} > 5, {value} < 100\\"'
+            ),
+            "-s",
+            'name=c_equals,mode=string,match="status=OK"',
+            "-s",
+            "name=c_nested,mode=string,match=\"status='OK, DONE'\"",
+            global_args=global_args,
+        )
+
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            data = f.read()
+            assert "success_criteria:" in data
+            assert "name: c_val_quotes" in data
+            assert "name: c_single_quotes" in data
+            assert "name: c_attr_quotes" in data
+            assert "name: c_escaped" in data
+            assert "{value} > 5, {value} < 100" in data
+            assert "name: c_equals" in data
+            assert "status=OK" in data
+            assert "name: c_nested" in data
+            assert "status='OK, DONE'" in data

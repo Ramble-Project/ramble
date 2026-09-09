@@ -27,38 +27,36 @@ workspace = RambleCommand("workspace")
 ramble_on = RambleCommand("on")
 
 
-def test_success_criteria_precedence(mock_applications, make_workspace_from_config):
+def test_success_criteria_precedence(mock_applications, workspace_name):
     """
     Tests that YAML success_criteria takes precedence over
     object-defined criteria
     """
-    # TODO: Update once success_criteria has manage experiments command
-    test_config = """
-ramble:
-  variables:
-    processes_per_node: '1'
-    n_threads: '1'
-  applications:
-    success-criteria-conflicts:
-      workloads:
-        success_str_wl:
-          experiments:
-            pass-experiment:
-              variables:
-                n_nodes: 1
-              success_criteria:
-              - name: test_success
-                mode: string
-                match: 'SUCCESS'
-  software:
-    packages: {}
-    environments: {}
-"""
-    ws, ws_name = make_workspace_from_config(test_config)
+    global_args = ["-w", workspace_name]
 
-    workspace("setup", global_args=["-w", ws_name])
-    ramble_on(global_args=["-w", ws_name])
-    workspace("analyze", "-f", "text", "json", "yaml", global_args=["-w", ws_name])
+    with ramble.workspace.create(workspace_name) as ws:
+        workspace(
+            "manage",
+            "experiments",
+            "success-criteria-conflicts",
+            "-e",
+            "pass-experiment",
+            "--wf",
+            "success_str_wl",
+            "-v",
+            "processes_per_node=1",
+            "-v",
+            "n_threads=1",
+            "-v",
+            "n_nodes=1",
+            "-s",
+            "name=test_success,mode=string,match=SUCCESS",
+            global_args=global_args,
+        )
+
+    workspace("setup", global_args=global_args)
+    ramble_on(global_args=global_args)
+    workspace("analyze", "-f", "text", "json", "yaml", global_args=global_args)
 
     for ext in ["txt", "json", "yaml"]:
         assert os.path.exists(os.path.join(ws.results_dir, f"results.latest.{ext}"))

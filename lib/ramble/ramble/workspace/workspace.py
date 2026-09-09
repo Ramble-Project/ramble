@@ -34,6 +34,7 @@ import ramble.schema.merged
 import ramble.schema.workspace
 import ramble.software_environments
 import ramble.spec
+import ramble.success_criteria
 import ramble.util.hashing
 import ramble.util.install_cache
 import ramble.util.lock as lk
@@ -1177,6 +1178,7 @@ ramble:
         zips=None,
         matrix=None,
         overwrite=False,
+        success_criteria=None,
     ):
         """Add new experiments to this workspace
 
@@ -1206,10 +1208,15 @@ ramble:
                           experiment in the format of var1,var2,var3.
             overwrite (bool): Whether to overwrite existing definitions that
                               collide with new definitions or not.
+            success_criteria (list(str) | None): List of success criteria definitions to set
+                                                 in the generated experiments.
         """
 
         if zips is None:
             zips = []
+
+        if success_criteria is None:
+            success_criteria = []
 
         def yaml_add_comment_before_key(
             base, key, comment, column=None, clear=False, start_char="#"
@@ -1274,6 +1281,116 @@ ramble:
                     )
             return def_dict
 
+        def _split_csv_attributes(definition):
+            pairs = []
+            current = []
+            in_quote = None
+            i = 0
+            n = len(definition)
+
+            while i < n:
+                char = definition[i]
+                if char == "\\" and i + 1 < n and definition[i + 1] in ("'", '"'):
+                    char = definition[i + 1]
+                    i += 1
+
+                if in_quote:
+                    current.append(char)
+                    if char == in_quote:
+                        in_quote = None
+                elif char in ("'", '"'):
+                    in_quote = char
+                    current.append(char)
+                elif char == ",":
+                    pairs.append("".join(current))
+                    current = []
+                else:
+                    current.append(char)
+                i += 1
+
+            if current:
+                pairs.append("".join(current))
+
+            return pairs
+
+        def process_success_criteria_definitions(definitions):
+            criteria_list = []
+            seen_names = set()
+            valid_modes = ramble.success_criteria.SuccessCriteria._valid_modes
+            for definition in definitions:
+                scrit_dict = syaml.syaml_dict()
+                try:
+                    pairs = _split_csv_attributes(definition)
+                except Exception as e:
+                    logger.die(f"Failed to parse success_criteria definition '{definition}': {e}")
+
+                for pair in pairs:
+                    pair = strip_quotes(pair.strip())
+                    if not pair:
+                        continue
+                    m = _DEF_REGEX.search(pair)
+                    if m:
+                        key = pair[0 : m.start()].strip()
+                        val = list_str_to_list(pair[m.end() :].strip())
+                        if isinstance(val, str):
+                            val = strip_quotes(val)
+                            if (val.startswith('\\"') and val.endswith('\\"')) or (
+                                val.startswith("\\'") and val.endswith("\\'")
+                            ):
+                                val = strip_quotes(val[1:-1])
+                        scrit_dict[key] = val
+                    else:
+                        logger.die(
+                            f"Invalid success_criteria attribute definition: '{pair}' "
+                            f"in '{definition}'. Accepted form is 'key=value'"
+                        )
+
+                if "name" not in scrit_dict:
+                    logger.die(
+                        f"Success criteria definition '{definition}' requires a 'name' attribute."
+                    )
+                if "mode" not in scrit_dict:
+                    logger.die(
+                        f"Success criteria definition '{definition}' requires a 'mode' attribute."
+                    )
+
+                scrit_name = scrit_dict["name"]
+                if scrit_name in seen_names:
+                    logger.die(
+                        f"Duplicate success criteria name '{scrit_name}' found in definitions."
+                    )
+                seen_names.add(scrit_name)
+
+                mode = scrit_dict["mode"]
+                if mode not in valid_modes:
+                    logger.die(
+                        f"Success criteria mode '{mode}' is invalid. "
+                        f"Valid modes are: {valid_modes}"
+                    )
+
+                if mode == "string":
+                    has_match = "match" in scrit_dict
+                    has_anti_match = "anti_match" in scrit_dict
+                    if not has_match and not has_anti_match:
+                        logger.die(
+                            f"Success criteria '{scrit_name}' with mode='string' "
+                            "requires 'match' or 'anti_match'."
+                        )
+                    if has_match and has_anti_match:
+                        logger.die(
+                            f"Success criteria '{scrit_name}' with mode='string' "
+                            "requires exactly one of 'match' or 'anti_match'."
+                        )
+                elif mode == "fom_comparison":
+                    if "formula" not in scrit_dict or "fom_name" not in scrit_dict:
+                        logger.die(
+                            f"Success criteria '{scrit_name}' with mode='fom_comparison' "
+                            "requires 'fom_name' and 'formula'."
+                        )
+
+                criteria_list.append(scrit_dict)
+            return criteria_list
+
         edited = False
 
         workspace_vars = ramble.config.get(namespace.variables)
@@ -1289,6 +1406,7 @@ ramble:
 
         exp_context.variables = process_definitions(variable_definitions, def_type="variable")
         exp_context.variants = process_definitions(variant_definitions, def_type="variant")
+        exp_context.success_criteria = process_success_criteria_definitions(success_criteria)
 
         # TODO: Deprecate / remove in favor of explicit variant definitions
         if package_manager:
@@ -1455,6 +1573,10 @@ ramble:
             if exp_context.matrices:
                 if namespace.matrix not in exp_dict:
                     exp_dict[namespace.matrix] = exp_context.matrices.copy()[0]
+
+            if exp_context.success_criteria:
+                if namespace.success not in exp_dict:
+                    exp_dict[namespace.success] = exp_context.success_criteria.copy()
 
         self.dry_run = is_dry_run
         if edited and not self.dry_run:
