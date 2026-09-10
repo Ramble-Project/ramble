@@ -8,6 +8,9 @@
 
 import pytest
 
+import ramble.cmd.software_definitions
+import ramble.error
+import ramble.repository
 from ramble.error import RambleCommandError
 from ramble.main import RambleCommand
 
@@ -71,3 +74,41 @@ def test_software_definitions_unused_compilers_output(mock_applications, mock_ba
     assert "Unused Compilers:" in out
     assert "Compiler my_unused_compiler is not used in packages:" in out
     assert "ramble.app.builtin.mock.unused-compiler-test" in out
+
+
+def test_software_definitions_error_on_conflicts_overflow(monkeypatch):
+    monkeypatch.setattr(ramble.cmd.software_definitions, "count_conflicts", lambda: 256)
+    out = software_defs("-e", fail_on_error=False)
+    assert software_defs.returncode == 1
+    assert "256 conflicts detected." in out
+
+
+def test_software_definitions_error_on_conflicts_zero(monkeypatch):
+    monkeypatch.setattr(ramble.cmd.software_definitions, "count_conflicts", lambda: 0)
+    out = software_defs("-e", fail_on_error=False)
+    assert software_defs.returncode == 0
+    assert "0 conflicts detected." in out
+
+
+def test_software_definitions_error_on_conflicts_single(monkeypatch):
+    monkeypatch.setattr(ramble.cmd.software_definitions, "count_conflicts", lambda: 1)
+    out = software_defs("-e", fail_on_error=False)
+    assert software_defs.returncode == 1
+    assert "1 conflict detected." in out
+
+
+def test_software_definitions_skips_broken_objects(monkeypatch):
+    app_path = ramble.repository.paths[ramble.repository.ObjectTypes.applications]
+    app_names = app_path.all_object_names()
+    assert len(app_names) > 0
+    first_app = app_names[0]
+
+    real_get = app_path.get
+
+    def mock_get(name):
+        if name == first_app:
+            raise ramble.error.RambleError(f"Simulated error loading {name}")
+        return real_get(name)
+
+    monkeypatch.setattr(app_path, "get", mock_get)
+    software_defs()
