@@ -136,3 +136,41 @@ def test_workspace_concretize_populated_env_no_warning(workspace_name, capsys):
     workspace("concretize", global_args=global_args)
     captured = capsys.readouterr()
     assert "was auto-constructed" not in captured.err
+
+
+def test_workspace_concretize_expand_software_spec_variables(
+    workspace_name, mock_applications, mock_modifiers
+):
+    ws = ramble.workspace.create(workspace_name)
+    global_args = ["-w", workspace_name]
+
+    workspace(
+        "manage",
+        "experiments",
+        "var-compiler-app",
+        "-V",
+        "package_manager=spack",
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "--name",
+        "var-compiler-mod",
+        "--scope",
+        "workspace",
+        global_args=global_args,
+    )
+    workspace("concretize", global_args=global_args)
+
+    with open(ws.config_file_path, encoding="utf-8") as f:
+        content = f.read()
+        assert "var-compiler" in content
+        assert "gcc@12.2.0" in content
+        assert "{my_compiler_spec}" not in content
+        assert "var-pkg" in content
+        assert "zlib@1.2.13" in content
+        assert "mod-compiler" in content
+        assert "gcc@13.1.0" in content
+        assert "{mod_compiler_spec}" not in content

@@ -1511,9 +1511,19 @@ ramble:
 
         force_prefix = force_prefix or len(pkgman_prefixes) > 1
 
+        def _expand_software_spec(spec, expander):
+            """Expand template variables in a SoftwareSpec instance."""
+            if spec.pkg_spec:
+                spec.pkg_spec = expander.expand_var(spec.pkg_spec)
+            if spec.compiler_spec:
+                spec.compiler_spec = expander.expand_var(spec.compiler_spec)
+            if spec.compiler:
+                spec.compiler = expander.expand_var(spec.compiler)
+
         for _, app_inst, _ in experiment_set.all_experiments():
             app_inst.build_modifier_instances()
             app_inst.define_variables_for_template_path()
+            app_inst.define_missing_variables()
             env_name_str = app_inst.expander.expansion_str(ramble.keywords.keywords.env_name)
             env_name = app_inst.expander.expand_var(env_name_str)
 
@@ -1525,6 +1535,8 @@ ramble:
             )
             for comp, definitions in compiler_packages.items():
                 for info in definitions:
+                    _expand_software_spec(info, app_inst.expander)
+
                     if (
                         not quiet
                         and comp in packages_dict
