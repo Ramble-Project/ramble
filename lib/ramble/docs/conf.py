@@ -145,11 +145,13 @@ extensions = [
 
 # Set default graphviz options
 graphviz_dot_args = [
-    "-Grankdir=LR",
     "-Gbgcolor=transparent",
+    "-Gfontname=Helvetica,Arial,sans-serif",
     "-Nshape=box",
-    "-Nfontname=monaco",
-    "-Nfontsize=10",
+    "-Nfontname=Helvetica,Arial,sans-serif",
+    "-Nfontsize=11",
+    "-Efontname=Helvetica,Arial,sans-serif",
+    "-Efontsize=10",
 ]
 
 # Get nice vector graphics
