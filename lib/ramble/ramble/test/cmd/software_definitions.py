@@ -9,6 +9,8 @@
 import pytest
 
 import ramble.cmd.software_definitions
+import ramble.error
+import ramble.repository
 from ramble.error import RambleCommandError
 from ramble.main import RambleCommand
 
@@ -93,3 +95,20 @@ def test_software_definitions_error_on_conflicts_single(monkeypatch):
     out = software_defs("-e", fail_on_error=False)
     assert software_defs.returncode == 1
     assert "1 conflict detected." in out
+
+
+def test_software_definitions_skips_broken_objects(monkeypatch):
+    app_path = ramble.repository.paths[ramble.repository.ObjectTypes.applications]
+    app_names = app_path.all_object_names()
+    assert len(app_names) > 0
+    first_app = app_names[0]
+
+    real_get = app_path.get
+
+    def mock_get(name):
+        if name == first_app:
+            raise ramble.error.RambleError(f"Simulated error loading {name}")
+        return real_get(name)
+
+    monkeypatch.setattr(app_path, "get", mock_get)
+    software_defs()

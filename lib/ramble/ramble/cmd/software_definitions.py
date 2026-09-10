@@ -11,6 +11,7 @@ from typing import Any, Dict, List
 
 from llnl.util.tty.colify import colify
 
+import ramble.error
 import ramble.repository
 import ramble.util.colors as color
 from ramble.util.logger import logger
@@ -53,7 +54,7 @@ def collect_definitions():
         for obj_name in obj_path.all_object_names():
             try:
                 obj_inst = obj_path.get(obj_name)
-            except Exception:
+            except ramble.error.RambleError:
                 continue
             obj_repo = obj_path.repo_for_obj(obj_inst.name)
 
