@@ -112,8 +112,9 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
                             result = subprocess.run(
                                 shlex.split(version_cmd),
                                 env=check_env,
-                                capture_output=True,
-                                text=True,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                universal_newlines=True,
                                 check=True,
                             )
                             output = result.stdout + result.stderr

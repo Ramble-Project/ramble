@@ -23,12 +23,12 @@ import sys
 import traceback
 import types
 from enum import Enum
-from typing import Mapping
 
 from ruamel import yaml
 
 import llnl.util.filesystem as fs
 import llnl.util.lang
+from llnl.util.compat import Mapping
 
 import ramble.caches
 import ramble.config

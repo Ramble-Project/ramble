@@ -236,7 +236,7 @@ def run_editor(editor_script_path):
             [sys.executable, editor_script_path] + list(args),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            universal_newlines=True,
             check=False,
         )
 

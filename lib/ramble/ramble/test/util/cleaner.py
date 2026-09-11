@@ -42,7 +42,7 @@ def run_cleaner(cleaner_script_path):
             [sys.executable, cleaner_script_path] + list(args),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            universal_newlines=True,
             check=False,
         )
 

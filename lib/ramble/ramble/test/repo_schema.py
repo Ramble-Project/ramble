@@ -48,3 +48,8 @@ def test_individual_repo_schema_modules(section_name):
     assert hasattr(mod, "schema")
     assert section_name in mod.properties
     assert mod.schema["properties"] == mod.properties
+
+
+def test_schema_attribute_error():
+    with pytest.raises(AttributeError, match="has no attribute 'nonexistent'"):
+        _ = ramble.schema.nonexistent
