@@ -99,18 +99,200 @@ class PackageManagerBase(ObjectMixin, metaclass=PackageManagerMeta):
     def allow_unprefixed_specs(self):
         return self._allow_unprefixed_specs
 
-    def package_manager_dir(self, workspace):
+    def package_manager_dir(self, workspace, app_inst=None):
         """Get the path to the package manager's software environment directory
 
         Args:
             workspace (ramble.workspace.Workspace): Reference to workspace that
                 owns a software directory
+            app_inst (ApplicationBase, optional): Application instance associated
+                with this package manager
 
         Returns:
             (str) Path to package manager directory within workspace's software directory
 
         """
-        return os.path.join(workspace.software_dir, self.name)
+        import copy
+
+        import ramble.repository
+        import ramble.util.hashing
+
+        dir_name = self.name
+        if app_inst is None:
+            app_inst = self._get_app_inst()
+
+        ws_ext_deps = (
+            workspace._get_workspace_dict()
+            .get("ramble", {})
+            .get("utilities", {})
+            if hasattr(workspace, "_get_workspace_dict")
+            else {}
+        )
+
+        ordered_objects = []
+        if app_inst is not None and app_inst is not self:
+            if hasattr(app_inst, "objects"):
+                # app_inst.objects() yields in decreasing precedence order:
+                # modifiers, system, platform, workflow_manager, package_manager, application
+                # Reversing gives increasing precedence order:
+                ordered_objects = [
+                    obj for _, obj in reversed(list(app_inst.objects()))
+                ]
+            else:
+                ordered_objects = [app_inst]
+                for attr in [
+                    "package_manager",
+                    "workflow_manager",
+                    "platform",
+                    "system",
+                ]:
+                    obj = getattr(app_inst, attr, None)
+                    if obj:
+                        ordered_objects.append(obj)
+                if hasattr(app_inst, "_modifiers") and app_inst._modifiers:
+                    ordered_objects.extend(app_inst._modifiers)
+        if self not in ordered_objects:
+            ordered_objects.insert(0, self)
+
+        merged_configs = {}
+        for obj in ordered_objects:
+            if not hasattr(obj, "required_utilities"):
+                continue
+            for when_key, ext_deps in obj.required_utilities.items():
+                if obj.satisfy_when(when_key):
+                    for util_name, ext_dep_conf in ext_deps.items():
+                        if util_name not in merged_configs:
+                            merged_configs[util_name] = {}
+                        merged_configs[util_name].update(
+                            copy.deepcopy(ext_dep_conf)
+                        )
+
+        for util_name, ws_conf in ws_ext_deps.items():
+            if util_name not in merged_configs:
+                merged_configs[util_name] = {}
+            merged_configs[util_name].update(copy.deepcopy(ws_conf))
+
+        utilities_info = []
+        for when_key, ext_deps in self.required_utilities.items():
+            if app_inst is None or app_inst.satisfy_when(when_key):
+                for util_name, ext_dep_conf in ext_deps.items():
+                    try:
+                        util_inst = ramble.repository.get(
+                            util_name,
+                            ramble.repository.ObjectTypes.utilities,
+                        )
+
+                        conf_to_merge = merged_configs.get(
+                            util_name, ext_dep_conf
+                        )
+
+                        version_str = (
+                            conf_to_merge.get("commit")
+                            or conf_to_merge.get("version")
+                            or conf_to_merge.get("tag")
+                            or conf_to_merge.get("branch")
+                            or conf_to_merge.get("revision")
+                        )
+                        if (
+                            version_str
+                            and app_inst
+                            and hasattr(app_inst, "expander")
+                        ):
+                            version_str = app_inst.expander.expand_var(
+                                version_str
+                            )
+
+                        util_path = (
+                            app_inst.variables.get(
+                                f"utility::{util_name}::path", ""
+                            )
+                            if app_inst and hasattr(app_inst, "variables")
+                            else ""
+                        )
+                        if not util_path and "path" in conf_to_merge:
+                            util_path = conf_to_merge["path"]
+                            if app_inst and hasattr(app_inst, "expander"):
+                                util_path = app_inst.expander.expand_var(
+                                    util_path
+                                )
+
+                        allow_external = conf_to_merge.get(
+                            "allow_external", True
+                        )
+                        if isinstance(allow_external, str):
+                            allow_external = allow_external.lower() != "false"
+
+                        if not util_path:
+                            if (
+                                allow_external
+                                and version_str
+                                and util_inst.is_available(
+                                    workspace, exact_version=version_str
+                                )
+                            ):
+                                util_path = "system"
+                            elif (
+                                allow_external
+                                and not version_str
+                                and util_inst.is_available(workspace)
+                            ):
+                                util_path = "system"
+                            else:
+                                util_path = os.path.join(
+                                    getattr(workspace, "shared_dir", ""),
+                                    "bootstrapped_utilities",
+                                    util_name,
+                                    version_str or "latest",
+                                    "source",
+                                )
+
+                        if app_inst and hasattr(app_inst, "variables"):
+                            app_inst.variables[
+                                f"utility::{util_name}::path"
+                            ] = util_path
+                        if (
+                            hasattr(self, "variables")
+                            and self.variables is not None
+                        ):
+                            self.variables[f"utility::{util_name}::path"] = (
+                                util_path
+                            )
+
+                        runner_env = os.environ.copy()
+                        if hasattr(util_inst, "setup_runner_environment"):
+                            env_mod = util_inst.setup_runner_environment(
+                                workspace, app_inst or self, path=util_path
+                            )
+                            if env_mod:
+                                env_mod.apply_modifications(runner_env)
+
+                        path_hash = (
+                            ramble.util.hashing.hash_string(util_path)[:8]
+                            if util_path
+                            else "nopath"
+                        )
+
+                        util_ver = (
+                            util_inst.get_version(
+                                env=runner_env, path=util_path
+                            )
+                            or version_str
+                            or "nover"
+                        )
+
+                        utilities_info.append(
+                            f"{util_name}-{util_ver}-{path_hash}"
+                        )
+                    except Exception:
+                        pass
+
+        if utilities_info:
+            utilities_info.sort()
+            dir_name = f"{self.name}-" + "-".join(utilities_info)
+        elif hasattr(self, "selected_version") and self.selected_version:
+            dir_name = f"{self.name}-v{self.selected_version}"
+
+        return os.path.join(workspace.software_dir, dir_name)
 
     @property
     def environment_required(self):

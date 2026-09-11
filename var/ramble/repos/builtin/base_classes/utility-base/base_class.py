@@ -16,6 +16,8 @@ from ramble.language.utility_language import UtilityMeta
 from ramble.util.logger import logger
 from ramble.util.naming import NS_SEPARATOR
 
+import spack.util.environment
+
 ObjectMixin = ramble.repository.get_base_class("object-mixin")
 
 
@@ -131,6 +133,73 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
 
         return False
 
+    def get_version(self, env=None, path=None, return_output=False):
+        """Discover the version of this utility.
+        Uses the provided environment or the system environment if None.
+        Returns the version of the first valid provided executable.
+        """
+        import re
+        import shutil
+        import subprocess
+
+        check_env = env.copy() if env is not None else os.environ.copy()
+
+        if hasattr(self, "_runner_env") and env is None:
+            self._runner_env.apply_modifications(check_env)
+
+        env_path = check_env.get("PATH", os.environ.get("PATH", ""))
+        if path and path != "system":
+            bin_path = os.path.join(path, "bin")
+            search_path = f"{bin_path}{os.pathsep}{path}"
+        else:
+            search_path = env_path
+
+        if hasattr(self, "provided_executables") and self.provided_executables:
+            for exec_list in self.provided_executables.values():
+                for exec_info in exec_list:
+                    exec_name = exec_info["executable"]
+                    exec_path = shutil.which(exec_name, path=search_path)
+
+                    if not exec_path:
+                        continue
+
+                    version_cmd = exec_info.get("version_cmd")
+                    version_regex = exec_info.get("version_regex")
+
+                    if version_cmd and version_regex:
+                        try:
+                            import shlex
+
+                            cmd = shlex.split(version_cmd)
+                            if cmd and cmd[0] == exec_name:
+                                cmd[0] = exec_path
+
+                            # Run the version command
+                            result = subprocess.run(
+                                cmd,
+                                env=check_env,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                universal_newlines=True,
+                                check=True,
+                            )
+                            output = result.stdout + result.stderr
+
+                            # Extract the version using the regex
+                            match = re.search(version_regex, output)
+                            current_version = match.group(1) if match else None
+                            if return_output:
+                                return current_version, output
+                            return current_version
+                        except Exception as e:
+                            logger.debug(
+                                f"Error checking version for '{exec_name}': {e}"
+                            )
+
+        if return_output:
+            return None, ""
+        return None
+
     def validate_versions(
         self,
         min_version=None,
@@ -146,29 +215,25 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
         """
         import re
         import shutil
-        import subprocess
 
         from ramble.definitions.versions import Version
 
         self.availability_error = None
         check_env = env if env is not None else os.environ.copy()
 
-        # When using a custom environment, we need to extract its PATH for shutil.which
-        # Default to the current process PATH if not in the custom environment
-        search_path = (
-            path
-            if path is not None
-            else check_env.get("PATH", os.environ.get("PATH", ""))
-        )
+        env_path = check_env.get("PATH", os.environ.get("PATH", ""))
+        if path and path != "system":
+            bin_path = os.path.join(path, "bin")
+            search_path = f"{bin_path}{os.pathsep}{path}"
+        else:
+            search_path = env_path
 
-        # If the utility provides executables, check if they are in PATH
         if hasattr(self, "provided_executables") and self.provided_executables:
             for exec_list in self.provided_executables.values():
-                # We could evaluate satisfy_when here, but for simple presence checks
-                # we just check all provided executables. In the future this could be conditionally checked.
                 for exec_info in exec_list:
                     exec_name = exec_info["executable"]
                     exec_path = shutil.which(exec_name, path=search_path)
+
                     if not exec_path:
                         self.availability_error = (
                             f"Executable '{exec_name}' not found in PATH."
@@ -202,48 +267,29 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
                         and (min_version or max_version or exact_version)
                     ):
                         try:
-                            import shlex
-
-                            # Run the version command
-                            result = subprocess.run(
-                                shlex.split(version_cmd),
-                                env=check_env,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                universal_newlines=True,
-                                check=True,
+                            current_version, output = self.get_version(
+                                env=env, path=path, return_output=True
                             )
-                            output = result.stdout + result.stderr
 
-                            # Extract the version using the regex
-                            match = re.search(version_regex, output)
-                            if not match:
+                            if not current_version:
                                 if exact_version and exact_match_via_vcs:
-                                    # Git confirmed it, so lack of regex match is fine
                                     current_version = None
                                 else:
                                     self.availability_error = f"Could not determine version for '{exec_name}' using regex '{version_regex}'."
                                     return False
-                            else:
-                                current_version = match.group(1)
 
-                            # Compare versions
-                            if (
-                                min_version
-                                and current_version
-                                and Version(current_version)
-                                < Version(min_version)
-                            ):
-                                self.availability_error = f"Version {current_version} for '{exec_name}' is less than required minimum {min_version}{origin_str}."
-                                return False
-                            if (
-                                max_version
-                                and current_version
-                                and Version(current_version)
-                                > Version(max_version)
-                            ):
-                                self.availability_error = f"Version {current_version} for '{exec_name}' is greater than required maximum {max_version}{origin_str}."
-                                return False
+                            if current_version:
+                                if min_version and Version(
+                                    current_version
+                                ) < Version(min_version):
+                                    self.availability_error = f"Version {current_version} for '{exec_name}' is less than required minimum {min_version}{origin_str}."
+                                    return False
+                                if max_version and Version(
+                                    current_version
+                                ) > Version(max_version):
+                                    self.availability_error = f"Version {current_version} for '{exec_name}' is greater than required maximum {max_version}{origin_str}."
+                                    return False
+
                             if exact_version and not exact_match_via_vcs:
                                 exact_version_str = str(exact_version)
                                 if not current_version or (
@@ -261,9 +307,9 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
                             if exact_version and exact_match_via_vcs:
                                 pass
                             else:
-                                # If anything fails (command fails, regex fails, version parse fails)
                                 self.availability_error = f"Error checking version for '{exec_name}': {e}"
                                 return False
+
                     elif exact_version and not exact_match_via_vcs:
                         self.availability_error = f"Exact version '{exact_version}' requested for '{exec_name}', but no version command is defined and it does not match git history."
                         return False
@@ -294,14 +340,23 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
             path=path,
         )
 
-    def setup_runner_environment(self, workspace, app_inst):
-        """Return an EnvironmentModifications object to set when running commands within Ramble."""
-        import spack.util.environment
+    def setup_runner_environment(self, workspace, obj_inst, path=None):
+        """Return an EnvironmentModifications object to set when running commands within Ramble.
 
-        env_mod = spack.util.environment.EnvironmentModifications()
-        utility_path = app_inst.variables.get(f"utility::{self.name}::path")
-        if utility_path == "system":
-            return env_mod
+        Args:
+            workspace (ramble.workspace.Workspace): Reference to the workspace that is being
+                                                    acted on
+            obj_inst: Instance of an object that contains this utility definition
+            path (str): Optional string defining the path this utility should be found in
+
+        Returns:
+            EnvironmentModification: A reference to the environment modifications that should be
+                                     applied for this utility.
+        """
+        if hasattr(obj_inst, "_get_app_inst"):
+            app_inst = obj_inst._get_app_inst()
+        else:
+            app_inst = obj_inst
 
         expander = getattr(app_inst, "expander", None)
         if not expander and hasattr(app_inst, "app_inst"):
@@ -309,10 +364,58 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
         if not expander:
             import ramble.expander
 
-            expander = ramble.expander.Expander(app_inst.variables, None)
+            expander = ramble.expander.Expander(
+                getattr(app_inst, "variables", {}) or {}, None
+            )
+
+        path_var = f"utility::{self.name}::path"
+        utility_path = path
+        if utility_path is None:
+            val = None
+            if (
+                hasattr(app_inst, "variables")
+                and app_inst.variables is not None
+                and path_var in app_inst.variables
+            ):
+                val = app_inst.variables[path_var]
+            elif (
+                obj_inst is not None
+                and hasattr(obj_inst, "variables")
+                and obj_inst.variables is not None
+                and path_var in obj_inst.variables
+            ):
+                val = obj_inst.variables[path_var]
+            elif (
+                hasattr(expander, "_variables")
+                and expander._variables is not None
+                and path_var in expander._variables
+            ):
+                val = expander._variables[path_var]
+
+            if val is not None:
+                utility_path = expander.expand_var(val)
+
+        if not hasattr(self, "_runner_env_cache"):
+            self._runner_env_cache = {}
+        cache_key = (id(obj_inst), utility_path)
+        if cache_key in self._runner_env_cache:
+            return self._runner_env_cache[cache_key]
+
+        env_mod = spack.util.environment.EnvironmentModifications()
+        if utility_path == "system":
+            self._runner_env = env_mod
+            self._runner_env_cache[cache_key] = env_mod
+            return env_mod
+
+        def _satisfies(when_key):
+            if hasattr(obj_inst, "satisfy_when"):
+                return obj_inst.satisfy_when(when_key)
+            if hasattr(app_inst, "satisfy_when"):
+                return app_inst.satisfy_when(when_key)
+            return True
 
         for when_key, configs in self.env_sources.items():
-            if app_inst.satisfy_when(when_key):
+            if _satisfies(when_key):
                 for config in configs:
                     script_path = expander.expand_var(config["script_path"])
                     if os.path.exists(script_path):
@@ -321,33 +424,35 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
                                 script_path
                             )
                         )
-                    elif not workspace.dry_run:
+                    elif not getattr(workspace, "dry_run", False):
                         logger.warn(
                             f"External dependency setup script not found at {script_path}"
                         )
 
         for when_key, configs in self.env_sets.items():
-            if app_inst.satisfy_when(when_key):
+            if _satisfies(when_key):
                 for config in configs:
                     var = expander.expand_var(config["var"])
                     value = expander.expand_var(config["value"])
                     env_mod.set(var, value)
 
         for when_key, configs in self.env_prepends.items():
-            if app_inst.satisfy_when(when_key):
+            if _satisfies(when_key):
                 for config in configs:
                     var = expander.expand_var(config["var"])
                     value = expander.expand_var(config["value"])
                     env_mod.prepend_path(var, value)
 
         for when_key, configs in self.env_appends.items():
-            if app_inst.satisfy_when(when_key):
+            if _satisfies(when_key):
                 for config in configs:
                     var = expander.expand_var(config["var"])
                     value = expander.expand_var(config["value"])
                     env_mod.append_path(var, value)
 
-        return env_mod
+        self._runner_env = env_mod
+        self._runner_env_cache[cache_key] = env_mod
+        return self._runner_env
 
     def get_experiment_activation_command(self, workspace, app_inst):
         """Return a bash command string that activates this external dependency in the experiment's execution environment."""

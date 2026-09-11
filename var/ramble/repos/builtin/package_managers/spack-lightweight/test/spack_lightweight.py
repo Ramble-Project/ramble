@@ -115,7 +115,11 @@ def test_spack_auxiliary_files(request):
 
     workspace("setup", "--dry-run", global_args=["-w", ws_name])
     spack_config = os.path.join(
-        ws.software_dir, "spack-lightweight", "gromacs", "spack.yaml"
+        __import__("glob").glob(
+            os.path.join(ws.software_dir, "spack-lightweight*")
+        )[0],
+        "gromacs",
+        "spack.yaml",
     )
 
     with open(spack_config, encoding="utf-8") as f:
