@@ -6,6 +6,8 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import signal
+
 import pytest
 
 import ramble.main
@@ -65,3 +67,14 @@ def test_global_config_scope(tmpdir, capsys):
     captured = capsys.readouterr()
     assert ret == 0
     assert "A flexible benchmark experiment manager" in captured.out
+
+
+def test_keyboard_interrupt_exit_code(monkeypatch, capsys):
+    def mock_invoke(*args, **kwargs):
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(ramble.main, "_invoke_command", mock_invoke)
+    ret = ramble.main.main(argv=["workspace", "list"])
+    captured = capsys.readouterr()
+    assert ret == ramble.main.POSIX_SIGNAL_EXIT_OFFSET + signal.SIGINT.value
+    assert "Keyboard interrupt." in captured.err
