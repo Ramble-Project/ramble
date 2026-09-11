@@ -1326,7 +1326,7 @@ def variant(
             description (str): Description of the variant
             values: Values for variant.
         """
-        ramble.variants.validate_variant(name)
+        ramble.variants.validate_variant(name, values=values, default=default)
 
         args_dict = {
             "name": name,

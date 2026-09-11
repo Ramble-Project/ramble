@@ -23,6 +23,12 @@ class ContainerBase(BasicModifier):
 
     maintainers("douglasjacobsen")
 
+    variant(
+        "containerized",
+        default=True,
+        description="Whether this experiment is run inside a container",
+    )
+
     mode("standard", description="Standard execution mode")
     default_mode("standard")
 
