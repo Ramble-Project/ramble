@@ -6,20 +6,18 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import functools
 from typing import Optional
 
 import ramble.language.shared_language
 
-
-class PackageManagerMeta(ramble.language.shared_language.SharedMeta):
-    _directive_names = set()
-    _directives_to_be_executed = []
-
-
-package_manager_directive = PackageManagerMeta.directive
+PackageManagerMeta = ramble.language.shared_language.SharedMeta
+package_manager_directive = functools.partial(
+    PackageManagerMeta.directive, language_type="package_manager"
+)
 
 
-@package_manager_directive(dicts=())
+@package_manager_directive(dicts="object_variables", init_value={})
 def package_manager_variable(
     name: str,
     default,
@@ -59,7 +57,7 @@ def package_manager_variable(
     return _define_package_manager_variable
 
 
-@package_manager_directive(dicts=())
+@package_manager_directive(dicts="class_families", init_value={})
 def package_manager_family(*names: str, **kwargs):
     """Add a new family to this package manager
 

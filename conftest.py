@@ -553,7 +553,7 @@ def clear_directive_functions():
     # functions.
     import ramble.language.language_base
 
-    ramble.language.language_base.DirectiveMeta._directives_to_be_executed = []
+    ramble.language.language_base.DirectiveMeta._directives_to_be_executed.clear()
 
 
 @pytest.fixture

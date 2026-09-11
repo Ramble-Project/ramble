@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import functools
 from typing import Optional
 
 import ramble.definitions.requirements
@@ -14,13 +15,8 @@ import ramble.language.shared_language
 from ramble.definitions.variables import EnvironmentVariableModifications, VariableModification
 from ramble.error import DirectiveError
 
-
-class ModifierMeta(ramble.language.shared_language.SharedMeta):
-    _directive_names = set()
-    _directives_to_be_executed = []
-
-
-modifier_directive = ModifierMeta.directive
+ModifierMeta = ramble.language.shared_language.SharedMeta
+modifier_directive = functools.partial(ModifierMeta.directive, language_type="modifier")
 
 
 @modifier_directive("modes")
@@ -47,7 +43,7 @@ def mode(name, description, **kwargs):
     return _execute_mode
 
 
-@modifier_directive(dicts=())
+@modifier_directive(dicts="default_usage_mode", init_value=None)
 def default_mode(name, **kwargs):
     """Define a default mode for this modifier.
 
@@ -69,7 +65,7 @@ def default_mode(name, **kwargs):
                 f"default_mode directive given an invalid mode for modifier "
                 f"{mod.name}. The disabled mode cannot be set as the default mode"
             )
-        mod._default_usage_mode = name
+        mod.default_usage_mode = name
 
     return _execute_default_mode
 
@@ -265,15 +261,13 @@ def env_var_modification(
                 )
             else:
                 mod.env_var_modifications[when_set][name].add_modification(
-                    modification=modification,
-                    method=method,
-                    **kwargs,
+                    modification=modification, method=method, when=when_list, **kwargs
                 )
 
     return _env_var_modification
 
 
-@modifier_directive(dicts=())
+@modifier_directive("object_variables", init_value={})
 def modifier_variable(
     name: str,
     default,

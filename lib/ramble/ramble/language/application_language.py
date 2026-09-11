@@ -6,6 +6,8 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import functools
+
 import ramble.definitions.variables
 import ramble.language.language_helpers
 import ramble.language.shared_language
@@ -42,12 +44,8 @@ examples
 """
 
 
-class ApplicationMeta(ramble.language.shared_language.SharedMeta):
-    _directive_names = set()
-    _directives_to_be_executed = []
-
-
-application_directive = ApplicationMeta.directive
+ApplicationMeta = ramble.language.shared_language.SharedMeta
+application_directive = functools.partial(ApplicationMeta.directive, language_type="application")
 
 
 @application_directive("workloads")
@@ -98,7 +96,9 @@ def workload(
     return _execute_workload
 
 
-@application_directive("workload_groups")
+@application_directive(
+    dicts=("workload_groups", "workload_group_vars", "workload_group_env_vars", "workloads")
+)
 def workload_group(name, workloads=None, mode=None, when=None, **kwargs):
     """Adds a workload group to this application
 
@@ -246,7 +246,9 @@ def input_file(
     return _execute_input_file
 
 
-@application_directive("workload_group_vars")
+@application_directive(
+    dicts=("workload_group_vars", "workload_group_env_vars", "workload_groups", "workloads")
+)
 def workload_variable(
     name,
     default=None,
@@ -431,7 +433,7 @@ def workload_variable(
     return _execute_workload_variable
 
 
-@application_directive(dicts=())
+@application_directive(dicts="license_names", init_value=[])
 def license_name(name, **kwargs):
     """Add a new license name directive, to specify license name in a declarative way.
 

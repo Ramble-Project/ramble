@@ -8,11 +8,9 @@
 """Define base classes for platform definitions"""
 
 import ramble.definitions.families
-import ramble.util.class_attributes
 import ramble.variants
-from ramble.language.platform_language import PlatformMeta
+from ramble.language.language_base import DirectiveMeta
 from ramble.language.shared_language import (
-    SharedMeta,
     register_validator,
     required_variable,
     variant,
@@ -23,13 +21,14 @@ from ramble.util.naming import NS_SEPARATOR
 ObjectMixin = ramble.repository.get_base_class("object-mixin")
 
 
-class PlatformBase(ObjectMixin, metaclass=PlatformMeta):
+class PlatformBase(ObjectMixin, metaclass=DirectiveMeta):
     name = None
     origin_type = "platform"
     _builtin_name = NS_SEPARATOR.join(
         ("platform_builtin", "{obj_name}", "{name}")
     )
-    _language_classes = [PlatformMeta, SharedMeta]
+    _language_types = ["platform", "shared"]
+    _language_classes = _language_types
 
     variant(
         "accelerator",
@@ -101,8 +100,6 @@ class PlatformBase(ObjectMixin, metaclass=PlatformMeta):
             self.families = ramble.definitions.families.Families(
                 self.origin_type, list(self.class_families.keys())
             )
-
-        ramble.util.class_attributes.convert_class_attributes(self)
 
         self._file_path = file_path
 

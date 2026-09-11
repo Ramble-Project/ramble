@@ -5,6 +5,7 @@
 # <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
+import copy
 import functools
 import os
 from html import escape
@@ -58,11 +59,40 @@ class ObjectMixin:
     def scoped_name(self):
         return f"{self.origin_type}::{self.name}"
 
+    @property
+    def preferred_version(self) -> Optional[ObjectVersion]:
+        _ = getattr(self, "known_versions", None)
+        return getattr(self, "_preferred_version", None)
+
+    @preferred_version.setter
+    def preferred_version(self, value: Optional[ObjectVersion]):
+        self._preferred_version = value
+
+    def _copy_evaluated_directives(self, target):
+        """Copy all evaluated directive dictionaries from self to target."""
+        from ramble.language.language_base import _UNSET
+
+        directive_dicts = getattr(self, "_directive_dict_names", set())
+        for dict_name in directive_dicts:
+            private_name = f"_{dict_name}"
+            if (
+                private_name in self.__dict__
+                and self.__dict__[private_name] is not _UNSET
+            ):
+                target.__dict__[private_name] = copy.deepcopy(
+                    self.__dict__[private_name]
+                )
+            elif dict_name in self.__dict__:
+                target.__dict__[dict_name] = copy.deepcopy(
+                    self.__dict__[dict_name]
+                )
+
     def copy(self):
         """Generic copy method for Ramble objects."""
         new_copy = type(self)(self._file_path)
         if hasattr(self, "_verbosity"):
             new_copy._verbosity = self._verbosity
+        self._copy_evaluated_directives(new_copy)
         return new_copy
 
     def all_pipeline_phases(self, pipeline):

@@ -9,22 +9,20 @@
 import os
 
 import ramble.repository
-import ramble.util.class_attributes
-import ramble.variants
-from ramble.language.shared_language import SharedMeta
-from ramble.language.utility_language import UtilityMeta
+from ramble.language.language_base import DirectiveMeta
 from ramble.util.logger import logger
 from ramble.util.naming import NS_SEPARATOR
 
 ObjectMixin = ramble.repository.get_base_class("object-mixin")
 
 
-class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
+class UtilityBase(ObjectMixin, metaclass=DirectiveMeta):
     origin_type = "utility"
     _builtin_name = NS_SEPARATOR.join(
         ("utility_builtin", "{obj_name}", "{name}")
     )
-    _language_classes = [UtilityMeta, SharedMeta]
+    _language_types = ["utility", "shared"]
+    _language_classes = _language_types
     pipelines = [
         "setup",
     ]
@@ -48,8 +46,6 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
             self, "missing_error_messages", {}
         )
         self.provided_executables = getattr(self, "provided_executables", {})
-
-        ramble.util.class_attributes.convert_class_attributes(self)
 
         self._file_path = file_path
         self.keywords = None

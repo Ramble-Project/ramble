@@ -9,10 +9,6 @@
 import ramble.language.shared_language
 from ramble.language.language_base import DirectiveMeta
 
-# Save and clear the global directives queue to isolate from other tests
-_saved_queue = DirectiveMeta._directives_to_be_executed.copy()
-DirectiveMeta._directives_to_be_executed = []
-
 
 class MockObject(metaclass=DirectiveMeta):
     name = "mock_obj"
@@ -57,9 +53,6 @@ class MockObject(metaclass=DirectiveMeta):
         when="mock_when=True",
         allow_external="False",
     )
-
-
-DirectiveMeta._directives_to_be_executed = _saved_queue
 
 
 def test_requires_utility_directive_parsing():

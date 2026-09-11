@@ -11,19 +11,17 @@ import fnmatch
 import re
 
 import ramble.repository
-import ramble.util.class_attributes
 import ramble.variants
 from ramble.error import (
     ConflictingModifiersError,
     InvalidModeError,
     ModifierError,
 )
+from ramble.language.language_base import DirectiveMeta
 from ramble.language.modifier_language import (
-    ModifierMeta,
     mode,
     modifier_conflict,
 )
-from ramble.language.shared_language import SharedMeta
 from ramble.util.conflicts import MODIFIER_CONFLICT
 from ramble.util.logger import logger
 from ramble.util.naming import NS_SEPARATOR
@@ -31,14 +29,15 @@ from ramble.util.naming import NS_SEPARATOR
 ObjectMixin = ramble.repository.get_base_class("object-mixin")
 
 
-class ModifierBase(ObjectMixin, metaclass=ModifierMeta):
+class ModifierBase(ObjectMixin, metaclass=DirectiveMeta):
     name = "modifier-base"
     origin_type = "modifier"
     _builtin_name = NS_SEPARATOR.join(
         ("modifier_builtin", "{obj_name}", "{name}")
     )
     _mod_prefix_builtin = f"modifier_builtin{NS_SEPARATOR}"
-    _language_classes = [ModifierMeta, SharedMeta]
+    _language_types = ["modifier", "shared"]
+    _language_classes = _language_types
     pipelines = [
         "analyze",
         "archive",
@@ -62,8 +61,6 @@ class ModifierBase(ObjectMixin, metaclass=ModifierMeta):
         self.object_variants = ramble.variants.VariantSet()
         for var_args in self.class_variants.values():
             self.object_variants.default_variant(**var_args)
-
-        ramble.util.class_attributes.convert_class_attributes(self)
 
         self._file_path = file_path
         self._on_executables = ["*"]
@@ -96,8 +93,8 @@ class ModifierBase(ObjectMixin, metaclass=ModifierMeta):
         """
         if mode:
             self._usage_mode = mode
-        elif hasattr(self, "_default_usage_mode"):
-            self._usage_mode = self._default_usage_mode
+        elif getattr(self, "default_usage_mode", None) is not None:
+            self._usage_mode = self.default_usage_mode
             if len(logger.log_stack) >= 1:
                 logger.msg(
                     f"    Using default usage mode {self._usage_mode} on modifier {self.name}"

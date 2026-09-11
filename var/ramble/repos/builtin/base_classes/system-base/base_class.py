@@ -8,28 +8,27 @@
 """Define base classes for system definitions"""
 
 import ramble.definitions.families
-import ramble.util.class_attributes
 import ramble.variants
+from ramble.language.language_base import DirectiveMeta
 from ramble.language.shared_language import (
-    SharedMeta,
     register_validator,
     required_variable,
     variant,
     when,
 )
-from ramble.language.system_language import SystemMeta
 from ramble.util.naming import NS_SEPARATOR
 
 ObjectMixin = ramble.repository.get_base_class("object-mixin")
 
 
-class SystemBase(ObjectMixin, metaclass=SystemMeta):
+class SystemBase(ObjectMixin, metaclass=DirectiveMeta):
     name = None
     origin_type = "system"
     _builtin_name = NS_SEPARATOR.join(
         ("system_builtin", "{obj_name}", "{name}")
     )
-    _language_classes = [SystemMeta, SharedMeta]
+    _language_types = ["system", "shared"]
+    _language_classes = _language_types
 
     system_default_platform = None
     system_default_workflow_manager = None
@@ -71,8 +70,6 @@ class SystemBase(ObjectMixin, metaclass=SystemMeta):
             self.families = ramble.definitions.families.Families(
                 self.origin_type, list(self.class_families.keys())
             )
-
-        ramble.util.class_attributes.convert_class_attributes(self)
 
         self._file_path = file_path
 

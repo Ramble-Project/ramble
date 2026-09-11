@@ -6,20 +6,18 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import functools
 from typing import Optional
 
 import ramble.language.shared_language
 
-
-class WorkflowManagerMeta(ramble.language.shared_language.SharedMeta):
-    _directive_names = set()
-    _directives_to_be_executed = []
-
-
-workflow_manager_directive = WorkflowManagerMeta.directive
+WorkflowManagerMeta = ramble.language.shared_language.SharedMeta
+workflow_manager_directive = functools.partial(
+    WorkflowManagerMeta.directive, language_type="workflow_manager"
+)
 
 
-@workflow_manager_directive(dicts=())
+@workflow_manager_directive(dicts="object_variables", init_value={})
 def workflow_manager_variable(
     name: str,
     default,
@@ -59,7 +57,7 @@ def workflow_manager_variable(
     return _define_wm_variable
 
 
-@workflow_manager_directive(dicts=())
+@workflow_manager_directive(dicts="class_families", init_value={})
 def workflow_manager_family(*names: str, **kwargs):
     """Add a new family to this workflow manager
 
