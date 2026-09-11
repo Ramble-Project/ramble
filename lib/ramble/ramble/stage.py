@@ -244,8 +244,7 @@ class InputStage:
         for path in self.expected_archive_files:
             if os.path.exists(path):
                 return path
-        else:
-            return None
+        return None
 
     @property
     def expanded(self):

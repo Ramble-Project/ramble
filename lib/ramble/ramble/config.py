@@ -211,24 +211,20 @@ class ScopesChoices:
         self.include_workspace = include_workspace
 
     def __contains__(self, item):
-        import ramble.config
         import ramble.workspace
 
-        scopes = list(ramble.config.scopes())
-        scopes = [s for s in scopes if not s.startswith("workspace:")]
+        all_scopes = [s for s in scopes() if not s.startswith("workspace:")]
         if self.include_workspace and ramble.workspace.active_workspace():
-            scopes.append("workspace")
-        return item in scopes
+            all_scopes.append("workspace")
+        return item in all_scopes
 
     def __iter__(self):
-        import ramble.config
         import ramble.workspace
 
-        scopes = list(ramble.config.scopes())
-        scopes = [s for s in scopes if not s.startswith("workspace:")]
+        all_scopes = [s for s in scopes() if not s.startswith("workspace:")]
         if self.include_workspace and ramble.workspace.active_workspace():
-            scopes.append("workspace")
-        return iter(scopes)
+            all_scopes.append("workspace")
+        return iter(all_scopes)
 
 
 def scopes_choices(include_workspace=True):
@@ -248,8 +244,7 @@ def first_existing(dictionary, keys):
     for k in keys:
         if k in dictionary:
             return k
-    else:
-        raise KeyError(f"None of {keys} is in dict!")
+    raise KeyError(f"None of {keys} is in dict!")
 
 
 class ConfigScope:

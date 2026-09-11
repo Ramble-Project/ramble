@@ -19,7 +19,6 @@ _modules: Dict[str, types.ModuleType] = {}
 
 def import_module(module_name):
     """A utility for dynamically importing a module."""
-    global _modules  # noqa: F824
     if module_name not in _modules:
         try:
             module = importlib.import_module(module_name)

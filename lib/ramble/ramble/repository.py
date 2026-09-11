@@ -371,7 +371,6 @@ def set_path(repo, object_type=default_type):
     Overwrite ``path`` and register it as an importer in
     ``sys.meta_path`` if it is a ``Repo`` or ``RepoPath``.
     """
-    global paths  # noqa: F824
     object_type = simplify_object_type(object_type)
     paths[object_type] = repo
 
@@ -393,7 +392,6 @@ def use_repositories(*paths_and_repos, object_type=default_type):
     Returns:
         RepoPath: Corresponding RepoPath object
     """
-    global paths  # noqa: F824
     object_type = simplify_object_type(object_type)
 
     # Construct a temporary RepoPath object from
