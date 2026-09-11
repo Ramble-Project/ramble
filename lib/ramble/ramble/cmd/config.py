@@ -26,6 +26,8 @@ description = "get and set configuration options"
 section = "config"
 level = "long"
 
+_add_parser = None
+
 
 def setup_parser(subparser):
     scopes_metavar = ramble.config.scopes_metavar
@@ -94,7 +96,8 @@ def setup_parser(subparser):
     )
 
     # Make the add parser available later
-    setup_parser.add_parser = add_parser
+    global _add_parser
+    _add_parser = add_parser
 
     update = sp.add_parser("update", help="update configuration files to the latest format")
     ramble.cmd.common.arguments.add_common_arguments(update, ["yes_to_all"])
@@ -207,7 +210,8 @@ def config_add(args):
     This is a stateful operation that edits the config files."""
     if not (args.file or args.path):
         logger.error("No changes requested. Specify a file or value.")
-        setup_parser.add_parser.print_help()
+        if _add_parser:
+            _add_parser.print_help()
         exit(1)
 
     scope, _ = _get_scope_and_section(args)

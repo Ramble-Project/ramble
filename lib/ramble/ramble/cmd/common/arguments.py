@@ -13,7 +13,17 @@ from typing import Callable, Dict
 
 from ramble.util.logger import logger
 
-from spack.util.pattern import Args
+
+class Args:
+    """Class to hold positional flags and keyword arguments for parser.add_argument."""
+
+    flags: tuple
+    kwargs: dict
+
+    def __init__(self, *flags, **kwargs):
+        self.flags = tuple(flags)
+        self.kwargs = kwargs
+
 
 __all__ = [
     "add_common_arguments",

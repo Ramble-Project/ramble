@@ -7,6 +7,7 @@
 # except according to those terms.
 
 import copy
+from typing import Any, Dict, List
 
 from llnl.util.tty.colify import colify
 
@@ -203,7 +204,7 @@ def print_filter_groups(resolved_scope_name=None, original_scope_name=None, verb
                 lines.extend(f"        - {ew}" for ew in definition["exclude_where"])
             color.cprint("\n".join(lines))
     else:
-        scope_groups = {}
+        scope_groups: Dict[str, List[str]] = {}
         for item in groups_to_print:
             scope = item["scope"]
             name = item["name"]
@@ -212,7 +213,7 @@ def print_filter_groups(resolved_scope_name=None, original_scope_name=None, verb
             scope_groups[scope].append(name)
 
         out_stream = logger.active_stream()
-        colify_opts = {"indent": 4, "padding": 2}
+        colify_opts: Dict[str, Any] = {"indent": 4, "padding": 2}
         if out_stream:
             colify_opts["output"] = out_stream
 

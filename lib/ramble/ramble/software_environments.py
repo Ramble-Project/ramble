@@ -8,7 +8,7 @@
 
 import copy
 from collections import defaultdict
-from typing import DefaultDict, Dict, List, Set
+from typing import Any, DefaultDict, Dict, List, Optional, Set
 
 import ramble.config
 import ramble.error
@@ -41,6 +41,10 @@ def _is_dict_empty(rendered: defaultdict):
 
 class SoftwarePackage:
     """Class to represent a single software package"""
+
+    spec: Optional[str] = None
+    compiler: Optional[str] = None
+    compiler_spec: Optional[str] = None
 
     def __init__(
         self,
@@ -720,8 +724,8 @@ class SoftwareEnvironments:
         self._environment_templates = {}
         self._external_env_templates = {}
         self._package_templates = {}
-        self._rendered_packages = defaultdict(dict)
-        self._rendered_environments = defaultdict(dict)
+        self._rendered_packages: DefaultDict[Any, Dict[Any, Any]] = defaultdict(dict)
+        self._rendered_environments: DefaultDict[Any, Dict[Any, Any]] = defaultdict(dict)
 
         self._define_templates()
 
@@ -808,15 +812,15 @@ class SoftwareEnvironments:
                 if env_info.get(namespace.external_env):
                     # External environments are stored in a separate template dict, such that it
                     # still goes through the rendering to concretize on the package_manager used.
-                    new_env = ExternalEnvironment(env_template, env_info[namespace.external_env])
-                    self._external_env_templates[env_template] = new_env
+                    ext_env = ExternalEnvironment(env_template, env_info[namespace.external_env])
+                    self._external_env_templates[env_template] = ext_env
                 else:
                     # Define a new template environment
-                    new_env = TemplateEnvironment(env_template)
+                    tmpl_env = TemplateEnvironment(env_template)
                     if namespace.packages in env_info:
                         for package in env_info[namespace.packages]:
-                            new_env.add_package_name(package)
-                    self._environment_templates[env_template] = new_env
+                            tmpl_env.add_package_name(package)
+                    self._environment_templates[env_template] = tmpl_env
 
     def define_compiler_packages(self, environment: RenderedEnvironment, expander: Expander):
         """Define packages for compilers in this environment
@@ -987,12 +991,12 @@ class SoftwareEnvironments:
             environment (SoftwareEnvironment): Environment to check for issues in
         """
 
-        pkg_names = set()
+        pkg_names: Set[str] = set()
 
         for pkg in environment._packages:
             pkg_names.add(pkg.name)
 
-        used_compilers = set()
+        used_compilers: Set[str] = set()
         compiler_warnings = [
             (pkg.name, pkg.compiler)
             for pkg in environment._packages

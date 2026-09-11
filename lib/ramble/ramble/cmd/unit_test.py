@@ -185,9 +185,9 @@ def do_list(args, extra_args):
     elif args.list == "long":
         for prefix, functions in sorted(tests.items()):
             path = colorize("*B", prefix) + "::"
-            functions = [colorize("c", f) for f in sorted(functions)]
+            color_functions = [colorize("c", f) for f in sorted(functions)]
             color.cprint(path)
-            colify(functions, indent=4)
+            colify(color_functions, indent=4)
             print()
     else:  # args.list == "names"
         all_functions = [

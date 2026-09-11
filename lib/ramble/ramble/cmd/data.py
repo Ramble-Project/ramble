@@ -42,7 +42,7 @@ def data_create_db(args):
         raise ConfigError(f"Upload type {uploader_type_str} is not valid.")
 
     uploader_type = getattr(ramble.uploader.uploader_types, uploader_type_str)
-
+    uploader: ramble.uploader.Uploader
     if uploader_type == ramble.uploader.uploader_types.BigQuery:
         uploader = ramble.uploader.BigQueryUploader()
     elif uploader_type == ramble.uploader.uploader_types.SQLite:

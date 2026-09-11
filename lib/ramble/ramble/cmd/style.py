@@ -16,7 +16,7 @@ import shlex
 import shutil
 import sys
 import tempfile
-from typing import Callable, Dict
+from typing import Callable, Dict, Tuple
 
 from llnl.util.filesystem import mkdirp, working_dir
 
@@ -89,7 +89,7 @@ base_class_file = repository.type_definitions[repository.ObjectTypes.base_classe
 #
 # For each file, if the filename pattern matches, we'll add per-line
 # exemptions if any patterns in the sub-dict match.
-pattern_exemptions = {
+_raw_pattern_exemptions = {
     # exemptions applied only to application.py files.
     rf"application.py|{base_class_file}$": {
         # Allow 'from ramble.appkit import *' in applications,
@@ -144,7 +144,7 @@ pattern_exemptions = {
     re.compile(file_pattern): {
         code: [re.compile(p) for p in patterns] for code, patterns in error_dict.items()
     }
-    for file_pattern, error_dict in pattern_exemptions.items()
+    for file_pattern, error_dict in _raw_pattern_exemptions.items()
 }
 
 # Tools run in the given order
@@ -520,7 +520,10 @@ def run_black(black_cmd, file_list, args):
         if ver in supported_versions:
             target_args.extend(["--target-version", ver])
 
-    common_args = ("--config", os.path.join(ramble.paths.prefix, "pyproject.toml"))
+    common_args: Tuple[str, ...] = (
+        "--config",
+        os.path.join(ramble.paths.prefix, "pyproject.toml"),
+    )
     if not args.fix:
         common_args += ("--check", "--diff")
     common_args += tuple(target_args)
@@ -556,7 +559,7 @@ def run_black(black_cmd, file_list, args):
 
 @tool("isort")
 def run_isort(isort_cmd, file_list, args):
-    isort_args = ("--sp", os.path.join(ramble.paths.prefix, "pyproject.toml"))
+    isort_args: Tuple[str, ...] = ("--sp", os.path.join(ramble.paths.prefix, "pyproject.toml"))
     if not args.fix:
         isort_args += ("--check", "--diff")
     isort_args += tuple(get_tool_args(args, "isort"))

@@ -9,6 +9,7 @@
 
 import os
 import re
+from typing import List, Optional
 
 from llnl.util.lang import attr_setdefault
 
@@ -50,7 +51,7 @@ def require_cmd_name(cname):
 
 
 #: global, cached list of all commands -- access through all_commands()
-_all_commands = None
+_all_commands: Optional[List[str]] = None
 
 
 def all_commands():

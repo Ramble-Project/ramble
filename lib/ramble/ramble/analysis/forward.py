@@ -10,6 +10,7 @@
 
 import os
 import string
+from typing import Any, Dict, FrozenSet, Tuple
 
 import ramble.success_criteria
 import ramble.util.lock as lk
@@ -61,9 +62,9 @@ class ForwardAnalysisStrategy(AnalysisStrategyBase):
 
         exp_lock = app.experiment_lock
 
-        fom_values = {}
-        context_metadata = {}
-        null_key = (_NULL_CONTEXT, _NULL_CONTEXT, frozenset())
+        fom_values: Dict[Tuple[str, str, FrozenSet[Any]], Dict[str, Any]] = {}
+        context_metadata: Dict[Tuple[str, str, FrozenSet[Any]], Dict[str, Any]] = {}
+        null_key: Tuple[str, str, FrozenSet[Any]] = (_NULL_CONTEXT, _NULL_CONTEXT, frozenset())
         context_metadata[null_key] = {
             "name": _NULL_CONTEXT,
             "def_name": _NULL_CONTEXT,
@@ -75,7 +76,7 @@ class ForwardAnalysisStrategy(AnalysisStrategyBase):
             for file, file_conf in files.items():
 
                 # Start with no active contexts in a file.
-                active_contexts = {}
+                active_contexts: Dict[str, Any] = {}
                 logger.debug(f"Reading log file: {file}")
 
                 if not os.path.exists(file):

@@ -8,6 +8,7 @@
 
 import fnmatch
 import re
+from typing import Dict, List
 
 from ramble.util.foms import get_literal_from_regex
 from ramble.util.logger import logger
@@ -38,7 +39,7 @@ class ScopedCriteriaList:
     }
 
     def __init__(self):
-        self.criteria = {}
+        self.criteria: Dict[str, List[SuccessCriteria]] = {}
         for scope in self._valid_scopes:
             self.criteria[scope] = []
 
@@ -60,9 +61,8 @@ class ScopedCriteriaList:
         if exists:
             logger.die(f"Success criteria {name} is not unique.")
 
-        self.criteria[scope].append(
-            SuccessCriteria(name, mode, *args, owning_object=owning_object, **kwargs)
-        )
+        kwargs.setdefault("owning_object", owning_object)
+        self.criteria[scope].append(SuccessCriteria(name, mode, *args, **kwargs))
 
     def flush_scope(self, scope):
         """Remove criteria within a scope, and lower level scopes

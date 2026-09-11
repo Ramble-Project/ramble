@@ -362,7 +362,7 @@ class MirrorStats:
     def __init__(self):
         self.present = {}
         self.new = {}
-        self.errors = {}
+        self.errors = set()
 
         self.current_spec = None
         self.added_resources = set()

@@ -13,7 +13,10 @@ import pytest
 
 from llnl.util.filesystem import mkdirp, touch
 
+import ramble.caches
 import ramble.config
+import ramble.paths
+import ramble.util.path
 from ramble.fetch_strategy import CacheURLFetchStrategy, NoCacheError
 from ramble.stage import InputStage
 
@@ -50,3 +53,12 @@ def test_fetch(tmpdir, _fetch_method):
             source_path = stage.source_path
             mkdirp(source_path)
             fetcher.fetch()
+
+
+def test_fetch_cache_default_path(mutable_config):
+    """Ensure default_fetch_cache_path exists and is used when config is unset."""
+    assert hasattr(ramble.paths, "default_fetch_cache_path")
+    assert ramble.paths.default_fetch_cache_path == os.path.join(ramble.paths.var_path, "cache")
+    with ramble.config.override("config:input_cache", None):
+        path = ramble.caches.fetch_cache_location()
+        assert path == ramble.util.path.canonicalize_path(ramble.paths.default_fetch_cache_path)

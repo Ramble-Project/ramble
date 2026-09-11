@@ -10,7 +10,7 @@ import datetime
 import os
 import re
 from enum import Enum
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import llnl.util.filesystem as fs
 
@@ -111,7 +111,7 @@ def simplify_names(names):
             break
 
     # Find longest common suffix of parts
-    common_suffix = []
+    common_suffix: List[str] = []
     remaining_min_len = min(len(parts) - len(common_prefix) for parts in split_names)
     for i in range(1, remaining_min_len + 1):
         part = split_names[0][-i]
@@ -578,6 +578,12 @@ class PlotFactory:
 
 
 class PlotGenerator:
+    perf_unit: str = ""
+    scale_unit: str = ""
+
+    def prep_draw(self, perf_measure, scale_var):
+        raise NotImplementedError("Subclasses must implement prep_draw")
+
     def __init__(
         self,
         spec,
@@ -594,7 +600,7 @@ class PlotGenerator:
         self.normalize = normalize
         self.spec = spec
         self.report_dir_path = report_dir_path
-        self.inventory = {"files": []}
+        self.inventory: Dict[str, List[Any]] = {"files": []}
         self.figsize = [12, 8]
 
         self.exp_results = exp_results
@@ -677,7 +683,9 @@ class PlotGenerator:
         with open(self.get_inventory_path(), "w+", encoding="utf-8") as f:
             syaml.dump(self.inventory, stream=f)
 
-    def draw(self, perf_measure, scale_var, series, pdf_report, y_label=None):
+    def draw(self, perf_measure, scale_var, series, *args, **kwargs):
+        pdf_report = args[0] if len(args) > 0 else kwargs.get("pdf_report")
+        y_label = args[1] if len(args) > 1 else kwargs.get("y_label", None)
         series_data = self.output_df.query(f'series == "{series}"').copy()
 
         title = (
@@ -686,7 +694,6 @@ class PlotGenerator:
         )
         logger.debug(f"Generating plot for {title}")
 
-        # TODO: prep_draw method in subclass ScalingPlotGenerator, not this class
         fig, ax = self.prep_draw(perf_measure, scale_var)
 
         if self.normalize:
@@ -1019,10 +1026,11 @@ class ScalingPlotGenerator(PlotGenerator):
 class WeakScalingPlot(ScalingPlotGenerator):
     plot_type = "weak_scaling"
 
-    def draw(self, perf_measure, scale_var, series, pdf_report):
-        y_label = perf_measure
+    def draw(self, perf_measure, scale_var, series, pdf_report, y_label=None, *args, **kwargs):
+        if y_label is None:
+            y_label = perf_measure
 
-        super().draw(perf_measure, scale_var, series, pdf_report, y_label)
+        super().draw(perf_measure, scale_var, series, pdf_report, y_label, *args, **kwargs)
 
     def add_idealized_data(self, raw_results, selected_data):
         selected_data = super().add_idealized_data(raw_results, selected_data)
@@ -1058,10 +1066,11 @@ class StrongScalingPlot(ScalingPlotGenerator):
     ):
         super().normalize_data(data, scale_to_index, to_col=to_col, from_col=from_col)
 
-    def draw(self, perf_measure, scale_var, series, pdf_report):
-        y_label = perf_measure
+    def draw(self, perf_measure, scale_var, series, pdf_report, y_label=None, *args, **kwargs):
+        if y_label is None:
+            y_label = perf_measure
 
-        super().draw(perf_measure, scale_var, series, pdf_report, y_label)
+        super().draw(perf_measure, scale_var, series, pdf_report, y_label, *args, **kwargs)
 
 
 class FomPlot(PlotGenerator):
@@ -1117,7 +1126,7 @@ class FomPlot(PlotGenerator):
             self.draw(perf_measure, scale_var, series, unit, pdf_report)
 
     # TODO: dry bar plot drawing
-    def draw(self, perf_measure, scale_var, series, unit, pdf_report):
+    def draw(self, perf_measure, scale_var, series, unit, pdf_report, *args, **kwargs):
         pd = import_pandas()
 
         self.output_df[ReportVars.FOM_VALUE.value] = to_numeric_if_possible(
@@ -1160,7 +1169,7 @@ class FomPlot(PlotGenerator):
 class ComparisonPlot(PlotGenerator):
     plot_type = "comparison"
 
-    def draw(self, perf_measure, scale_var, series, pdf_report):
+    def draw(self, perf_measure, scale_var, series, pdf_report, y_label=None, *args, **kwargs):
         ax = self.output_df.plot(kind="bar", figsize=self.figsize)
         fig = ax.get_figure()
 
@@ -1266,7 +1275,6 @@ class MultiLinePlot(ScalingPlotGenerator):
         title = f"{perf_measure} vs {scale_var}"
         logger.debug(f"Generating plot for {title}")
 
-        # TODO: prep_draw method in subclass ScalingPlotGenerator, not this class
         fig, ax = self.prep_draw(perf_measure, scale_var)
 
         for series in self.output_df.loc[:, ReportVars.SERIES.value].unique():

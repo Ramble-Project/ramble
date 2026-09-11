@@ -23,6 +23,7 @@ import signal
 import sys
 import traceback
 import warnings
+from typing import Any, Dict, List, Optional, cast
 
 import jsonschema
 import ruamel
@@ -108,7 +109,7 @@ def add_all_commands(parser):
 
 def index_commands():
     """create an index of commands by section for this help level"""
-    index = {}
+    index: Dict[str, Dict[str, List[str]]] = {}
     for command in ramble.cmd.all_commands():
         cmd_module = ramble.cmd.get_module(command)
 
@@ -169,7 +170,13 @@ class RambleArgumentParser(argparse.ArgumentParser):
         # Create a list of subcommand actions. Argparse internals are nasty!
         # Note: you can only call _get_subactions() once.  Even nastier!
         if not hasattr(self, "actions"):
-            self.actions = self._subparsers._actions[-1]._get_subactions()
+            subparsers = getattr(self, "_subparsers", None)
+            actions = getattr(subparsers, "_actions", []) if subparsers else []
+            self.actions = (
+                actions[-1]._get_subactions()
+                if actions and hasattr(actions[-1], "_get_subactions")
+                else []
+            )
 
         # make a set of commands not yet added.
         remaining = set(ramble.cmd.all_commands())
@@ -227,7 +234,7 @@ class RambleArgumentParser(argparse.ArgumentParser):
             group_description = section_descriptions.get(section, section)
 
             to_display = sections[section]
-            commands = []
+            commands: List[str] = []
 
             # add commands whose order we care about first.
             if section in section_order:
@@ -274,7 +281,7 @@ class RambleArgumentParser(argparse.ArgumentParser):
             kwargs.setdefault("formatter_class", RambleHelpFormatter)
             return old_add_parser(name, **kwargs)
 
-        sp.add_parser = add_parser
+        cast(Any, sp).add_parser = add_parser
         return sp
 
     def add_command(self, cmd_name):
@@ -568,7 +575,7 @@ def mock_repositories(objects):
     for obj in objects:
         obj_section = ramble.repository.type_definitions[obj]["config_section"]
         key = syaml.syaml_str(obj_section)
-        key.override = True
+        cast(Any, key).override = True
 
         ramble.config.config.scopes["command_line"].sections[obj_section] = syaml.syaml_dict(
             [(key, [ramble.paths.mock_builtin_path])]
@@ -750,7 +757,7 @@ class RambleCommand:
 
         if fail_on_error and self.returncode not in (None, 0):
             raise RambleCommandError(
-                "Command exited with code %d: %s(%s).\nCommand output:\n\n%s"
+                "Command exited with code %s: %s(%s).\nCommand output:\n\n%s"
                 % (
                     self.returncode,
                     self.command_name,
@@ -971,7 +978,7 @@ def _main(argv=None):
     setup_main_options(args)
 
     # activate a workspace if one was specified on the command line
-    workspace_format_error = None
+    workspace_format_error: Optional[Exception] = None
     if not args.no_workspace:
         try:
             ws = ramble.cmd.find_workspace(args)

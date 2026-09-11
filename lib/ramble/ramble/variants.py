@@ -379,10 +379,10 @@ class VariantSet:
         )
 
         if expander is None or not has_templates:
-            return cache
+            return cache or set()
 
         expanded_set = set()
-        for variant in cache:
+        for variant in cache or set():
             if "{" in variant:
                 expanded_set.add(expander.expand_var(variant))
             else:

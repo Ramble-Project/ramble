@@ -8,6 +8,7 @@
 
 import os
 from enum import Enum
+from typing import Union
 
 from ramble.namespace import namespace
 from ramble.software_info import SoftwareInfo
@@ -59,7 +60,7 @@ class ExperimentResult:
         """Build up the result from the given app instance"""
         self._app_inst = app_inst
         self.name = None
-        self.status = ExperimentStatus.UNKNOWN
+        self.status: Union[ExperimentStatus, str] = ExperimentStatus.UNKNOWN
         self.n_repeats = None
         self.experiment_chain = []
         self.tags = []

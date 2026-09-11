@@ -9,7 +9,7 @@
 import fnmatch
 import functools
 from collections import OrderedDict
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
@@ -418,8 +418,8 @@ def is_specifier_set_compatible(spec_set):
 def _parse_when(w_set):
     from ramble.util.format import when_order
 
-    variants = {}
-    versions = {}
+    variants: Dict[str, str] = {}
+    versions: Dict[str, Any] = {}
     for w_entry in sorted(w_set, key=when_order):
         for w in w_entry.split():
             if "=" in w:

@@ -7,6 +7,7 @@
 # except according to those terms.
 
 import itertools
+from typing import Any, Dict, Set
 
 import ramble.expander
 import ramble.repeats
@@ -154,7 +155,7 @@ class Renderer:
                 del zips[zip_name]
 
     def _process_zips(self, render_group, object_variables, zips, zipped_vars):
-        defined_zips = {}
+        defined_zips: Dict[str, Dict[str, Any]] = {}
         for zip_group, group_def in zips.items():
             defined_zips[zip_group] = {"vars": {}, "length": 0}
             cur_zip = defined_zips[zip_group]
@@ -302,7 +303,7 @@ class Renderer:
           Matrices consume vector variables.
         """
         last_size = -1
-        matrix_vars = set()
+        matrix_vars: Set[str] = set()
         matrix_vectors = []
         matrix_variables = []
         for matrix in matrices:
@@ -489,10 +490,10 @@ class Renderer:
             self._filter_used_variables(matrices, zips, used_variables)
 
         # Extract Zips
-        defined_zips = {}
-        consumed_zips = set()
+        defined_zips: Dict[str, Dict[str, Any]] = {}
+        consumed_zips: Set[str] = set()
         if zips:
-            zipped_vars = set()
+            zipped_vars: Set[str] = set()
             defined_zips = self._process_zips(render_group, object_variables, zips, zipped_vars)
 
         # Process Matrices

@@ -18,7 +18,7 @@ import string
 import sys
 from contextlib import contextmanager
 from enum import Enum
-from typing import Dict, FrozenSet, List, Optional, Union
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Union
 
 import ramble.config
 import ramble.error
@@ -167,7 +167,7 @@ def _maybe(expander, var_name, default=""):
         return default
 
 
-supported_math_operators = {
+supported_math_operators: Dict[type, Callable[..., Any]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -194,7 +194,7 @@ supported_math_operators = {
     ast.RShift: operator.rshift,
 }
 
-supported_scalar_function_pointers = {
+supported_scalar_function_pointers: Dict[str, Callable[..., Any]] = {
     "str": str,
     "int": int,
     "float": float,
@@ -218,12 +218,12 @@ supported_scalar_function_pointers = {
 format_spec_regex = re.compile(r"(?P<kw>[^:]+(?:::[^:]+)*):(?P<format_spec>[^:]+)$")
 
 # Functions that need to be supplied with the expander
-supported_scalar_function_with_self_arg_pointers = {
+supported_scalar_function_with_self_arg_pointers: Dict[str, Callable[..., Any]] = {
     "maybe": _maybe,
 }
 
 
-supported_list_function_pointers = {
+supported_list_function_pointers: Dict[str, Callable[..., Any]] = {
     "range": range,
 }
 
@@ -435,7 +435,7 @@ class ExpansionGraph:
         self.root.root = self.root
 
         opened = []
-        children = []
+        children: List[List[ExpansionNode]] = []
         escaped = False
         for i, c in enumerate(self.str):
             if c == ExpansionDelimiter.left and not escaped:

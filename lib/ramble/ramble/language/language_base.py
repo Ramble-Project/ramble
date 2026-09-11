@@ -151,12 +151,12 @@ class DirectiveMeta(abc.ABCMeta):
             # with the directives
             # We use type(cls) to get the metaclass, and iterate its MRO to
             # collect all init values and directive attributes.
-            all_init_values = {}
-            all_directive_names = set()
-            all_directive_functions = {}
-            all_directive_classes = {}
+            all_init_values: Dict[str, Any] = {}
+            all_directive_names: Set[str] = set()
+            all_directive_functions: Dict[str, Any] = {}
+            all_directive_classes: Dict[str, Any] = {}
 
-            for base_meta in reversed(type(cls).__mro__):
+            for base_meta in reversed(inspect.getmro(type(cls))):
                 if hasattr(base_meta, "_directive_init_values"):
                     all_init_values.update(base_meta._directive_init_values)
                 if hasattr(base_meta, "_directive_names"):
@@ -169,15 +169,18 @@ class DirectiveMeta(abc.ABCMeta):
             for d, t in all_init_values.items():
                 setattr(cls, d, copy.deepcopy(t))
 
+            if hasattr(DirectiveMeta, "_directive_functions"):
+                all_directive_functions.update(DirectiveMeta._directive_functions)
+            if hasattr(DirectiveMeta, "_directive_classes"):
+                all_directive_classes.update(DirectiveMeta._directive_classes)
+            if hasattr(DirectiveMeta, "_directive_names"):
+                all_directive_names |= DirectiveMeta._directive_names
+
             directive_attrs = {
                 "_directive_functions": all_directive_functions,
                 "_directive_classes": all_directive_classes,
-                "_directive_names": all_directive_names | DirectiveMeta._directive_names.copy(),
+                "_directive_names": all_directive_names,
             }
-
-            for attr, val in directive_attrs.items():
-                if hasattr(DirectiveMeta, attr):
-                    val.update(getattr(DirectiveMeta, attr))
 
             for attr, val in directive_attrs.items():
                 setattr(cls, attr, val)

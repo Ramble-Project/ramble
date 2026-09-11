@@ -12,7 +12,7 @@ import hashlib
 import os
 import stat
 import sys
-from typing import Dict
+from typing import Dict, List
 
 from llnl.util.filesystem import (
     can_access,
@@ -210,19 +210,21 @@ class InputStage:
     @property
     def expected_archive_files(self):
         """Possible archive file paths."""
-        paths = []
+        paths: List[str] = []
 
-        fnames = []
+        fnames: List[str] = []
         expanded = True
         if isinstance(self.default_fetcher, fs.URLFetchStrategy):
             expanded = self.default_fetcher.expand_archive
-            fnames.append(os.path.basename(self.default_fetcher.url))
+            if self.default_fetcher.url:
+                fnames.append(os.path.basename(self.default_fetcher.url))
 
         if self.mirror_paths:
             fnames.extend(os.path.basename(x) for x in self.mirror_paths)
 
-        paths.extend(os.path.join(self.path, f) for f in fnames)
-        if not expanded:
+        if self.path:
+            paths.extend(os.path.join(self.path, f) for f in fnames)
+        if not expanded and self.source_path:
             # If the download file is not compressed, the "archive" is a
             # single file placed in Stage.source_path
             paths.extend(os.path.join(self.source_path, f) for f in fnames)
@@ -277,7 +279,7 @@ class InputStage:
             # Join URLs of mirror roots with mirror paths. Because
             # urljoin() will strip everything past the final '/' in
             # the root, so we add a '/' if it is not present.
-            mirror_urls = []
+            mirror_urls: List[str] = []
             for mirror in ramble.mirror.MirrorCollection().values():
                 mirror_urls.extend(
                     url_util.join(mirror.fetch_url, rel_path) for rel_path in self.mirror_paths

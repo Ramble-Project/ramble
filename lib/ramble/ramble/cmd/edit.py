@@ -8,6 +8,7 @@
 
 import glob
 import os
+from typing import Any
 
 import ramble.cmd
 import ramble.paths
@@ -238,6 +239,7 @@ def edit(parser, args):
             # It's an object type. Let's find what path it would have been at.
             try:
                 obj_type = ramble.repository.ObjectTypes[type_name]
+                repo: Any
                 if args.repo:
                     repo = ramble.repository.Repo(args.repo, object_type=obj_type)
                 elif effective_namespace:

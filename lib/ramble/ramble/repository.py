@@ -23,7 +23,7 @@ import sys
 import traceback
 import types
 from enum import Enum
-from typing import Mapping
+from typing import Any, Dict, Mapping, cast
 
 from ruamel import yaml
 
@@ -78,7 +78,7 @@ default_type = ObjectTypes.applications
 
 unified_config = "repo.yaml"
 
-type_definitions = {
+type_definitions: Dict[ObjectTypes, Dict[str, Any]] = {
     ObjectTypes.applications: {
         "file_name": "application.py",
         "dir_name": "applications",
@@ -278,7 +278,7 @@ def _gen_path(repo_dirs=None, obj_type=default_type):
         )
 
     path = RepoPath(*repo_dirs, object_type=obj_type)
-    sys.meta_path.append(path)
+    sys.meta_path.append(cast(Any, path))
     return path
 
 
@@ -323,9 +323,10 @@ def list_object_files(obj_inst, object_type):
     base_chain = obj_inst.__class__.__mro__[1:]
 
     for cls in base_chain:
-        path = importlib.util.find_spec(cls.__module__).origin
+        spec = importlib.util.find_spec(cls.__module__)
+        path = spec.origin if spec else None
 
-        if not repo_path.in_path(path) and not base_repo_path.in_path(path):
+        if not path or (not repo_path.in_path(path) and not base_repo_path.in_path(path)):
             # Stop upon hitting a non-repo file
             break
 
@@ -408,7 +409,7 @@ def use_repositories(*paths_and_repos, object_type=default_type):
     finally:
         # Restore _path and sys.meta_path
         if remove_from_meta and temporary_repositories in sys.meta_path:
-            sys.meta_path.remove(temporary_repositories)
+            sys.meta_path.remove(cast(Any, temporary_repositories))
         paths[object_type] = saved
 
 
@@ -479,7 +480,7 @@ class FastObjectChecker(Mapping):
         """
         # Create a dictionary that will store the mapping between a
         # object name and its stat info
-        cache = {}
+        cache: Dict[str, os.stat_result] = {}
         if not os.path.isdir(objects_path):
             return cache
         for obj_name in os.listdir(objects_path):
@@ -1015,15 +1016,22 @@ class Repo:
                 raise BadRepoError(msg)
 
         # Validate repository layout.
-        self.config_name = None
-        self.config_file = None
+        config_name = None
+        config_file = None
         for config in type_definitions[object_type]["accepted_configs"]:
-            config_file = os.path.join(self.root, config)
-            if os.path.exists(config_file):
-                self.config_name = config
-                self.config_file = config_file
-        check(self.config_file, "No valid config file found")
-        check(os.path.isfile(self.config_file), f"No {self.config_name} found in '{root}'")
+            candidate = os.path.join(self.root, config)
+            if os.path.exists(candidate):
+                config_name = config
+                config_file = candidate
+                break
+
+        if not config_file or not config_name:
+            raise BadRepoError("No valid config file found")
+        if not os.path.isfile(config_file):
+            raise BadRepoError(f"No {config_name} found in '{root}'")
+
+        self.config_name: str = config_name
+        self.config_file: str = config_file
 
         # Read configuration and validate namespace
         config = self._read_config()
@@ -1075,6 +1083,7 @@ class Repo:
 
         """
         parent = None
+        module: Any = None
         for i in range(1, len(self._names) + 1):
             ns = ".".join(self._names[:i])
 
@@ -1220,8 +1229,9 @@ class Repo:
             # handler by wrapping them
             if ramble.config.get("config:debug"):
                 sys.excepthook(*sys.exc_info())
+            exc_type, exc_obj, exc_tb = sys.exc_info()
             raise FailedConstructorError(
-                spec.fullname, *sys.exc_info(), object_type=self.object_type
+                spec.fullname, exc_type, exc_obj, exc_tb, object_type=self.object_type
             ) from e
 
     @autospec

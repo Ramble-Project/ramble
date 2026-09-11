@@ -42,7 +42,7 @@ def _object_file_regex_list(is_ramble_root=True):
 
 
 #: regular expressions for licensed files.
-licensed_files = [
+_raw_licensed_files = [
     # ramble scripts
     r"bin/ramble$",
     r"bin/ramble-python$",
@@ -66,6 +66,7 @@ licensed_files = [
     # examples
     r"examples/.*\.yaml$",
 ]
+licensed_files = [re.compile(regex) for regex in _raw_licensed_files]
 
 
 #: licensed files that can have LGPL language in them
@@ -326,8 +327,6 @@ def setup_parser(subparser):
 def license(parser, args):
     if not git:
         logger.die("ramble license requires git in your environment")
-
-    licensed_files[:] = [re.compile(regex) for regex in licensed_files]
 
     commands = {
         "list-files": list_files,

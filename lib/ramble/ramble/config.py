@@ -40,7 +40,7 @@ import os
 import re
 import sys
 from contextlib import contextmanager
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple, cast
 
 from ruamel import yaml
 from ruamel.yaml.error import MarkedYAMLError
@@ -490,7 +490,7 @@ class InternalConfigScope(ConfigScope):
         for sk, sv in data.items():
             if sk.endswith(":"):
                 key = syaml.syaml_str(sk[:-1])
-                key.override = True
+                setattr(key, "override", True)  # noqa: B010
             else:
                 key = sk
 
@@ -706,7 +706,7 @@ class Configuration:
 
         """
         if not hasattr(self, "_get_config_cache"):
-            self._get_config_cache = {}
+            self._get_config_cache: Dict[Tuple[Any, Any], Any] = {}
 
         key = (section, scope)
         if key not in self._get_config_cache:
@@ -718,7 +718,7 @@ class Configuration:
         _validate_section_name(section)
 
         if scope is None:
-            scopes = self.scopes.values()
+            scopes = list(self.scopes.values())
         else:
             scopes = [self._validate_scope(scope)]
 
@@ -1158,6 +1158,7 @@ def _mark_internal(data, name):
 
     This is used by `ramble config blame` to show where config lines came from.
     """
+    d: Any
     if isinstance(data, dict):
         d = syaml.syaml_dict(
             (_mark_internal(k, name), _mark_internal(v, name)) for k, v in data.items()
@@ -1168,8 +1169,9 @@ def _mark_internal(data, name):
         d = syaml.syaml_type(data)
 
     if syaml.markable(d):
-        d._start_mark = yaml.Mark(name, None, None, None, None, None)
-        d._end_mark = yaml.Mark(name, None, None, None, None, None)
+        markable_d = cast(Any, d)
+        markable_d._start_mark = yaml.Mark(name, None, None, None, None, None)
+        markable_d._end_mark = yaml.Mark(name, None, None, None, None, None)
 
     return d
 
@@ -1202,14 +1204,15 @@ def get_valid_type(path):
     try:
         validate(test_data, section_schemas[section])
     except (ConfigFormatError, AttributeError) as e:
-        jsonschema_error = e.validation_error
-        if jsonschema_error.validator == "type":
-            return types[jsonschema_error.validator_value]()
-        elif jsonschema_error.validator in ("anyOf", "oneOf"):
-            for subschema in jsonschema_error.validator_value:
-                schema_type = subschema.get("type")
-                if schema_type is not None:
-                    return types[schema_type]()
+        jsonschema_error = getattr(e, "validation_error", None)
+        if jsonschema_error:
+            if jsonschema_error.validator == "type":
+                return types[jsonschema_error.validator_value]()
+            elif jsonschema_error.validator in ("anyOf", "oneOf"):
+                for subschema in jsonschema_error.validator_value:
+                    schema_type = subschema.get("type")
+                    if schema_type is not None:
+                        return types[schema_type]()
     else:
         return type(None)
     raise ConfigError(f"Cannot determine valid type for path '{path}'.")
@@ -1302,7 +1305,7 @@ def process_config_path(path):
                 )
             path = path.lstrip(":")
             front = syaml.syaml_str(front)
-            front.override = True
+            setattr(front, "override", True)  # noqa: B010
             seen_override_in_path = True
         result.append(front)
     return result
@@ -1398,7 +1401,7 @@ def use_configuration(*scopes_or_paths):
 
     import ramble.repository
 
-    saved_instances = {}
+    saved_instances: Dict[Any, Any] = {}
     for obj_type, singleton in ramble.repository.paths.items():
         saved_instances[obj_type] = singleton._instance
         singleton._instance = None

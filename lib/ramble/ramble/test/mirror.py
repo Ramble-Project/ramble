@@ -170,3 +170,15 @@ ramble:
             mirror_pipeline.run()
 
         check_mirror(str(mirror_dir), app_name, app_class)
+
+
+def test_mirror_stats_error():
+    """Ensure MirrorStats records errors into a set without raising AttributeError."""
+    stats = ramble.mirror.MirrorStats()
+    stats.current_spec = "test_spec"
+    stats.error("some_resource")
+    present, new, errors = stats.stats()
+    assert "test_spec" in errors
+    assert len(errors) == 1
+    assert len(present) == 0
+    assert len(new) == 0

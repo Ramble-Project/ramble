@@ -221,7 +221,7 @@ class Workload:
             ramble.definitions.variables.Variable | None: Variable instance if it exists,
             ``None`` if it is not found
         """
-        named_vars = []
+        named_vars: List[Variable] = []
         for var_list in self.variables.values():
             named_vars.extend(var for var in var_list if var.name == name)
         return named_vars

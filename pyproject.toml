@@ -163,6 +163,7 @@ module = [
     "_ramble_file_editor",
 ]
 ignore_errors = false
+check_untyped_defs = true
 
 [[tool.mypy.overrides]]
 # Ignore numpy type stubs since they use 3.12 syntax
@@ -170,16 +171,11 @@ module = "numpy.*"
 follow_imports = "skip"
 
 [[tool.mypy.overrides]]
-# TODO: Add more modules here for exhaustive type-checking
+# Modules exempted from check_untyped_defs until remaining type ambiguities are resolved
 module = [
-    "ramble.util.*",
-    "ramble.error",
-    "ramble.paths",
-    "ramble.filters",
-    "_ramble_cleaner",
-    "_ramble_file_editor",
+    "ramble.test.*",
 ]
-check_untyped_defs = true
+check_untyped_defs = false
 
 [tool.ruff]
 extend-include = ["bin/ramble"]

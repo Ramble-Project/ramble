@@ -136,7 +136,7 @@ class AttributeGraph:
                 ) from e
             self._prepared = True
 
-        yield from self._sorted
+        yield from (self._sorted or [])
 
     def get_node(self, key):
         """Given a key, return the node containing this key

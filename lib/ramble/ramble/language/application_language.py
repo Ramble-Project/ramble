@@ -6,6 +6,8 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+from typing import List
+
 import ramble.definitions.variables
 import ramble.language.language_helpers
 import ramble.language.shared_language
@@ -581,7 +583,7 @@ def stage_files(
             stage_method = cfg.get("config", {}).get("stage_method", "cp")
         stage_cmd = method_map[stage_method]
 
-        template = []
+        template: List[str] = []
 
         if src is not None:
             if dst is not None:

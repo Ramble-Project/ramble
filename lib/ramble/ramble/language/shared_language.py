@@ -8,7 +8,7 @@
 
 import collections
 import contextlib
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import ramble.language.language_base
 import ramble.language.language_helpers
@@ -1598,7 +1598,7 @@ def modifier(
 
     def _execute_modifier(obj):
         when_list = ramble.language.language_helpers.build_when_list(when, obj, name, "modifier")
-        mod_dict = {"name": name}
+        mod_dict: Dict[str, Any] = {"name": name}
         if mode is not None:
             mod_dict["mode"] = mode
         if on_executable is not None:

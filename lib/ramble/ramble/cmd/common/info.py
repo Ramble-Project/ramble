@@ -9,6 +9,7 @@
 import enum
 import fnmatch
 import textwrap
+from collections.abc import Iterable
 
 from llnl.util.tty.colify import colified
 
@@ -376,7 +377,7 @@ def print_single_attribute(obj, attr, verbose=False, pattern="*", format=support
         # Otherwise, we print the attribute's value directly.
         if isinstance(internal_attr, dict):
             to_print = list(internal_attr.keys())
-        elif hasattr(internal_attr, "default_variants"):
+        elif internal_attr is not None and hasattr(internal_attr, "default_variants"):
             to_print = []
             for variant in internal_attr.default_variants.values():
                 to_print.append(variant)
@@ -387,7 +388,7 @@ def print_single_attribute(obj, attr, verbose=False, pattern="*", format=support
                 to_print.append(variant)
             for variant in internal_attr.version_variants.values():
                 to_print.append(variant)
-        elif hasattr(internal_attr, "family_type"):
+        elif internal_attr is not None and hasattr(internal_attr, "family_type"):
             to_print = [f"{internal_attr.family_type}={family}" for family in internal_attr]
         else:
             to_print = internal_attr
@@ -396,9 +397,7 @@ def print_single_attribute(obj, attr, verbose=False, pattern="*", format=support
         #     if it's a list of dicts, convert the keys like above and print
         #     otherwise filter it and print using the format specification
         # Otherwise, print it as a raw string.
-        if isinstance(to_print, (list, set, tuple)) or (
-            hasattr(to_print, "__iter__") and not isinstance(to_print, str)
-        ):
+        if isinstance(to_print, Iterable) and not isinstance(to_print, str):
             to_print = list(to_print)
             if (
                 internal_attr
@@ -415,9 +414,10 @@ def print_single_attribute(obj, attr, verbose=False, pattern="*", format=support
         if isinstance(internal_attr, dict):
             _print_verbose_dict_attr(internal_attr, pattern=pattern, indentation=indentation)
         elif (
-            isinstance(internal_attr, (list, set, tuple))
-            or (hasattr(internal_attr, "__iter__") and not isinstance(internal_attr, str))
-        ) and not hasattr(internal_attr, "as_str"):
+            isinstance(internal_attr, Iterable)
+            and not isinstance(internal_attr, str)
+            and not hasattr(internal_attr, "as_str")
+        ):
             internal_list = list(internal_attr)
             # If it's a list of dicts, print each
             if internal_list and isinstance(internal_list[0], dict):
@@ -440,7 +440,7 @@ def print_single_attribute(obj, attr, verbose=False, pattern="*", format=support
                         color.cprint(f"{colified(to_print, tty=True, indent=4)}")
                     color.cprint("")
         else:
-            if hasattr(internal_attr, "as_str"):
+            if internal_attr is not None and hasattr(internal_attr, "as_str"):
                 color.cprint(internal_attr.as_str(verbose=True))
             else:
                 color.cprint(f"{indentation}{internal_attr}\n")

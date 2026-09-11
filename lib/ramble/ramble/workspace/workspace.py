@@ -14,7 +14,7 @@ import os
 import re
 import shutil
 from collections import defaultdict
-from typing import Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from ruamel import yaml
 
@@ -25,6 +25,7 @@ from llnl.util.tty import log
 import ramble.config
 import ramble.context
 import ramble.error
+import ramble.experiment_result
 import ramble.experiment_set
 import ramble.keywords
 import ramble.repository
@@ -124,7 +125,7 @@ applications_schema = ramble.schema.applications.schema
 config_schema = ramble.schema.workspace.schema
 
 #: Currently activated workspace
-_active_workspace = None
+_active_workspace: Optional["Workspace"] = None
 
 
 def valid_workspace_name(name):
@@ -318,7 +319,7 @@ def template_path(ws_path, requested_template_name):
 
 def all_template_paths(path):
     """Returns (abs) path to available template files in the workspace"""
-    templates = []
+    templates: List[str] = []
 
     config_path = os.path.join(path, WORKSPACE_CONFIG_PATH)
     for root, _, files in os.walk(config_path):
@@ -444,6 +445,7 @@ class Workspace:
 
     inventory_file_name = "ramble_inventory.json"
     hash_file_name = "workspace_hash.sha256"
+    _latest_archive: Optional[str] = None
 
     def __init__(self, root, dry_run=False, read_default_template=True):
         logger.debug(f"In workspace init. Root = {root}")
@@ -465,7 +467,7 @@ class Workspace:
         self.software_mirror_cache = None
         self.software_environments = None
         self.metadata = syaml.syaml_dict()
-        self.hash_inventory = {namespace.experiment: [], "versions": []}
+        self.hash_inventory: Dict[str, List[Any]] = {namespace.experiment: [], "versions": []}
         version = ramble.util.version.get_version()
         self.hash_inventory["versions"].append(
             {
@@ -487,7 +489,7 @@ class Workspace:
 
         # A per-package_manager dict mapping package spec to its install prefix.
         # This can be re-used by all experiments of the workspace.
-        self.pkg_path_cache = defaultdict(dict)
+        self.pkg_path_cache: Dict[str, Dict[str, Any]] = defaultdict(dict)
 
         # A simple dict mapping a file's src_path to its content.
         # This is currently used as a cache for reading per-object template contents.
@@ -500,7 +502,7 @@ class Workspace:
 
         # A cache structured as {pkg_man: {env_name: pkg_list}}.
         # It's used to cache package provenance info from different package managers.
-        self.pkg_prov_cache = defaultdict(dict)
+        self.pkg_prov_cache: Dict[str, Dict[str, Any]] = defaultdict(dict)
 
         # Key for each application config should be it's filepath
         # Format for an application config should be:
@@ -723,8 +725,8 @@ ramble:
         in the workspace config.
         """
 
-        error_sections = []
-        deprecated_sections = []
+        error_sections: List[str] = []
+        deprecated_sections: List[str] = []
 
         if deprecated_sections:
             logger.warn("Your workspace configuration contains deprecated sections:")
@@ -855,7 +857,7 @@ ramble:
 
     def clear(self):
         self.config_sections = {}
-        self.application_configs = []
+        self.application_configs = {}
         self._previous_active = None  # previously active environment
         self.specs = []
 
@@ -1356,7 +1358,7 @@ ramble:
         self.dry_run = True
         for workload_name in workload_names:
             edited = True
-            missing_vars = set()
+            missing_vars: Set[str] = set()
             exp_set = ramble.experiment_set.ExperimentSet(self)
             exp_list = exp_set.render_experiment_set(
                 app_inst.name,
@@ -1765,7 +1767,7 @@ ramble:
         fs.mkdirp(self.results_dir)
 
         results_written = []
-        symlinks_updated = []
+        symlinks_updated: List[str] = []
 
         dt = self.date_string()
         inner_delim = "."
@@ -1794,7 +1796,7 @@ ramble:
                             for context in exp["CONTEXTS"]:
                                 f.write(f'  {context["display_name"]} figures of merit:\n')
 
-                                fom_summary = {}
+                                fom_summary: Dict[str, List[Any]] = {}
                                 for fom in context["foms"]:
                                     name = fom["name"]
                                     if name not in fom_summary:
@@ -1955,15 +1957,15 @@ ramble:
         self.software_environments = ramble.software_environments.SoftwareEnvironments(self)
         experiment_set = self.build_experiment_set()
 
-        workspace_used_variables = set()
+        workspace_used_variables: Set[str] = set()
 
         prev_app = None
         prev_wl = None
         prev_exp = None
 
-        app_used_vars = set()
-        wl_used_vars = set()
-        exp_used_vars = set()
+        app_used_vars: Set[str] = set()
+        wl_used_vars: Set[str] = set()
+        exp_used_vars: Set[str] = set()
         changed = False
 
         for _, app_inst, _ in experiment_set.all_experiments():
@@ -2788,7 +2790,8 @@ def no_active_workspace():
         yield
     finally:
         if ws:
-            os.environ[RAMBLE_WORKSPACE_VAR] = env_var
+            if env_var is not None:
+                os.environ[RAMBLE_WORKSPACE_VAR] = env_var
             activate(ws)
 
 

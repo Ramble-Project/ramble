@@ -12,7 +12,7 @@ import os
 import sys
 import tempfile
 from collections import defaultdict
-from typing import Callable, Dict
+from typing import Any, Callable, Dict, Set, Tuple
 
 import deprecation
 
@@ -697,7 +697,7 @@ def workspace_push_to_cache(args):
     ws = ramble.cmd.require_active_workspace("workspace pushtocache", args.dry_run)
 
     filters = ramble.filters.Filters(
-        phase_filters="*",
+        phase_filters=["*"],
         include_where_filters=args.where,
         exclude_where_filters=args.exclude_where,
         tags=args.filter_tags,
@@ -898,7 +898,7 @@ def workspace_info(args):
     # We built a "print_experiment_set" to access the scopes of variables for each
     # experiment, rather than having merged scopes as we do in the base experiment_set.
     # The base experiment_set is used to list *all* experiments.
-    all_pipelines = {}
+    all_pipelines: Dict[str, Set[str]] = {}
     color.cprint("")
     color.cprint(color.section_title("Experiments:"))
 
@@ -1051,7 +1051,7 @@ def workspace_info(args):
 
                     if args.variants:
                         color.cprint(color.nested_4("        Variants: "))
-                        variant_set = set()
+                        variant_set: Set[str] = set()
                         for _, obj in app_inst.objects():
                             variant_set = variant_set.union(
                                 obj.experiment_variants().as_set(
@@ -1092,7 +1092,7 @@ def workspace_info(args):
         for pipeline in sorted(all_pipelines.keys()):
             color.cprint("")
             color.cprint(color.section_title(f"Phases for {pipeline} pipeline:"))
-            colify(all_pipelines[pipeline], indent=4)
+            colify(sorted(all_pipelines[pipeline]), indent=4)
 
     # Print software stack information
     if args.software or args.all_software:
@@ -1109,7 +1109,7 @@ def workspace_info(args):
         color.cprint("")
         color.cprint(color.section_title("Bootstrapped Utilities:"))
 
-        all_utilities = {}
+        all_utilities: Dict[str, Set[Tuple[Any, ...]]] = {}
         for workloads, _application_context in ws.all_applications():
             for experiments, _workload_context in ws.all_workloads(workloads):
                 for _exp_contents, _experiment_context in ws.all_experiments(experiments):

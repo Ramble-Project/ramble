@@ -11,6 +11,7 @@ import math
 import os
 import sys
 from enum import Enum
+from typing import Any, Dict, List
 
 import jsonschema
 
@@ -50,7 +51,7 @@ def validate_data(data, schema):
 
 
 class Uploader:
-    schema = [
+    schema: List[Dict[str, Any]] = [
         {
             "table": "experiments",
             "schema": experiment_schema,
@@ -270,6 +271,7 @@ def upload_results(results):
         return
 
     logger.all_msg(f"Uploading results to {uri} with {uploader_type} uploader")
+    uploader: Uploader
     if uploader_type == uploader_types.BigQuery:
         uploader = BigQueryUploader()
     elif uploader_type == uploader_types.SQLite:
@@ -769,7 +771,7 @@ class SQLiteUploader(Uploader):
         keys = list(data[0].keys())
 
         for row in data:
-            sqlite_row = []
+            sqlite_row: List[Any] = []
             for key in keys:
                 val = row.get(key)
                 if isinstance(val, (dict, list)):

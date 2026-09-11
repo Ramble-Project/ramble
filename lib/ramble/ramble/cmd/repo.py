@@ -286,7 +286,7 @@ def repo_add(args):
 def repo_remove(args):
     """Remove a repository from Ramble's configuration."""
     if args.type == "any":
-        obj_types = ramble.repository.ObjectTypes
+        obj_types = list(ramble.repository.ObjectTypes)
     else:
         obj_types = [ramble.repository.ObjectTypes[args.type]]
 
@@ -294,7 +294,7 @@ def repo_remove(args):
         scopes_to_check = [args.scope]
     else:
         # Highest precedence first
-        scopes_to_check = reversed([s.name for s in ramble.config.config.file_scopes])
+        scopes_to_check = list(reversed([s.name for s in ramble.config.config.file_scopes]))
 
     repo_removed = False
     for scope in scopes_to_check:
@@ -315,7 +315,7 @@ def repo_remove(args):
 def repo_list(args):
     """Show registered repositories and their namespaces."""
     if args.type == "any":
-        obj_types = ramble.repository.ObjectTypes
+        obj_types = list(ramble.repository.ObjectTypes)
     else:
         obj_types = [ramble.repository.ObjectTypes[args.type]]
 

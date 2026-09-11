@@ -8,6 +8,7 @@
 
 import copy
 import os
+from typing import Any, Dict, List, Optional
 
 from ramble.util.file_util import create_symlink
 from ramble.util.logger import logger
@@ -26,6 +27,13 @@ class ResultsColumn:
         "figure_of_merit_context",
         "figure_of_merit_origin_type",
     ]
+
+    name: Optional[str] = None
+    expression: Optional[str] = None
+    figure_of_merit: Optional[str] = None
+    figure_of_merit_context: Optional[str] = None
+    figure_of_merit_origin_type: Optional[str] = None
+    _template: Optional["ResultsAutoColumn"] = None
 
     def __init__(self, conf_dict):
         """Construct a column from a configuration dict, assuming the structure matches the
@@ -152,6 +160,11 @@ class ResultsAutoColumn:
         "figure_of_merit_origin_type",
     ]
 
+    name: Optional[str] = None
+    context_name: Optional[str] = None
+    figure_of_merit: Optional[str] = None
+    figure_of_merit_origin_type: Optional[str] = None
+
     def __init__(self, conf_dict):
         """Construct an auto column from a configuration dict
 
@@ -188,6 +201,9 @@ class ResultsTable:
     _autocolumns_name = "autocolumns"
     _where_name = "where"
     _transpose_name = "transpose"
+
+    group_by: List[str]
+    sort_by: List[str]
 
     def __init__(self, conf_dict):
         """Constructor for a single table
@@ -359,7 +375,7 @@ class ResultsTable:
                                 col_obj._template = autocol_template
                                 self.generated_columns[col_name] = col_obj
 
-        column_values = {}
+        column_values: Dict[str, Any] = {}
         remaining_columns = set(self._data.keys())
 
         # Combine manual and generated columns

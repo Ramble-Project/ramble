@@ -169,8 +169,8 @@ def perform_list(args):
     # Filter by tags
     if args.tags:
         objects_with_tags = set(ramble.repository.paths[object_type].objects_with_tags(*args.tags))
-        sorted_objects = set(sorted_objects) & objects_with_tags
-        sorted_objects = sorted(sorted_objects)
+        matching_tags = set(sorted_objects) & objects_with_tags
+        sorted_objects = sorted(matching_tags)
 
     if not sorted_objects:
         filter_strs = []

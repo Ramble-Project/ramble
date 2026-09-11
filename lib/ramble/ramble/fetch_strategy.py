@@ -34,7 +34,7 @@ import re
 import shutil
 import sys
 import urllib.parse
-from typing import List, Optional, Type
+from typing import Any, List, Optional, Type
 
 from llnl.util import tty
 from llnl.util.filesystem import (
@@ -115,6 +115,7 @@ class FetchStrategy:
     # optional attributes in version() args.
     optional_attrs: List[str] = []
     url: Optional[str] = None
+    stage: Any = None
 
     def __init__(self, **kwargs):
         # The stage is initialized late, so that fetch strategies can be
@@ -382,14 +383,14 @@ class URLFetchStrategy(FetchStrategy):
     @_needs_stage
     def _fetch_urllib(self, url):
         save_file = None
-        if self.stage.save_filename:
+        if self.stage and self.stage.save_filename:
             save_file = self.stage.save_filename
         logger.msg(f"Fetching {url}")
 
         # Check if we're about to try and open a broken symlink, and if so
         # remove that file to avoid a bad situation where a file "exists" but
         # cannot be opened (warning: this is not atomic)
-        if os.path.islink(save_file) and not os.path.exists(save_file):
+        if save_file and os.path.islink(save_file) and not os.path.exists(save_file):
             os.unlink(save_file)
 
         # Run urllib but grab the mime type from the http headers
@@ -403,6 +404,9 @@ class URLFetchStrategy(FetchStrategy):
                 os.remove(save_file)
             msg = f"urllib failed to fetch with error {e}"
             raise FailedDownloadError(url, msg) from None
+
+        if not save_file:
+            raise FailedDownloadError(url, "Cannot determine save filename for urllib fetch")
 
         with open(save_file, "wb") as _open_file:
             shutil.copyfileobj(response, _open_file)
@@ -645,6 +649,8 @@ class CacheURLFetchStrategy(URLFetchStrategy):
 
     @_needs_stage
     def fetch(self):
+        if not self.url:
+            raise FetchError(f"No URL specified for {self}")
         path = re.sub("^file://", "", self.url)
 
         # check whether the cache file exists.
@@ -694,6 +700,8 @@ class VCSFetchStrategy(FetchStrategy):
         super().__init__(**kwargs)
 
         # Set a URL based on the type of fetch strategy.
+        if not self.url_attr:
+            raise ValueError(f"{self.__class__} has no url_attr defined.")
         self.url = kwargs.get(self.url_attr)
         if not self.url:
             raise ValueError(f"{self.__class__} requires {self.url_attr} argument.")
@@ -776,7 +784,7 @@ class GitFetchStrategy(VCSFetchStrategy):
     git_version_re = r"git version (\S+)"
 
     submodules: bool = False
-    submodules_delete: bool = False
+    submodules_delete: Any = False
     get_full_repo: bool = False
 
     def __init__(self, **kwargs):
@@ -802,6 +810,8 @@ class GitFetchStrategy(VCSFetchStrategy):
         """
         version_output = git_exe("--version", output=str)
         m = re.search(GitFetchStrategy.git_version_re, version_output)
+        if not m:
+            raise FetchError(f"Could not parse git version from {version_output}")
         return spack.version.Version(m.group(1))
 
     @property
@@ -872,7 +882,14 @@ class GitFetchStrategy(VCSFetchStrategy):
             bare (bool): Execute a "bare" git clone (--bare option to git)
         """
         # Default to spack source path
-        dest = dest or self.stage.source_path
+        if not self.url:
+            raise FetchError(f"Cannot clone git repository without URL in {self}")
+
+        if not dest:
+            if not self.stage:
+                raise NoStageError(self.clone)
+            dest = self.stage.source_path
+
         logger.debug(f"Cloning git repository: {self._repo_info()}")
 
         git = self.git
@@ -958,7 +975,7 @@ class GitFetchStrategy(VCSFetchStrategy):
                     git(*pull_args, ignore_errors=1)
                     git(*co_args)
 
-        if self.submodules_delete:
+        if self.submodules_delete and hasattr(self.submodules_delete, "__iter__"):
             with working_dir(self.stage.source_path):
                 for submodule_to_delete in self.submodules_delete:
                     args = ["rm", submodule_to_delete]
@@ -993,6 +1010,8 @@ class GitFetchStrategy(VCSFetchStrategy):
         """Shallow clone operations (--depth #) are not supported by the basic
         HTTP protocol or by no-protocol file specifications.
         Use (e.g.) https:// or file:// instead."""
+        if not self.url:
+            return False
         return not (self.url.startswith("http://") or self.url.startswith("/"))
 
     def __str__(self):
@@ -1018,6 +1037,7 @@ class CvsFetchStrategy(VCSFetchStrategy):
 
     url_attr = "cvs"
     optional_attrs = ["branch", "date"]
+    date: Optional[str] = None
 
     def __init__(self, **kwargs):
         # Discards the keywords in kwargs that may conflict with the next call
@@ -1054,7 +1074,7 @@ class CvsFetchStrategy(VCSFetchStrategy):
         return id
 
     def mirror_id(self):
-        if not (self.branch or self.date):
+        if not (self.branch or self.date) or not self.url:
             # We need a branch or a date to make a checkout reproducible
             return None
         # Special-case handling because this is not actually a URL
@@ -1075,6 +1095,9 @@ class CvsFetchStrategy(VCSFetchStrategy):
         if self.stage.expanded:
             logger.debug("Already fetched {self.stage.source_path}")
             return
+
+        if not self.url:
+            raise FetchError(f"No CVS URL specified for {self}")
 
         logger.debug("Checking out CVS repository: {self.url}")
 
@@ -1159,7 +1182,7 @@ class SvnFetchStrategy(VCSFetchStrategy):
         return self.revision
 
     def mirror_id(self):
-        if self.revision:
+        if self.revision and self.url:
             repo_path = url_util.parse(self.url).path
             result = os.path.sep.join(["svn", repo_path, self.revision])
             return result
@@ -1169,6 +1192,9 @@ class SvnFetchStrategy(VCSFetchStrategy):
         if self.stage.expanded:
             logger.debug(f"Already fetched {self.stage.source_path}")
             return
+
+        if not self.url:
+            raise FetchError(f"No SVN URL specified for {self}")
 
         logger.debug(f"Checking out subversion repository: {self.url}")
 
@@ -1269,7 +1295,7 @@ class HgFetchStrategy(VCSFetchStrategy):
         return self.revision
 
     def mirror_id(self):
-        if self.revision:
+        if self.revision and self.url:
             repo_path = url_util.parse(self.url).path
             result = os.path.sep.join(["hg", repo_path, self.revision])
             return result
@@ -1279,6 +1305,9 @@ class HgFetchStrategy(VCSFetchStrategy):
         if self.stage.expanded:
             logger.debug(f"Already fetched {self.stage.source_path}")
             return
+
+        if not self.url:
+            raise FetchError(f"No Mercurial URL specified for {self}")
 
         args = []
         if self.revision:
@@ -1466,7 +1495,8 @@ def from_url_scheme(url, *args, **kwargs):
     for fetcher in all_strategies:
         url_attr = getattr(fetcher, "url_attr", None)
         if url_attr and url_attr == scheme:
-            return fetcher(url, *args, **kwargs)
+            fetcher_cls: Any = fetcher
+            return fetcher_cls(url, *args, **kwargs)
 
     raise ValueError(f'No FetchStrategy found for url with scheme: "{parsed_url.scheme}"')
 

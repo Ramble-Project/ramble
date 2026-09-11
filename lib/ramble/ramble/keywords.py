@@ -144,6 +144,8 @@ class Keywords:
     err_file: str
     env_path: str
     input_name: str
+    is_repeat_parent: str
+    is_repeat_child: str
     repeat_index: str
     spec_name: str
     env_name: str
@@ -151,6 +153,8 @@ class Keywords:
     n_nodes: str
     processes_per_node: str
     n_threads: str
+    n_accelerators: str
+    accelerators_per_node: str
     batch_submit: str
     mpi_command: str
     workload_template_name: str

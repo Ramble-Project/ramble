@@ -47,3 +47,6 @@ user_config_path: str = os.path.expanduser("~/.ramble")
 
 etc_path: str = os.path.join(prefix, "etc")
 system_etc_path: str = "/etc"
+
+#: Default cache location for downloaded archives
+default_fetch_cache_path: str = os.path.join(var_path, "cache")
