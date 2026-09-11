@@ -2426,16 +2426,25 @@ ramble:
         to_remove = []
 
         if remove_index is not None:
-            if not isinstance(remove_index, int):
-                logger.error(
-                    "Cannot remove modifier index without an integer index. "
-                    f"Given index was {remove_index}"
+            # Note: bool is a subclass of int, but indexing with it is
+            # certainly not intended, so reject it explicitly.
+            if isinstance(remove_index, bool) or not isinstance(remove_index, int):
+                raise RambleWorkspaceError(
+                    "Cannot remove a modifier without an integer index. "
+                    f"Given index was {remove_index!r}"
                 )
 
-            if remove_index < 0 or remove_index > len(mod_list):
-                logger.error(
-                    f"Modifier index {remove_index} is outside of the range of modifiers."
-                    "Use `ramble worksapce manage modifiers --list` to see indices"
+            if not mod_list:
+                raise RambleWorkspaceError(
+                    f"Cannot remove modifier index {remove_index}. "
+                    "This workspace contains no modifiers."
+                )
+
+            if remove_index < 0 or remove_index >= len(mod_list):
+                raise RambleWorkspaceError(
+                    f"Modifier index {remove_index} is outside of the range of modifiers. "
+                    f"Valid indices are 0-{len(mod_list) - 1}. "
+                    "Use `ramble workspace manage modifiers --list` to see indices."
                 )
 
             to_remove.append(mod_list[remove_index])

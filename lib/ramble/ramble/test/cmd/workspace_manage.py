@@ -83,3 +83,98 @@ def test_manage_experiments_no_overwrite_wm_vars(workspace_name):
         assert "processes_per_node:" in content
         assert "batch_submit" not in content
         assert "mpi_command" not in content
+
+
+_TEST_MODIFIERS = ["lscpu", "ethtool"]
+
+
+def _workspace_with_two_modifiers(workspace_name):
+    """Create a workspace containing two workspace-scoped modifiers.
+
+    Uses ``workspace manage modifiers`` rather than raw YAML so the setup
+    exercises the same path a user would take.
+    """
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    global_args = ["-w", workspace_name]
+
+    for mod_name in _TEST_MODIFIERS:
+        workspace(
+            "manage",
+            "modifiers",
+            "--add",
+            "--name",
+            mod_name,
+            "--scope",
+            "workspace",
+            global_args=global_args,
+        )
+
+    ws._re_read()
+    assert [mod[1]["name"] for mod in ws.index_modifiers()] == _TEST_MODIFIERS
+    return ws
+
+
+@pytest.mark.parametrize(
+    "remove_index",
+    [
+        # Equal to len(mod_list). Regression test for an off-by-one in the
+        # bounds check that let this through and raised a bare IndexError.
+        2,
+        3,
+        99,
+        -1,
+    ],
+)
+def test_remove_modifier_out_of_range_index_errors(workspace_name, remove_index):
+    """Out-of-range indices raise a RambleWorkspaceError, not an IndexError."""
+    ws = _workspace_with_two_modifiers(workspace_name)
+
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="outside of the range"):
+        ws.remove_modifier(remove_index=remove_index)
+
+    # A rejected removal must not modify the workspace.
+    assert len(ws.index_modifiers()) == 2
+
+
+def test_remove_modifier_index_on_empty_workspace_errors(workspace_name):
+    """Removing by index with no modifiers defined gives a clear error."""
+    ws = ramble.workspace.create(workspace_name)
+
+    assert ws.index_modifiers() == []
+
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="contains no modifiers"):
+        ws.remove_modifier(remove_index=0)
+
+
+@pytest.mark.parametrize("remove_index", ["1", 1.0, True, object()])
+def test_remove_modifier_non_integer_index_errors(workspace_name, remove_index):
+    """Non-integer indices are rejected rather than silently indexing the list.
+
+    ``True`` is included deliberately: ``bool`` is a subclass of ``int``, so an
+    unguarded check would index the list with it.
+    """
+    ws = _workspace_with_two_modifiers(workspace_name)
+
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="integer index"):
+        ws.remove_modifier(remove_index=remove_index)
+
+    assert len(ws.index_modifiers()) == 2
+
+
+@pytest.mark.parametrize(
+    "remove_index,expected_remaining",
+    [(0, "ethtool"), (1, "lscpu")],
+)
+def test_remove_modifier_valid_index_removes_expected(
+    workspace_name, remove_index, expected_remaining
+):
+    """Valid indices, including the last one, remove the correct modifier."""
+    ws = _workspace_with_two_modifiers(workspace_name)
+
+    removed = ws.remove_modifier(remove_index=remove_index)
+
+    assert removed == 1
+    remaining = ws.index_modifiers()
+    assert len(remaining) == 1
+    assert remaining[0][1]["name"] == expected_remaining
