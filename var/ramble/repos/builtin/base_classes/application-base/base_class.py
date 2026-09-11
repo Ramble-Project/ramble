@@ -51,6 +51,7 @@ from ramble.error import (
     ObjectValidationError,
 )
 from ramble.experiment_result import ExperimentResult, ExperimentStatus
+from ramble.fetch_strategy import VCS_CHECKOUT_ATTRIBUTES
 from ramble.language.language_base import DirectiveMeta
 from ramble.language.shared_language import (
     archive_pattern,
@@ -2795,16 +2796,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                             mapped_conf = conf_to_merge
 
                         explicit_version_requested = any(
-                            k in mapped_conf
-                            for k in [
-                                "commit",
-                                "hash",
-                                "sha",
-                                "version",
-                                "tag",
-                                "branch",
-                                "revision",
-                            ]
+                            k in mapped_conf for k in VCS_CHECKOUT_ATTRIBUTES
                         )
 
                         fetch_kwargs.update(conf_to_merge)
