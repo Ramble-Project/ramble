@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import glob
 import os
 
 import pytest
@@ -52,7 +53,11 @@ def test_gromacs_mock_spack_config_mod(
 
         assert os.path.isfile(exp_script)
 
-        spack_yaml = os.path.join(ws1.software_dir, "spack", "gromacs", "spack.yaml")
+        spack_yaml = os.path.join(
+            glob.glob(os.path.join(ws1.software_dir, "spack*"))[0],
+            "gromacs",
+            "spack.yaml",
+        )
         assert os.path.isfile(spack_yaml)
 
         with open(spack_yaml, encoding="utf-8") as f:

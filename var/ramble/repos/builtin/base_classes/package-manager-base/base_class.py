@@ -14,16 +14,16 @@ from typing import List
 
 import ramble.definitions.families
 import ramble.repository
+import ramble.variants
+from ramble.fetch_strategy import VCS_CHECKOUT_ATTRIBUTES
 from ramble.language.language_base import DirectiveMeta
 from ramble.language.shared_language import register_phase
-from ramble.fetch_strategy import VCS_CHECKOUT_ATTRIBUTES
 from ramble.software_environments import (
     RambleSoftwareEnvironmentError,
     TemplatePackage,
 )
 from ramble.util.logger import logger
 from ramble.util.naming import NS_SEPARATOR
-import ramble.variants
 
 ObjectMixin = ramble.repository.get_base_class("object-mixin")
 

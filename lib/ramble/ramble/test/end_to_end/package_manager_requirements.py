@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import glob
 import os
 
 import pytest
@@ -54,7 +55,11 @@ ramble:
 
     workspace("setup", global_args=["-w", ws_name])
 
-    spack_yaml = os.path.join(ws.software_dir, "spack", "zlib-configs", "spack.yaml")
+    spack_yaml = os.path.join(
+        glob.glob(os.path.join(ws.software_dir, "spack*"))[0],
+        "zlib-configs",
+        "spack.yaml",
+    )
 
     assert os.path.isfile(spack_yaml)
 

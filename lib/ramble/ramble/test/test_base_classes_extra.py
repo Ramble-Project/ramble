@@ -122,7 +122,7 @@ def test_utility_base_validate_versions_run_fails(
 
     monkeypatch.setattr(subprocess, "run", mock_run_fail)
     assert spack.validate_versions(min_version="1.0") is False
-    assert "Error checking version" in spack.availability_error
+    assert "Could not determine version" in spack.availability_error
 
 
 def test_utility_base_setup_runner_environment_system(mutable_config, mutable_mock_workspace_path):

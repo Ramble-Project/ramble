@@ -224,7 +224,7 @@ def test_utility_base_validate_versions_with_path(monkeypatch):
     spack_inst = SpackClass("/path/to/spack")
 
     def mock_shutil_which(cmd, path=None, **kwargs):
-        if cmd == "spack" and path == "/custom/path/to/spack/bin":
+        if cmd == "spack" and "/custom/path/to/spack/bin" in path:
             return "/custom/path/to/spack/bin/spack"
         return None
 
@@ -453,7 +453,7 @@ def test_utility_base_validate_versions_subprocess_fails(monkeypatch, tmpdir):
     monkeypatch.setattr(SpackClass, "_check_exact_match_via_vcs", mock_check_vcs)
 
     assert spack_inst.validate_versions(exact_version="0.18.0") is False
-    assert "Error checking version" in spack_inst.availability_error
+    assert "Could not determine version" in spack_inst.availability_error
 
 
 def test_utility_base_class_variants():
