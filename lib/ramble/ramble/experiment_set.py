@@ -226,12 +226,12 @@ class ExperimentSet:
         # Setup the application instance
         app_inst = ramble.repository.get(final_app_spec)
         variables[self.keywords.application_name] = app_inst.name
+        app_inst.set_internals(context.internals)
         app_inst.set_variables_and_variants(variables, context.variants, self._workspace, self)
         app_inst.validate_version()
         app_inst.set_active_workload()
         app_inst.set_modifiers(context.modifiers)
         app_inst.set_required_variables()
-        app_inst.set_internals(context.internals)
         app_inst.set_chained_experiments(context.chained_experiments)
         app_inst.set_env_variable_sets(context.env_variables)
         app_inst.set_template(context.is_template)

@@ -325,6 +325,8 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
             )
 
         new_clone.workloads = copy.deepcopy(self.workloads)
+        new_clone.inputs = copy.deepcopy(self.inputs)
+        new_clone.custom_executables = self.custom_executables.copy()
         new_clone.keywords = ramble.keywords.keywords.copy()
         new_clone.set_template(False)
         new_clone.repeats.set_repeats(False, 0)
@@ -350,6 +352,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         """Checks if a workload name is valid and returns the workload that
         satisfies `when` conditions.
         """
+        self._define_custom_workloads()
         workload = None
         workload_found = False
         for when_set, workloads in self.workloads.items():
@@ -413,6 +416,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         Use this instead of get_workload() if calling before variants are set,
         e.g. in set_variables()
         """
+        self._define_custom_workloads()
         if not workload_name:
             workload_name = self.expander.workload_name
 
@@ -430,6 +434,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
     def get_all_workloads(self):
         """Retrieves all workloads satisfying current `when` conditions."""
+        self._define_custom_workloads()
         all_workloads_names = set()
         found = False
         for when_set, workloads in self.workloads.items():
@@ -868,6 +873,8 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                 experiment_set._workspace.workspace_paths()
             )
 
+        self._define_custom_executables()
+
     def non_reserved_variables(
         self, remove_keys: set = None
     ) -> Dict[str, str]:
@@ -1056,6 +1063,10 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         """Set internal reference to application internals"""
 
         self.internals = internals
+        self._define_custom_inputs()
+        self._define_custom_workloads()
+        if self.expander:
+            self._define_custom_executables()
 
     def set_template(self, is_template):
         """Set if this instance is a template or not"""
@@ -1263,6 +1274,20 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
             color.cprint(
                 f"{indent}{header}: {str(self.internals[namespace.executable_injection])}"
             )
+
+        if namespace.custom_inputs in self.internals:
+            header = rucolor.nested_4("Custom Inputs")
+            color.cprint(f"{indent}{header}:")
+
+            for name in self.internals[namespace.custom_inputs]:
+                color.cprint(f"{indent}  {name}")
+
+        if namespace.custom_workloads in self.internals:
+            header = rucolor.nested_4("Custom Workloads")
+            color.cprint(f"{indent}{header}:")
+
+            for name in self.internals[namespace.custom_workloads]:
+                color.cprint(f"{indent}  {name}")
 
     def print_chain_order(self, indent=""):
         if not self.chain_order:
@@ -1892,6 +1917,135 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
         return filtered_executables, full_executables
 
+    def _define_custom_inputs(self):
+        """Define custom inputs from internals"""
+        if namespace.custom_inputs in self.internals:
+            self.inputs = copy.deepcopy(self.inputs)
+            empty_when = frozenset()
+            if empty_when not in self.inputs:
+                self.inputs[empty_when] = {}
+
+            for name, conf in self.internals[namespace.custom_inputs].items():
+                existing_input = None
+                for when_set in list(self.inputs.keys()):
+                    if name in self.inputs[when_set]:
+                        existing_input = self.inputs[when_set][name]
+                        del self.inputs[when_set][name]
+
+                if existing_input:
+                    new_input = existing_input.copy()
+                    new_input["url"] = conf["url"]
+                    if "sha256" in conf:
+                        new_input["sha256"] = conf["sha256"]
+                    if "target_dir" in conf:
+                        new_input["target_dir"] = conf["target_dir"]
+                    if "expand" in conf:
+                        new_input["expand"] = conf["expand"]
+                    if "extension" in conf:
+                        ext = conf["extension"]
+                        new_input["extension"] = (
+                            ext.lstrip(".") if ext else ext
+                        )
+                    if "description" in conf:
+                        new_input["description"] = conf["description"]
+                    new_input["when"] = []
+                    self.inputs[empty_when][name] = new_input
+                else:
+                    ext = conf.get("extension", None)
+                    if ext:
+                        ext = ext.lstrip(".")
+                    new_input = {
+                        "url": conf["url"],
+                        "sha256": conf.get("sha256", None),
+                        "target_dir": conf.get(
+                            "target_dir", "{workload_input_dir}"
+                        ),
+                        "expand": conf.get("expand", True),
+                        "extension": ext,
+                        "description": conf.get("description", ""),
+                        "when": [],
+                    }
+                    self.inputs[empty_when][name] = new_input
+
+            self._input_fetchers = None
+
+    def _define_custom_workloads(self):
+        """Define custom workloads from internals"""
+        if namespace.custom_workloads in self.internals:
+            self.workloads = copy.deepcopy(self.workloads)
+            empty_when = frozenset()
+            if empty_when not in self.workloads:
+                self.workloads[empty_when] = {}
+
+            for name, conf in self.internals[
+                namespace.custom_workloads
+            ].items():
+                existing_wl = None
+                for when_set in list(self.workloads.keys()):
+                    if name in self.workloads[when_set]:
+                        existing_wl = self.workloads[when_set][name]
+                        del self.workloads[when_set][name]
+
+                if namespace.executables in conf:
+                    executables = conf[namespace.executables]
+                    if isinstance(executables, (str, int, float)):
+                        executables = [str(executables)]
+                    elif executables is None:
+                        executables = []
+                    else:
+                        executables = [str(x) for x in executables]
+                elif existing_wl:
+                    executables = existing_wl.executables.copy()
+                else:
+                    executables = []
+
+                if namespace.inputs in conf:
+                    inputs = conf[namespace.inputs]
+                    if isinstance(inputs, (str, int, float)):
+                        inputs = [str(inputs)]
+                    elif inputs is None:
+                        inputs = []
+                    else:
+                        inputs = [str(x) for x in inputs]
+                elif existing_wl:
+                    inputs = existing_wl.inputs.copy()
+                else:
+                    inputs = []
+
+                if namespace.tags in conf:
+                    tags = conf[namespace.tags]
+                    if isinstance(tags, (str, int, float)):
+                        tags = [str(tags)]
+                    elif tags is None:
+                        tags = []
+                    else:
+                        tags = [str(x) for x in tags]
+                elif existing_wl:
+                    tags = existing_wl.tags.copy()
+                else:
+                    tags = []
+
+                custom_wl = ramble.workload.Workload(
+                    name=name,
+                    executables=executables,
+                    inputs=inputs,
+                    tags=tags,
+                )
+
+                if existing_wl:
+                    custom_wl.variables = copy.deepcopy(existing_wl.variables)
+                    custom_wl.environment_variables = copy.deepcopy(
+                        existing_wl.environment_variables
+                    )
+                    if existing_wl.where:
+                        custom_wl.where = existing_wl.where.copy()
+                    if existing_wl.exclude_where:
+                        custom_wl.exclude_where = (
+                            existing_wl.exclude_where.copy()
+                        )
+
+                self.workloads[empty_when][name] = custom_wl
+
     def _define_custom_executables(self):
         # Define custom executables
         if namespace.custom_executables in self.internals:
@@ -2001,6 +2155,9 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         Define variables for each input file, of the format:
             '{input_file_name}' = <path_to_input>
         """
+        if not self.expander or not self.expander.workload_name:
+            return
+
         self._inputs_and_fetchers(self.expander.workload_name)
 
         for input_file, input_conf in self._input_fetchers.items():
@@ -2393,13 +2550,16 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         if self._template_paths_defined:
             return
 
+        self._set_input_path()
+
         workspace = self.workspace
-        for template_name, _ in workspace.all_templates():
-            expand_path = os.path.join(
-                self.expander.expand_var("{experiment_run_dir}"),
-                template_name,
-            )
-            self.variables[template_name] = expand_path
+        if workspace:
+            for template_name, _ in workspace.all_templates():
+                expand_path = os.path.join(
+                    self.expander.expand_var("{experiment_run_dir}"),
+                    template_name,
+                )
+                self.variables[template_name] = expand_path
 
         var_attr = {
             "type": ramble.keywords.key_type.reserved,
@@ -2429,6 +2589,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         Take a workload name and extract all inputs for the workload.
         If the workload is set to None, extract all inputs for all workloads.
         """
+        self._define_custom_inputs()
 
         if self._input_fetchers is not None:
             return
@@ -2480,6 +2641,9 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                     )
 
                 # Expand input value as it may be a var
+                if "url" not in input_conf:
+                    continue
+
                 expanded_url = self.expander.expand_var(input_conf["url"])
                 input_conf["url"] = expanded_url
 

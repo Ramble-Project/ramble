@@ -1034,6 +1034,88 @@ this executable, the value of ``n_ranks`` is defined to be the value of
 one rank per compute node. This would print the hostname of each node in the
 experiment once.
 
+Using Custom Inputs
+~~~~~~~~~~~~~~~~~~~
+
+The ``custom_inputs`` sub-section under ``internals`` allows users to define new input files
+or override the URL and checksum of inputs declared by an application class. This is useful
+for targeting internal mirrors, local files (via ``file://``), cloud buckets (via ``s3://``
+or ``gs://``), sweeping datasets across experiments, or running modified datasets where
+checksum validation should be bypassed.
+
+When overriding an existing input, any unspecified attributes (such as ``target_dir``,
+``expand``, or ``description``) are preserved from the original application definition.
+
+.. code-block:: yaml
+
+   ramble:
+     applications:
+       hostname:
+         internals:
+           custom_inputs:
+             existing_input:
+               url: 'https://internal-mirror.example.com/dataset-v1.tar.gz'
+               sha256: null # Disables checksum validation
+
+Custom inputs also support variable expansion in their ``url`` attribute, enabling parameter sweeps:
+
+.. code-block:: yaml
+
+   ramble:
+     applications:
+       hostname:
+         workloads:
+           local:
+             experiments:
+               sweep_{dataset_ver}:
+                 matrix:
+                   - dataset_ver
+                 variables:
+                   dataset_ver: ['v1', 'v2']
+                 internals:
+                   custom_inputs:
+                     my_dataset:
+                       url: 'https://storage.example.com/{dataset_ver}/input.tar.gz'
+
+Using Custom Workloads
+~~~~~~~~~~~~~~~~~~~~~~
+
+The ``custom_workloads`` sub-section under ``internals`` allows users to compose custom
+workload definitions directly in YAML, binding executables and inputs together without
+creating a custom Python application class.
+
+Workloads defined this way can combine built-in or custom executables, built-in or custom
+inputs, and specify workload tags. Variables named after the inputs (e.g. ``{<input_name>}``)
+are automatically expanded to the path of the expanded input archive or file.
+
+.. code-block:: yaml
+
+   ramble:
+     applications:
+       gromacs:
+         internals:
+           custom_inputs:
+             my_custom_system:
+               url: 'https://internal-server.org/datasets/my-benchmark.tar.gz'
+               sha256: null
+           custom_executables:
+             run_custom_sim:
+               template:
+                 - 'gmx mdrun -s {my_custom_system}/topol.tpr'
+               use_mpi: true
+           custom_workloads:
+             custom_sim:
+               executables:
+                 - run_custom_sim
+               inputs:
+                 - my_custom_system
+               tags:
+                 - custom_benchmark
+         workloads:
+           custom_sim:
+             experiments:
+               test_run: {}
+
 .. _ramble-reserved-variables:
 
 ^^^^^^^^^^^^^^^^^^

@@ -63,6 +63,41 @@ executable_injection_def = {
     },
 }
 
+custom_inputs_def = {
+    "type": "object",
+    "default": {},
+    "properties": {},
+    "additionalProperties": {
+        "type": "object",
+        "required": ["url"],
+        "additionalProperties": False,
+        "properties": {
+            "url": {"type": "string"},
+            "sha256": {"type": ["string", "null"]},
+            "target_dir": {"type": "string"},
+            "expand": {"type": "boolean"},
+            "extension": {"type": "string"},
+            "description": {"type": "string"},
+        },
+    },
+}
+
+custom_workloads_def = {
+    "type": "object",
+    "default": {},
+    "properties": {},
+    "additionalProperties": {
+        "type": "object",
+        "default": {},
+        "additionalProperties": False,
+        "properties": {
+            "inputs": ramble.schema.types.array_or_scalar_of_strings_or_nums,
+            "executables": ramble.schema.types.array_or_scalar_of_strings_or_nums,
+            "tags": ramble.schema.types.array_or_scalar_of_strings_or_nums,
+        },
+    },
+}
+
 internals_def = {
     "type": "object",
     "default": {},
@@ -70,6 +105,8 @@ internals_def = {
         "custom_executables": custom_executables_def,
         "executables": executables_def,
         "executable_injection": executable_injection_def,
+        "custom_inputs": custom_inputs_def,
+        "custom_workloads": custom_workloads_def,
     },
     "additionalProperties": False,
 }

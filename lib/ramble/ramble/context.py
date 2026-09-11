@@ -6,6 +6,8 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import copy
+
 import ramble.error
 import ramble.util.colors as color
 import ramble.util.matrices
@@ -78,6 +80,8 @@ class Context:
             namespace.custom_executables,
             namespace.executables,
             namespace.executable_injection,
+            namespace.custom_inputs,
+            namespace.custom_workloads,
         ]
 
         if in_context.variables:
@@ -96,7 +100,16 @@ class Context:
                             self.internals[internal_section] = {}
                         section_dict = in_context.internals[internal_section]
                         for key, val in section_dict.items():
-                            self.internals[internal_section][key] = val
+                            if (
+                                key in self.internals[internal_section]
+                                and isinstance(self.internals[internal_section][key], dict)
+                                and isinstance(val, dict)
+                            ):
+                                self.internals[internal_section][key].update(copy.deepcopy(val))
+                            else:
+                                self.internals[internal_section][key] = (
+                                    copy.deepcopy(val) if isinstance(val, (dict, list)) else val
+                                )
                     elif isinstance(in_context.internals[internal_section], list):
                         if internal_section not in self.internals:
                             self.internals[internal_section] = []
