@@ -88,7 +88,9 @@ ramble:
     software_base_dir = os.path.join(ws.root, ramble.workspace.WORKSPACE_SOFTWARE_PATH)
     assert os.path.exists(software_base_dir)
 
-    software_path = os.path.join(software_base_dir, "spack", software_dir)
+    software_path = (
+        __import__("glob").glob(os.path.join(software_base_dir, "spack*"))[0] + "/" + software_dir
+    )
     assert os.path.exists(software_path)
 
     for i, exp in enumerate(expected_experiments):

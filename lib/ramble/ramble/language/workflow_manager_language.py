@@ -31,6 +31,7 @@ def workflow_manager_variable(
     **kwargs,
 ):
     """Define a variable for this wm
+
     Args:
         name: Name of variable
         default: Default value if the variable is not defined
