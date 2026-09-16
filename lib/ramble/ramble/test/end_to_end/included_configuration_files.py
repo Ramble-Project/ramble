@@ -146,7 +146,11 @@ ramble:
         software_base_dir = ws1.software_dir
         assert os.path.exists(software_base_dir)
         for software_dir in software_dirs:
-            software_path = os.path.join(software_base_dir, "spack", software_dir)
+            software_path = (
+                __import__("glob").glob(os.path.join(software_base_dir, "spack*"))[0]
+                + "/"
+                + software_dir
+            )
             assert os.path.exists(software_path)
 
             spack_file = os.path.join(software_path, "spack.yaml")

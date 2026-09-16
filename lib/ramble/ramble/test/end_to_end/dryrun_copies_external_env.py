@@ -77,7 +77,11 @@ ramble:
         setup_pipeline = setup_cls(ws, filters)
         setup_pipeline.run()
 
-        env_file = os.path.join(ws.software_dir, "spack", "wrfv4", "spack.yaml")
+        env_file = os.path.join(
+            __import__("glob").glob(os.path.join(ws.software_dir, "spack*"))[0],
+            "wrfv4",
+            "spack.yaml",
+        )
 
         assert os.path.exists(env_file)
 

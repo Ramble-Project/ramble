@@ -56,7 +56,7 @@ def test_gromacs_single_full_modifier_dry_run(
         workspace("setup", "--dry-run", global_args=["-D", ws1.root])
 
         # Test software directories
-        software_base_dir = os.path.join(ws1.software_dir, "spack")
+        software_base_dir = __import__("glob").glob(os.path.join(ws1.software_dir, "spack*"))[0]
 
         modifier_helpers.check_software_env(software_base_dir, software_tests)
 
@@ -107,7 +107,7 @@ def test_gromacs_single_stub_modifier_dry_run(
         workspace("setup", "--dry-run", global_args=["-D", ws1.root])
 
         # Test software directories
-        software_base_dir = os.path.join(ws1.software_dir, "spack")
+        software_base_dir = __import__("glob").glob(os.path.join(ws1.software_dir, "spack*"))[0]
 
         modifier_helpers.check_software_env(software_base_dir, software_tests)
 

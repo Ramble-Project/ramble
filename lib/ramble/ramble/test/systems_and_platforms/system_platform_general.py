@@ -56,9 +56,13 @@ def test_system_platform_works(workspace_name, mock_platforms, mock_systems, ens
         assert "intel-mpi" in data
         assert "intel-oneapi-mpi" in data
 
-    env_file = os.path.join(ws.software_dir, "spack", "gromacs", "spack.yaml")
     workspace("setup", "--dry-run", global_args=["-D", ws.root])
 
+    env_file = os.path.join(
+        __import__("glob").glob(os.path.join(ws.software_dir, "spack*"))[0],
+        "gromacs",
+        "spack.yaml",
+    )
     # Verify the packages.yaml files were merged
     with open(env_file, encoding="utf-8") as f:
         spack_config = syaml.load(stream=f)

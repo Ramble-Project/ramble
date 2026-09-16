@@ -242,7 +242,7 @@ class ExperimentSet:
             app_inst.define_variable(
                 self.keywords.env_path,
                 os.path.join(
-                    app_inst.package_manager.package_manager_dir(self._workspace),
+                    app_inst.package_manager.package_manager_dir(self._workspace, app_inst),
                     Expander.expansion_str(self.keywords.env_name),
                 ),
             )
