@@ -36,10 +36,6 @@ includes the sbang tool directly in bin/sbang. These packages are covered
 by various permissive licenses. A summary listing follows. See the
 license included with each package for full details.
 
-PackageName: archspec
-PackageHomePage: https://github.com/archspec/archspec
-PackageLicenseDeclared: Apache-2.0 OR MIT
-
 PackageName: ctest_log_parser
 PackageHomePage: https://github.com/Kitware/CMake
 PackageLicenseDeclared: BSD-3-Clause
