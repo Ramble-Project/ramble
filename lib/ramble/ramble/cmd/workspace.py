@@ -1850,13 +1850,13 @@ def workspace_manage_modifiers_setup_parser(subparser):
     actions.add_argument(
         "--add",
         action="store_true",
-        help="whether to remove an existing modifier by index",
+        help="whether to add a new modifier, selected by --name",
     )
 
     actions.add_argument(
         "--remove",
         action="store_true",
-        help="whether to remove an existing modifier by index",
+        help="whether to remove an existing modifier by index or pattern",
     )
 
     subparser.add_argument(
@@ -1919,6 +1919,29 @@ def workspace_manage_modifiers_setup_parser(subparser):
 
 def workspace_manage_modifiers(args):
     """Execute workspace manage modifiers command"""
+
+    if args.add and args.name is None:
+        logger.die(
+            "ramble workspace manage modifiers --add requires --name. "
+            "See `ramble workspace manage modifiers -h`."
+        )
+
+    if args.remove and args.remove_index is not None:
+        conflicting = [
+            flag
+            for flag, value in (
+                ("--scope", args.scope),
+                ("--name", args.name),
+                ("--mode", args.mode),
+            )
+            if value is not None
+        ]
+        if conflicting:
+            logger.die(
+                "ramble workspace manage modifiers --remove accepts --mod-index or "
+                f"{'/'.join(conflicting)}, but not both. "
+                "See `ramble workspace manage modifiers -h`."
+            )
 
     ws = ramble.cmd.require_active_workspace(cmd_name="workspace manage modifiers")
 

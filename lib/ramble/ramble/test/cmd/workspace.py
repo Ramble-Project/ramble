@@ -2915,18 +2915,20 @@ def test_manage_modifier_no_modifiers(workspace_name):
             global_args=global_args,
         )
 
-        output = workspace(
-            "manage",
-            "modifiers",
-            "--add",
-            "-s",
-            "workspace",
-            "-n",
-            "not-a-modifier",
-            global_args=global_args,
-        )
-
-        assert "0 modifiers added" in output
+        # Adding a name that matches no modifier is an error, not a silent no-op.
+        with pytest.raises(
+            ramble.workspace.RambleWorkspaceError, match="No modifiers found matching"
+        ):
+            workspace(
+                "manage",
+                "modifiers",
+                "--add",
+                "-s",
+                "workspace",
+                "-n",
+                "not-a-modifier",
+                global_args=global_args,
+            )
 
         output = workspace(
             "manage",
@@ -3096,18 +3098,18 @@ def test_manage_modifier_no_modifier_errors(workspace_name):
 
     with ramble.workspace.create(workspace_name) as ws:
         ws.write()
-        err_str = f"Error: No modifiers found matching name pattern of {name_pattern}"
-        output = workspace(
-            "manage",
-            "modifiers",
-            "--add",
-            "-s",
-            "workspace",
-            "-n",
-            name_pattern,
-            global_args=global_args,
-        )
-        assert err_str in output
+        err_str = f"No modifiers found matching name pattern of {name_pattern}"
+        with pytest.raises(ramble.workspace.RambleWorkspaceError, match=err_str):
+            workspace(
+                "manage",
+                "modifiers",
+                "--add",
+                "-s",
+                "workspace",
+                "-n",
+                name_pattern,
+                global_args=global_args,
+            )
 
 
 @pytest.mark.parametrize(

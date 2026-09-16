@@ -2404,9 +2404,12 @@ ramble:
         """Remove an arbitrary number of modifiers from this workspace based
         on some input arguments.
 
+        Modifiers are selected either by index or by pattern, never both.
+
         Args:
             remove_index: Index of modifier to remove. Indices match ordering
-                          from the output of print_modifiers
+                          from the output of print_modifiers. Cannot be
+                          combined with the pattern arguments.
             scope_pattern: Pattern to select which scopes to remove modifiers from.
                            If the pattern matches multiple scopes, each will
                            have matching modifiers removed from them.
@@ -2422,6 +2425,22 @@ ramble:
         Returns:
             int: Number of modifiers removed
         """
+        given_patterns = [
+            arg_name
+            for arg_name, pattern in (
+                ("scope_pattern", scope_pattern),
+                ("name_pattern", name_pattern),
+                ("mode_pattern", mode_pattern),
+            )
+            if pattern is not None
+        ]
+
+        if remove_index is not None and given_patterns:
+            raise RambleWorkspaceError(
+                "Modifiers can be removed by index or by pattern, but not both. "
+                f"Given index {remove_index!r} along with {', '.join(given_patterns)}."
+            )
+
         mod_list = self.index_modifiers()
         to_remove = []
 
@@ -2505,7 +2524,7 @@ ramble:
         """Add an arbitrary number of modifiers to this workspace within a single scope
 
         Args:
-            scope: Scope to add modifiers within.
+            scope: Scope to add modifiers within. Defaults to the workspace scope.
             name_pattern: Pattern to determine which modifiers should be added.
                           If multiple modifiers match, all will be added with
                           the additional arguments.
@@ -2517,6 +2536,34 @@ ramble:
         Returns:
             int: Number of modifiers added to workspace
         """
+        if not isinstance(name_pattern, str) or not name_pattern:
+            raise RambleWorkspaceError(
+                "Cannot add a modifier without a name pattern. "
+                f"Given name pattern was {name_pattern!r}. "
+                "Use `ramble list --type modifiers` to see available modifiers."
+            )
+
+        if scope is None:
+            scope = "workspace"
+
+        # Resolve which modifiers to add before touching the config, so a
+        # failed add leaves the workspace configuration untouched.
+        spec_parts = name_pattern.partition("@")
+
+        mod_type = ramble.repository.ObjectTypes.modifiers
+        mod_objects = ramble.repository.all_object_names(object_type=mod_type)
+        mod_names = [
+            name
+            for name in mod_objects
+            if fnmatch.fnmatchcase(name.lower(), spec_parts[0].lower())
+        ]
+
+        if not mod_names:
+            raise RambleWorkspaceError(
+                f"No modifiers found matching name pattern of {name_pattern}. "
+                "Use `ramble list --type modifiers` to see available modifiers."
+            )
+
         on_exec_list = None
         if on_executable is not None:
             on_exec_list = syaml.syaml_list()
@@ -2524,21 +2571,14 @@ ramble:
 
         base_section = self._get_scope_section(scope)
 
+        if base_section is None:
+            raise RambleWorkspaceError(
+                f"No scope matches requested scope of {scope}. "
+                "This workspace does not define any applications."
+            )
+
         if namespace.modifiers not in base_section:
             base_section[namespace.modifiers] = syaml.syaml_list()
-
-        mod_type = ramble.repository.ObjectTypes.modifiers
-        mod_objects = ramble.repository.all_object_names(object_type=mod_type)
-        if isinstance(name_pattern, str):
-            spec_parts = name_pattern.partition("@")
-        mod_names = [
-            name
-            for name in mod_objects
-            if fnmatch.fnmatchcase(name.lower(), spec_parts[0].lower())
-        ]
-
-        if len(mod_names) < 1:
-            logger.error(f"No modifiers found matching name pattern of {name_pattern}")
 
         added = 0
         for mod_name in mod_names:
