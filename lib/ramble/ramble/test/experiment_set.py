@@ -2149,3 +2149,838 @@ def test_modifiers_no_version_set_correctly(workspace_name, mock_modifiers):
             assert mod_def["mode"] in expected_modifier_modes
             expected_modifier_modes.remove(mod_def["mode"])
         assert not expected_modifier_modes
+
+
+def test_dynamic_range_in_experiment_variables(workspace_name):
+    workspace("create", workspace_name)
+
+    assert workspace_name in workspace("list")
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        application_context = ramble.context.Context()
+        application_context.context_name = "basic"
+        application_context.variables = {
+            "app_var1": "1",
+            "app_var2": "2",
+            "processes_per_node": "2",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        workload_context.variables = {
+            "wl_var1": "1",
+            "wl_var2": "2",
+        }
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "series_{n_nodes}"
+        experiment_context.variables = {
+            "max_nodes": "3",
+            "n_nodes": "range(1, {max_nodes})",
+            "n_ranks": "{n_nodes} * 2",
+        }
+
+        exp_set.set_application_context(application_context)
+        exp_set.set_workload_context(workload_context)
+        exp_set.set_experiment_context(experiment_context)
+        exp_set.build_experiment_chains()
+
+        assert "basic.test_wl.series_1" in exp_set.experiments
+        assert "basic.test_wl.series_2" in exp_set.experiments
+        assert len(exp_set.experiments) == 2
+        assert exp_set.get_var_from_experiment("basic.test_wl.series_1", "{n_ranks}") == "2"
+        assert exp_set.get_var_from_experiment("basic.test_wl.series_2", "{n_ranks}") == "4"
+
+
+def test_dynamic_range_in_workload_variables(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        application_context = ramble.context.Context()
+        application_context.context_name = "basic"
+        application_context.variables = {
+            "app_var1": "1",
+            "app_var2": "2",
+            "processes_per_node": "2",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        workload_context.variables = {
+            "wl_var1": "1",
+            "wl_var2": "2",
+            "max_nodes": "4",
+            "n_nodes": "range(1, {max_nodes})",
+        }
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "series_{n_nodes}"
+        experiment_context.variables = {
+            "n_ranks": "{n_nodes} * {processes_per_node}",
+        }
+
+        exp_set.set_application_context(application_context)
+        exp_set.set_workload_context(workload_context)
+        exp_set.set_experiment_context(experiment_context)
+        exp_set.build_experiment_chains()
+
+        assert "basic.test_wl.series_1" in exp_set.experiments
+        assert "basic.test_wl.series_2" in exp_set.experiments
+        assert "basic.test_wl.series_3" in exp_set.experiments
+        assert len(exp_set.experiments) == 3
+        assert exp_set.get_var_from_experiment("basic.test_wl.series_1", "{n_ranks}") == "2"
+        assert exp_set.get_var_from_experiment("basic.test_wl.series_3", "{n_ranks}") == "6"
+
+
+def test_dynamic_range_with_exclude_where(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        application_context = ramble.context.Context()
+        application_context.context_name = "basic"
+        application_context.variables = {
+            "app_var1": "1",
+            "app_var2": "2",
+            "processes_per_node": "2",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        workload_context.variables = {
+            "wl_var1": "1",
+            "wl_var2": "2",
+        }
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "series_{n_nodes}"
+        experiment_context.variables = {
+            "max_nodes": "5",
+            "n_nodes": "range(1, {max_nodes})",
+            "n_ranks": "{n_nodes} * 2",
+        }
+        experiment_context.exclude = {"where": ["'{n_nodes}' == '2'"]}
+
+        exp_set.set_application_context(application_context)
+        exp_set.set_workload_context(workload_context)
+        exp_set.set_experiment_context(experiment_context)
+        exp_set.build_experiment_chains()
+
+        assert "basic.test_wl.series_1" in exp_set.experiments
+        assert "basic.test_wl.series_2" not in exp_set.experiments
+        assert "basic.test_wl.series_3" in exp_set.experiments
+        assert "basic.test_wl.series_4" in exp_set.experiments
+        assert len(exp_set.experiments) == 3
+
+
+def test_dynamic_range_with_chained_experiments(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        application_context = ramble.context.Context()
+        application_context.context_name = "basic"
+        application_context.variables = {
+            "app_var1": "1",
+            "app_var2": "2",
+            "processes_per_node": "2",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        workload_context.variables = {
+            "wl_var1": "1",
+            "wl_var2": "2",
+        }
+
+        experiment1_context = ramble.context.Context()
+        experiment1_context.context_name = "test1"
+        experiment1_context.variables = {"n_ranks": "2"}
+
+        experiment2_context = ramble.context.Context()
+        experiment2_context.context_name = "series_{n_nodes}"
+        experiment2_context.variables = {
+            "max_nodes": "3",
+            "n_nodes": "range(1, {max_nodes})",
+            "n_ranks": "{n_nodes} * 2",
+        }
+        experiment2_context.chained_experiments = [
+            {
+                "name": "basic.test_wl.test1",
+                "order": "after_root",
+                "command": "{execute_experiment}",
+                "variables": {},
+            },
+        ]
+
+        exp_set.set_application_context(application_context)
+        exp_set.set_workload_context(workload_context)
+        exp_set.set_experiment_context(experiment1_context)
+        exp_set.set_experiment_context(experiment2_context)
+        exp_set.build_experiment_chains()
+
+        assert "basic.test_wl.series_1" in exp_set.experiments
+        assert "basic.test_wl.series_2" in exp_set.experiments
+        assert "basic.test_wl.test1" in exp_set.experiments
+        assert "basic.test_wl.series_1.chain.0.basic.test_wl.test1" in exp_set.chained_experiments
+        assert "basic.test_wl.series_2.chain.0.basic.test_wl.test1" in exp_set.chained_experiments
+
+
+def test_dynamic_range_workspace_yaml(make_workspace_from_config):
+    test_config = """
+ramble:
+  variables:
+    mpi_command: ''
+    batch_submit: ''
+    processes_per_node: '1'
+  applications:
+    basic:
+      workloads:
+        test_wl:
+          experiments:
+            exp_{n_nodes}:
+              variables:
+                max_nodes: '3'
+                n_nodes: 'range(1, {max_nodes})'
+                n_ranks: '{n_nodes} * 2'
+"""
+    ws, ws_name = make_workspace_from_config(test_config, activate=True)
+    exp_set = ws.build_experiment_set()
+    assert "basic.test_wl.exp_1" in exp_set.experiments
+    assert "basic.test_wl.exp_2" in exp_set.experiments
+    assert len(exp_set.experiments) == 2
+
+
+def test_dynamic_range_in_application_variables(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        application_context = ramble.context.Context()
+        application_context.context_name = "basic"
+        application_context.variables = {
+            "app_var1": "1",
+            "app_var2": "2",
+            "processes_per_node": "2",
+            "mpi_command": "",
+            "batch_submit": "",
+            "min_nodes": "1",
+            "max_nodes": "6",
+            "stride": "2",
+            "n_nodes": "range({min_nodes}, {max_nodes}, {stride})",
+        }
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        workload_context.variables = {
+            "wl_var1": "1",
+            "wl_var2": "2",
+        }
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "series_{n_nodes}"
+        experiment_context.variables = {
+            "n_ranks": "{n_nodes} * {processes_per_node}",
+        }
+
+        exp_set.set_application_context(application_context)
+        exp_set.set_workload_context(workload_context)
+        exp_set.set_experiment_context(experiment_context)
+        exp_set.build_experiment_chains()
+
+        assert "basic.test_wl.series_1" in exp_set.experiments
+        assert "basic.test_wl.series_3" in exp_set.experiments
+        assert "basic.test_wl.series_5" in exp_set.experiments
+        assert len(exp_set.experiments) == 3
+        assert exp_set.get_var_from_experiment("basic.test_wl.series_1", "{n_ranks}") == "2"
+        assert exp_set.get_var_from_experiment("basic.test_wl.series_5", "{n_ranks}") == "10"
+
+
+def test_dynamic_range_dry_run(make_workspace_from_config):
+    test_config = """
+ramble:
+  variables:
+    mpi_command: ''
+    batch_submit: '{execute_experiment}'
+    processes_per_node: '1'
+  applications:
+    basic:
+      workloads:
+        test_wl:
+          experiments:
+            exp_{n_nodes}:
+              variables:
+                max_nodes: '3'
+                n_nodes: 'range(1, {max_nodes})'
+                n_ranks: '{n_nodes} * 2'
+"""
+    ws, ws_name = make_workspace_from_config(test_config, activate=True)
+    workspace("setup", "--dry-run", global_args=["-w", ws_name])
+
+    exp1_script = os.path.join(
+        ws.experiment_dir, "basic", "test_wl", "exp_1", "execute_experiment"
+    )
+    exp2_script = os.path.join(
+        ws.experiment_dir, "basic", "test_wl", "exp_2", "execute_experiment"
+    )
+    assert os.path.exists(exp1_script)
+    assert os.path.exists(exp2_script)
+
+
+def test_chained_experiment_with_dynamic_range(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "test_{n_nodes}"
+        experiment_context.variables = {
+            "max_nodes": "3",
+            "n_nodes": "range(1, {max_nodes})",
+            "n_ranks": "1",
+            "processes_per_node": "1",
+        }
+        rendered_instances = exp_set.render_experiment_set(
+            "basic", "test_wl", experiment_context, chained=True
+        )
+
+        assert len(rendered_instances) == 2
+        assert "test_1" in exp_set.chained_experiments
+        assert "test_2" in exp_set.chained_experiments
+        assert "basic.test_wl.test_1" not in exp_set.experiments
+        assert "basic.test_wl.test_2" not in exp_set.experiments
+
+
+def test_dynamic_range_with_repeats(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "test_{n_nodes}"
+        experiment_context.n_repeats = 2
+        experiment_context.variables = {
+            "max_nodes": "3",
+            "n_nodes": "range(1, {max_nodes})",
+            "n_ranks": "1",
+        }
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 6
+        assert "basic.test_wl.test_1" in exp_set.experiments
+        assert "basic.test_wl.test_1.1" in exp_set.experiments
+        assert "basic.test_wl.test_1.2" in exp_set.experiments
+        assert "basic.test_wl.test_2" in exp_set.experiments
+        assert "basic.test_wl.test_2.1" in exp_set.experiments
+        assert "basic.test_wl.test_2.2" in exp_set.experiments
+
+
+def test_dynamic_range_with_whitespace(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "test_{n_nodes}"
+        experiment_context.variables = {
+            "max_nodes": "3",
+            "n_nodes": "range ( 1 , {max_nodes} )",
+            "n_ranks": "1",
+        }
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 2
+        assert "basic.test_wl.test_1" in exp_set.experiments
+        assert "basic.test_wl.test_2" in exp_set.experiments
+
+
+def test_dynamic_range_with_matrix(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{nodes}_{cores}"
+        experiment_context.variables = {
+            "max_nodes": "3",
+            "nodes": "range(1, {max_nodes})",
+            "cores": [1, 2],
+            "n_ranks": "1",
+        }
+        experiment_context.matrices = [["nodes", "cores"]]
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 4
+        assert "basic.test_wl.sweep_1_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_1_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_2" in exp_set.experiments
+
+
+def test_dynamic_range_with_two_ranges_in_matrix(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{nodes}_{cores}"
+        experiment_context.variables = {
+            "max_nodes": "3",
+            "max_cores": "4",
+            "nodes": "range(1, {max_nodes})",
+            "cores": "range(1, {max_cores})",
+            "n_ranks": "1",
+        }
+        experiment_context.matrices = [["nodes", "cores"]]
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 6
+        assert "basic.test_wl.sweep_1_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_1_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_1_3" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_3" in exp_set.experiments
+
+
+def test_dynamic_range_with_zips(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{nodes}_{cores}"
+        experiment_context.variables = {
+            "max_nodes": "3",
+            "nodes": "range(1, {max_nodes})",
+            "cores": "range(10, 10 + {max_nodes} - 1)",
+            "n_ranks": "1",
+        }
+        experiment_context.zips = {"my_zip": ["nodes", "cores"]}
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 2
+        assert "basic.test_wl.sweep_1_10" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_11" in exp_set.experiments
+
+
+def test_dynamic_range_with_static_vector_implicit_zip(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{nodes}_{cores}"
+        experiment_context.variables = {
+            "max_nodes": "3",
+            "nodes": "range(1, {max_nodes})",
+            "cores": [10, 20],
+            "n_ranks": "1",
+        }
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 2
+        assert "basic.test_wl.sweep_1_10" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_20" in exp_set.experiments
+
+
+def test_dynamic_custom_list_function(workspace_name, monkeypatch):
+    def custom_seq(start, stop):
+        return list(range(start, stop))
+
+    monkeypatch.setitem(ramble.expander.supported_list_function_pointers, "custom_seq", custom_seq)
+
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{nodes}"
+        experiment_context.variables = {
+            "max_nodes": "4",
+            "nodes": "custom_seq(1, {max_nodes})",
+            "n_ranks": "1",
+        }
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 3
+        assert "basic.test_wl.sweep_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_3" in exp_set.experiments
+
+
+def test_dynamic_pow2_range_in_experiment_set(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{nodes}"
+        experiment_context.variables = {
+            "max_nodes": "16",
+            "nodes": "pow2_range(1, {max_nodes})",
+            "n_ranks": "1",
+        }
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 5
+        assert "basic.test_wl.sweep_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4" in exp_set.experiments
+        assert "basic.test_wl.sweep_8" in exp_set.experiments
+        assert "basic.test_wl.sweep_16" in exp_set.experiments
+
+
+def test_dynamic_range_dependent_on_vector(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{max_nodes}_{nodes}"
+        experiment_context.variables = {
+            "max_nodes": [2, 4],
+            "nodes": "range(1, {max_nodes} + 1)",
+            "n_ranks": "1",
+        }
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 6
+        assert "basic.test_wl.sweep_2_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_3" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_4" in exp_set.experiments
+
+
+def test_dynamic_range_dependent_on_vector_with_matrix(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{max_nodes}_{nodes}"
+        experiment_context.variables = {
+            "max_nodes": [2, 4],
+            "nodes": "range(1, {max_nodes} + 1)",
+            "n_ranks": "1",
+        }
+        experiment_context.matrices = [["max_nodes", "nodes"]]
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 6
+        assert "basic.test_wl.sweep_2_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_3" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_4" in exp_set.experiments
+
+
+def test_dynamic_pow2_range_dependent_on_vector(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{max_nodes}_{nodes}"
+        experiment_context.variables = {
+            "max_nodes": [4, 8],
+            "nodes": "pow2_range(1, {max_nodes})",
+            "n_ranks": "1",
+        }
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 7
+        assert "basic.test_wl.sweep_4_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_4" in exp_set.experiments
+        assert "basic.test_wl.sweep_8_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_8_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_8_4" in exp_set.experiments
+        assert "basic.test_wl.sweep_8_8" in exp_set.experiments
+
+
+def test_chained_multi_level_dependent_ranges(workspace_name):
+    workspace("create", workspace_name)
+
+    with ramble.workspace.read(workspace_name) as ws:
+        exp_set = ramble.experiment_set.ExperimentSet(ws)
+
+        app_context = ramble.context.Context()
+        app_context.context_name = "basic"
+        app_context.variables = {
+            "processes_per_node": "1",
+            "mpi_command": "",
+            "batch_submit": "",
+        }
+        exp_set.set_application_context(app_context)
+
+        workload_context = ramble.context.Context()
+        workload_context.context_name = "test_wl"
+        exp_set.set_workload_context(workload_context)
+
+        experiment_context = ramble.context.Context()
+        experiment_context.context_name = "sweep_{foo}_{bar}_{baz}"
+        experiment_context.variables = {
+            "foo": [1, 2, 4],
+            "bar": "range(1, {foo} + 1)",
+            "baz": "range(1, {bar} + 1)",
+            "n_ranks": "1",
+        }
+        rendered = exp_set.set_experiment_context(experiment_context)
+        assert len(rendered) == 14
+        assert "basic.test_wl.sweep_1_1_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_1_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_2_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_2_2_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_1_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_2_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_2_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_3_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_3_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_3_3" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_4_1" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_4_2" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_4_3" in exp_set.experiments
+        assert "basic.test_wl.sweep_4_4_4" in exp_set.experiments
+
+
+def test_dynamic_range_indirect_vector_dependency_with_mpi_matrix(make_workspace_from_config):
+    test_config = """
+ramble:
+  variables:
+    processes_per_node: 4
+    mpi_command: 'mpirun -n {n_ranks}'
+    batch_submit: '{execute_experiment}'
+    vm_family: [h4d]
+    mpi_provider: [tcp, rxm]
+    Alltoall_info:
+      max_algo: 4
+    Alltoallv_info:
+      max_algo: 2
+  applications:
+    basic:
+      workloads:
+        test_wl2:
+          experiments:
+            '{vm_family}-{mpi_provider}-{n_nodes}node-{collective_type}-{algo_setting}':
+              variables:
+                n_nodes: [16, 32]
+                max_algo: '{collective_type}_info["max_algo"]'
+                algo_setting: 'range(1, {max_algo})'
+                n_ranks: '{processes_per_node}*{n_nodes}'
+                collective_type: [Alltoall, Alltoallv]
+              matrix:
+              - n_nodes
+              - algo_setting
+              - collective_type
+              - vm_family
+              - mpi_provider
+              exclude:
+                where:
+                - '{algo_setting} > {max_algo}'
+"""
+    ws, _ = make_workspace_from_config(test_config, activate=True)
+    exp_set = ws.build_experiment_set()
+    # Alltoall has range(1, 4) -> [1, 2, 3] (3 algos) * 2 n_nodes * 1 vm_family * 2 mpi = 12
+    # Alltoallv has range(1, 2) -> [1] (1 algo) * 2 n_nodes * 1 vm_family * 2 mpi = 4
+    # Total = 16 experiments
+    assert len(exp_set.experiments) == 16
+    assert "basic.test_wl2.h4d-tcp-16node-Alltoall-1" in exp_set.experiments
+    assert "basic.test_wl2.h4d-rxm-32node-Alltoall-3" in exp_set.experiments
+    assert "basic.test_wl2.h4d-tcp-16node-Alltoallv-1" in exp_set.experiments
+    assert "basic.test_wl2.h4d-tcp-16node-Alltoallv-2" not in exp_set.experiments
+
+
+def test_dynamic_range_on_n_nodes_mpi(make_workspace_from_config):
+    test_config = """
+ramble:
+  variables:
+    processes_per_node: 4
+    mpi_command: 'mpirun -n {n_ranks}'
+    batch_submit: '{execute_experiment}'
+  applications:
+    basic:
+      workloads:
+        test_wl2:
+          experiments:
+            node_sweep_{n_nodes}:
+              variables:
+                max_nodes: 4
+                n_nodes: 'range(1, {max_nodes})'
+"""
+    ws, _ = make_workspace_from_config(test_config, activate=True)
+    exp_set = ws.build_experiment_set()
+    assert len(exp_set.experiments) == 3
+    assert exp_set.experiments["basic.test_wl2.node_sweep_1"].variables["n_ranks"] == "4"
+    assert exp_set.experiments["basic.test_wl2.node_sweep_2"].variables["n_ranks"] == "8"
+    assert exp_set.experiments["basic.test_wl2.node_sweep_3"].variables["n_ranks"] == "12"

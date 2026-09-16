@@ -468,6 +468,101 @@ class Renderer:
         # Also expand all variables that generate lists
         object_variables = self._expand_variables(variables, expander)
 
+        if render_group.object == "experiment":
+            dynamic_list_vars = {
+                k: v
+                for k, v in object_variables.items()
+                if ramble.expander.is_dynamic_list_expression(v)
+            }
+            if dynamic_list_vars:
+                dependent_vector_vars = ramble.expander.find_dependent_vector_vars(
+                    dynamic_list_vars, object_variables, expander
+                )
+
+                if not dependent_vector_vars:
+                    yield object_variables, ramble.repeats.Repeats()
+                    return
+
+                # Expand only dependent_vector_vars (and any variables zipped with them)
+                # to produce separate seed instances for each vector value.
+                vars_to_scalarize = set(dependent_vector_vars)
+                if render_group.zips:
+                    changed = True
+                    while changed:
+                        changed = False
+                        for z_name, z_vars in render_group.zips.items():
+                            if z_name in vars_to_scalarize or any(
+                                v in vars_to_scalarize for v in z_vars
+                            ):
+                                for v in z_vars:
+                                    if (
+                                        v not in dynamic_list_vars
+                                        and isinstance(object_variables.get(v), list)
+                                        and v not in vars_to_scalarize
+                                    ):
+                                        vars_to_scalarize.add(v)
+                                        changed = True
+
+                if len(render_group.matrices) > 1:
+                    if any(
+                        any(v in vars_to_scalarize for v in mat) for mat in render_group.matrices
+                    ):
+                        for mat in render_group.matrices:
+                            for v in mat:
+                                if v not in dynamic_list_vars and isinstance(
+                                    object_variables.get(v), list
+                                ):
+                                    vars_to_scalarize.add(v)
+
+                explicit_matrix_and_zip_vars = set()
+                for mat in render_group.matrices:
+                    explicit_matrix_and_zip_vars.update(mat)
+                for z_name, z_vars in render_group.zips.items():
+                    explicit_matrix_and_zip_vars.add(z_name)
+                    explicit_matrix_and_zip_vars.update(z_vars)
+
+                if any(v not in explicit_matrix_and_zip_vars for v in vars_to_scalarize):
+                    for k, v in object_variables.items():
+                        if (
+                            k not in dynamic_list_vars
+                            and isinstance(v, list)
+                            and k not in explicit_matrix_and_zip_vars
+                        ):
+                            vars_to_scalarize.add(k)
+
+                sub_vars = {}
+                for k, v in object_variables.items():
+                    if k in vars_to_scalarize or not isinstance(v, list):
+                        if k not in dynamic_list_vars:
+                            sub_vars[k] = v
+
+                sub_group = RenderGroup(render_group.object, render_group.action)
+                sub_group.variables = sub_vars
+
+                sub_zips = {}
+                for z_name, z_vars in render_group.zips.items():
+                    filtered_z = [v for v in z_vars if v in vars_to_scalarize]
+                    if len(filtered_z) > 1:
+                        sub_zips[z_name] = filtered_z
+                sub_group.zips = sub_zips
+
+                sub_matrices = []
+                for mat in render_group.matrices:
+                    filtered_mat = [v for v in mat if v in vars_to_scalarize or v in sub_zips]
+                    if len(filtered_mat) >= 1:
+                        sub_matrices.append(filtered_mat)
+                sub_group.matrices = sub_matrices
+                sub_group.n_repeats = 1
+                sub_group.used_variables = render_group.used_variables.union(vars_to_scalarize)
+
+                for rendered_sub_vars, _ in self.render_objects(
+                    sub_group, ignore_used=False, fatal=fatal
+                ):
+                    seed_vars = object_variables.copy()
+                    seed_vars.update(rendered_sub_vars)
+                    yield seed_vars, ramble.repeats.Repeats()
+                return
+
         # Expand zip and matrix members to allow indirections like
         # ```
         # variables:

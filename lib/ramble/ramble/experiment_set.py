@@ -285,6 +285,9 @@ class ExperimentSet:
 
         app_inst = self._setup_experiment_minimal(workload_template_name, variables, context)
 
+        if getattr(app_inst, "has_dynamic_range_variables", False):
+            return app_inst
+
         final_wl_name = app_inst.expander.expand_var_name(
             self.keywords.workload_name, allow_passthrough=False
         )
@@ -345,6 +348,9 @@ class ExperimentSet:
     ):
         app_inst = self._setup_experiment_minimal(workload_template_name, variables, context)
 
+        if getattr(app_inst, "has_dynamic_range_variables", False):
+            return set()
+
         # The `_get_used_variables` is only called for the base experiment,
         # so no need to consider repeat suffix.
         exp_name = app_inst.expander.expand_var(exp_template_name, allow_passthrough=False)
@@ -369,6 +375,7 @@ class ExperimentSet:
         """Helper to render a base and its repeated experiments, for parallel execution."""
         experiment_vars, repeats = render_item
         processed_experiments = []
+        dynamic_range_experiments = []
         wl_stats = {}
         # Expand and prepare base and repeated experiments
         # TODO: Exploit the relationship between base and repeated experiments,
@@ -389,6 +396,10 @@ class ExperimentSet:
                 final_context,
                 cur_repeats,
             )
+
+            if getattr(app_inst, "has_dynamic_range_variables", False):
+                dynamic_range_experiments.append(app_inst)
+                break
 
             final_exp_name = app_inst.expander.expand_var_name(self.keywords.experiment_name)
             final_exp_namespace = app_inst.expander.expand_var_name(
@@ -427,7 +438,7 @@ class ExperimentSet:
                 if active:
                     app_inst.read_status()
                     processed_experiments.append((app_inst, final_exp_namespace, n == 0))
-        return processed_experiments, wl_stats
+        return processed_experiments, dynamic_range_experiments, wl_stats
 
     def render_experiment_set(
         self,
@@ -654,8 +665,10 @@ class ExperimentSet:
                 results = list(executor.map(worker_func, render_list))
 
         overall_wl_stats = {}
-        for processed_experiments, wl_stats in results:
+        all_dynamic_range_experiments = []
+        for processed_experiments, dynamic_range_experiments, wl_stats in results:
             all_processed_experiments.extend(processed_experiments)
+            all_dynamic_range_experiments.extend(dynamic_range_experiments)
             for wl_name, stats in wl_stats.items():
                 if wl_name not in overall_wl_stats:
                     overall_wl_stats[wl_name] = {
@@ -665,6 +678,27 @@ class ExperimentSet:
                     }
                 overall_wl_stats[wl_name]["passed_global"] += stats["passed_global"]
                 overall_wl_stats[wl_name]["dropped_wl"] += stats["dropped_wl"]
+
+        if all_dynamic_range_experiments:
+            saved_contexts = {
+                self._contexts.application: self._context[self._contexts.application],
+                self._contexts.workload: self._context[self._contexts.workload],
+                self._contexts.experiment: self._context[self._contexts.experiment],
+            }
+            try:
+                for dyn_inst in all_dynamic_range_experiments:
+                    range_rendered = dyn_inst.render_range_experiments(
+                        saved_contexts[self._contexts.experiment],
+                        warn_validation=warn_validation,
+                        die_on_validate_error=die_on_validate_error,
+                        chained=chained,
+                    )
+                    rendered_instances.extend(range_rendered)
+                    for inst in range_rendered:
+                        workload_names.add(inst.expander.workload_name)
+            finally:
+                for ctx_key, ctx_val in saved_contexts.items():
+                    self._set_context(ctx_key, ctx_val)
 
         # The results are now processed serially to update the experiment set state
         for app_inst, final_exp_namespace, is_base_experiment in all_processed_experiments:
