@@ -12,12 +12,19 @@ def define_directive_methods_on_class(cls):
 
     Wrap each directive, and inject it into this class as a method.
     """
-    if not hasattr(cls, "_directive_classes") or not hasattr(cls, "_directive_functions"):
+    if not hasattr(cls, "_directive_functions"):
         return
 
-    lang_classes = getattr(cls, "_language_classes", [])
-    for directive, directive_class in cls._directive_classes.items():
-        if directive_class in lang_classes and not hasattr(cls, directive):
+    lang_types = set(getattr(cls, "_language_types", [])) | set(
+        getattr(cls, "_language_classes", [])
+    )
+    directive_types = getattr(cls, "_directive_types", {})
+    directive_classes = getattr(cls, "_directive_classes", {})
+
+    for directive in cls._directive_functions:
+        d_type = directive_types.get(directive)
+        d_cls = directive_classes.get(directive)
+        if (d_type in lang_types or d_cls in lang_types) and not hasattr(cls, directive):
             setattr(cls, directive, wrap_named_directive_class_level(directive))
 
 
@@ -28,6 +35,12 @@ def wrap_named_directive_class_level(name):
     """
 
     def _execute_directive(self, *args, directive_name=name, **kwargs):
-        self._directive_functions[directive_name](*args, **kwargs)(self)
+        import ramble.language.language_base
+
+        ramble.language.language_base.DirectiveMeta._executing_directives_depth += 1
+        try:
+            self._directive_functions[directive_name](*args, **kwargs)(self)
+        finally:
+            ramble.language.language_base.DirectiveMeta._executing_directives_depth -= 1
 
     return _execute_directive

@@ -80,39 +80,37 @@ def test_mirror_str_and_repr():
 
 
 # Create an archive for the test input, with the correct file name
-def create_archive(archive_dir, app_class):
+def create_archive(archive_dir, app_cls):
     tar = spack.util.executable.which("tar", required=True)
 
-    app_class._inputs_and_fetchers()
+    for inputs_dict in app_cls.inputs.values():
+        for input_name, conf in inputs_dict.items():
+            expand = conf.get("expand", True)
+            url = conf["url"]
+            if expand:
+                archive_dir.ensure(input_name, dir=True)
+                archive_name = os.path.basename(url)
+                test_file_path = str(archive_dir.join(input_name, "input-file"))
+                with open(test_file_path, "w+", encoding="utf-8") as f:
+                    f.write("Input File\n")
 
-    for input_name, conf in app_class._input_fetchers.items():
-        if conf["expand"]:
-            archive_dir.ensure(input_name, dir=True)
-            archive_name = os.path.basename(conf["fetcher"].url)
-            test_file_path = str(archive_dir.join(input_name, "input-file"))
-            with open(test_file_path, "w+", encoding="utf-8") as f:
-                f.write("Input File\n")
+                with archive_dir.as_cwd():
+                    tar("-czf", archive_name, input_name)
+                    with open(archive_name, "rb") as f:
+                        conf["sha256"] = hashlib.sha256(f.read()).hexdigest()
+            else:
+                filename = os.path.basename(url)
+                with open(filename, "w+", encoding="utf-8") as f:
+                    f.write("Input file\n")
 
-            with archive_dir.as_cwd():
-                tar("-czf", archive_name, input_name)
-                with open(archive_name, "rb") as f:
-                    bytes = f.read()
-                    conf["fetcher"].digest = hashlib.sha256(bytes).hexdigest()
-                    app_class.inputs[_FS][conf["input_name"]]["sha256"] = conf["fetcher"].digest
-        else:
-            with open(input_name, "w+", encoding="utf-8") as f:
-                f.write("Input file\n")
-
-            with open(input_name, "rb") as f:
-                bytes = f.read()
-                conf["fetcher"].digest = hashlib.sha256(bytes).hexdigest()
-                app_class.inputs[_FS][conf["input_name"]]["sha256"] = conf["fetcher"].digest
+                with open(filename, "rb") as f:
+                    conf["sha256"] = hashlib.sha256(f.read()).hexdigest()
 
 
-def check_mirror(mirror_path, app_name, app_class):
-    app_class._inputs_and_fetchers()
+def check_mirror(mirror_path, app_name, app_inst):
+    app_inst._inputs_and_fetchers()
 
-    for input_name, conf in app_class._input_fetchers.items():
+    for input_name, conf in app_inst._input_fetchers.items():
         test_name = f"{input_name}"
         fetcher = conf["fetcher"]
         if fetcher.extension:
@@ -153,9 +151,8 @@ ramble:
 
     with archive_dir.as_cwd():
         app_type = ramble.repository.ObjectTypes.applications
-        app_class = ramble.repository.paths[app_type].get_obj_class(app_name)("test")
-        app_class.set_variables_and_variants({"workload_name": "test"}, {}, None, None)
-        create_archive(archive_dir, app_class)
+        app_cls = ramble.repository.paths[app_type].get_obj_class(app_name)
+        create_archive(archive_dir, app_cls)
 
         # Create workspace
         ws_name = f"workspace-mirror-{app_name}"
@@ -169,4 +166,6 @@ ramble:
             mirror_pipeline = mirror_pipeline_cls(workspace, filters, mirror_path=str(mirror_dir))
             mirror_pipeline.run()
 
-        check_mirror(str(mirror_dir), app_name, app_class)
+        app_inst = app_cls("test")
+        app_inst.set_variables_and_variants({"workload_name": "test"}, {}, None, None)
+        check_mirror(str(mirror_dir), app_name, app_inst)

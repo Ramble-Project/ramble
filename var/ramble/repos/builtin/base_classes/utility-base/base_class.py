@@ -9,22 +9,20 @@
 import os
 
 import ramble.repository
-import ramble.util.class_attributes
-import ramble.variants
-from ramble.language.shared_language import SharedMeta
-from ramble.language.utility_language import UtilityMeta
+from ramble.language.language_base import DirectiveMeta
 from ramble.util.logger import logger
 from ramble.util.naming import NS_SEPARATOR
 
 ObjectMixin = ramble.repository.get_base_class("object-mixin")
 
 
-class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
+class UtilityBase(ObjectMixin, metaclass=DirectiveMeta):
     origin_type = "utility"
     _builtin_name = NS_SEPARATOR.join(
         ("utility_builtin", "{obj_name}", "{name}")
     )
-    _language_classes = [UtilityMeta, SharedMeta]
+    _language_types = ["utility", "shared"]
+    _language_classes = _language_types
     pipelines = [
         "setup",
     ]
@@ -37,19 +35,6 @@ class UtilityBase(ObjectMixin, metaclass=UtilityMeta):
         self.object_variants = ramble.variants.VariantSet()
         for var_args in self.class_variants.values():
             self.object_variants.default_variant(**var_args)
-
-        self.env_sources = getattr(self, "env_sources", {})
-        self.env_sets = getattr(self, "env_sets", {})
-        self.env_prepends = getattr(self, "env_prepends", {})
-        self.env_appends = getattr(self, "env_appends", {})
-        self.fetch_mappings = getattr(self, "fetch_mappings", {})
-        self.bootstrappable = getattr(self, "bootstrappable", {})
-        self.missing_error_messages = getattr(
-            self, "missing_error_messages", {}
-        )
-        self.provided_executables = getattr(self, "provided_executables", {})
-
-        ramble.util.class_attributes.convert_class_attributes(self)
 
         self._file_path = file_path
         self.keywords = None

@@ -33,7 +33,6 @@ import ramble.repeats
 import ramble.repository
 import ramble.stage
 import ramble.success_criteria
-import ramble.util.class_attributes
 import ramble.util.colors as rucolor
 import ramble.util.env
 import ramble.util.executable
@@ -52,9 +51,8 @@ from ramble.error import (
     ObjectValidationError,
 )
 from ramble.experiment_result import ExperimentResult, ExperimentStatus
-from ramble.language.application_language import ApplicationMeta
+from ramble.language.language_base import DirectiveMeta
 from ramble.language.shared_language import (
-    SharedMeta,
     archive_pattern,
     register_builtin,
     register_phase,
@@ -152,7 +150,7 @@ def _get_phase_func_wrapper(workspace, phase_func, phase_name):
     return profiler(phase_func)
 
 
-class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
+class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
     _mro_obj_type_cache = {}
     name = "application-base"
     origin_type = "application"
@@ -171,7 +169,8 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         "execute",
         "logs",
     ]
-    _language_classes = [ApplicationMeta, SharedMeta]
+    _language_types = ["application", "shared"]
+    _language_classes = _language_types
 
     variant(
         "inject_modifiers_from_directives",
@@ -191,8 +190,6 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
     def __init__(self, file_path):
         super().__init__()
-
-        ramble.util.class_attributes.convert_class_attributes(self)
 
         self.object_variants = ramble.variants.VariantSet()
         for var_args in self.class_variants.values():
@@ -222,7 +219,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
         self._vars_are_expanded = False
         self.expander = None
-        self._formatted_executables = {}
+        self._context_formatted_executables = {}
         self.variables = None
         self.variants = None
         self._active_workload = None
@@ -305,8 +302,8 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         new_clone = type(self)(self._file_path)
         self.has_generated_experiments = True
 
-        if self.known_versions:
-            new_clone.known_versions = self.known_versions.copy()
+        self._copy_evaluated_directives(new_clone)
+
         clone_variables = {} if not self.variables else self.variables
         clone_variants = {} if not self.variants else self.variants
         new_clone.set_variables_and_variants(
@@ -319,13 +316,11 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
             new_clone.set_env_variable_sets(self._env_variable_sets.copy())
         if self.internals:
             new_clone.set_internals(self.internals.copy())
-        if self._formatted_executables:
+        if self._context_formatted_executables:
             new_clone.set_formatted_executables(
-                self._formatted_executables.copy()
+                self._context_formatted_executables.copy()
             )
 
-        new_clone.workloads = copy.deepcopy(self.workloads)
-        new_clone.inputs = copy.deepcopy(self.inputs)
         new_clone.custom_executables = self.custom_executables.copy()
         new_clone.keywords = ramble.keywords.keywords.copy()
         new_clone.set_template(False)
@@ -744,7 +739,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                 version_number=maybe_version,
                 description=self.expander.application_spec,
             )
-        elif hasattr(self, "preferred_version"):
+        elif self.preferred_version is not None:
             super().set_version(
                 version=self.preferred_version,
                 description=self.expander.application_spec,
@@ -1096,7 +1091,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
     def set_formatted_executables(self, formatted_executables):
         """Set formatted executables for this instance"""
-        self._formatted_executables = formatted_executables.copy()
+        self._context_formatted_executables = formatted_executables.copy()
 
     def has_tags(self, tags):
         """Check if this instance has provided tags.
@@ -2469,7 +2464,9 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         self.variables[self.keywords.unformatted_command_without_logs] = (
             "\n".join(self._command_list_without_logs)
         )
-        formatted_exec_groups = [{frozenset(): self._formatted_executables}]
+        formatted_exec_groups = [
+            {frozenset(): self._context_formatted_executables}
+        ]
 
         objs_to_extract = [self, self.workflow_manager, self.package_manager]
 

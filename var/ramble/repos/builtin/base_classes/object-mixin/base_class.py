@@ -8,7 +8,7 @@
 import functools
 import os
 from html import escape
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import ramble.config
 from ramble.definitions.versions import ObjectVersion
@@ -58,11 +58,55 @@ class ObjectMixin:
     def scoped_name(self):
         return f"{self.origin_type}::{self.name}"
 
+    @property
+    def preferred_version(self) -> Optional[ObjectVersion]:
+        for ver in getattr(self, "known_versions", {}).values():
+            if getattr(ver, "preferred", False):
+                return ver
+        return None
+
+    @preferred_version.setter
+    def preferred_version(self, value: Optional[Any]):
+        if not hasattr(self, "known_versions"):
+            return
+        for ver in self.known_versions.values():
+            if hasattr(ver, "preferred"):
+                ver.preferred = False
+        if value is not None:
+            try:
+                value.preferred = True
+            except (AttributeError, TypeError):
+                pass
+            ver_key = (
+                getattr(value, "version_number", None)
+                or getattr(value, "version", None)
+                or str(value)
+            )
+            self.known_versions[ver_key] = value
+
+    def _copy_evaluated_directives(self, target):
+        """Copy all evaluated directive dictionaries from self to target."""
+        from ramble.language.language_base import _UNSET, _copy_directive_value
+
+        directive_dicts = getattr(self, "_directive_dict_names", set())
+
+        for dict_name in directive_dicts.intersection(self.__dict__):
+            val = self.__dict__[dict_name]
+            if val is _UNSET:
+                continue
+            if (
+                dict_name in target.__dict__
+                and target.__dict__[dict_name] == val
+            ):
+                continue
+            target.__dict__[dict_name] = _copy_directive_value(val)
+
     def copy(self):
         """Generic copy method for Ramble objects."""
         new_copy = type(self)(self._file_path)
         if hasattr(self, "_verbosity"):
             new_copy._verbosity = self._verbosity
+        self._copy_evaluated_directives(new_copy)
         return new_copy
 
     def all_pipeline_phases(self, pipeline):
