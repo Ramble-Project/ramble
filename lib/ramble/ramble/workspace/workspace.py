@@ -1542,8 +1542,6 @@ ramble:
 
                     compiler_packages[comp] = False
                     packages_dict[comp].update(info.to_dict(apply_prefix=force_prefix))
-                    for conf in info.config_opts():
-                        ramble.config.add(conf, scope=self.ws_file_config_scope_name())
 
             logger.debug(f"Trying to define packages for {env_name}")
             app_packages = []
