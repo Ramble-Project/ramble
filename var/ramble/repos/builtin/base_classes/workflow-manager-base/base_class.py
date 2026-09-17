@@ -14,7 +14,7 @@ import ramble.definitions.families
 import ramble.util.class_attributes
 import ramble.variants
 from ramble.expander import ExpanderError
-from ramble.language.shared_language import SharedMeta
+from ramble.language.shared_language import SharedMeta, variant
 from ramble.language.workflow_manager_language import (
     WorkflowManagerMeta,
     workflow_manager_variable,
@@ -36,7 +36,12 @@ class WorkflowManagerBase(ObjectMixin, metaclass=WorkflowManagerMeta):
         "setup",
         "execute",
     ]
-    is_containerized = False
+
+    variant(
+        namespace.containerized,
+        default=False,
+        description="Whether this workflow manager runs in containers",
+    )
 
     workflow_manager_variable(
         "workflow_banner",
@@ -97,15 +102,6 @@ class WorkflowManagerBase(ObjectMixin, metaclass=WorkflowManagerMeta):
         """Set a reference to the associated app_inst"""
         self.app_inst = app_inst
         self.clear_variant_cache()
-
-        if (
-            self.is_containerized
-            and namespace.containerized not in app_inst.variants
-        ):
-            app_inst.object_variants.experiment_variant(
-                namespace.containerized, True
-            )
-            app_inst.clear_variant_cache()
 
     @abc.abstractmethod
     def get_status(self, workspace):

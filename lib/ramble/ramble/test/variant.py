@@ -675,16 +675,23 @@ def test_containerized_reserved_variant(request):
         # Verify it validates correctly without errors
         workspace("concretize", global_args=global_args)
 
-        # Verify containerized is in reserved_variants and validate_variant raises an error
-        # for custom definitions, but works for the workspace.
+        # Verify reserved variants raise an error, while standard variants are permitted
         with pytest.raises(ramble.variants.RambleVariantError):
-            ramble.variants.validate_variant("containerized")
+            ramble.variants.validate_variant("workflow_manager")
+
+        assert "containerized" in ramble.variants.standard_variants
+        ramble.variants.validate_variant("containerized")
+        ramble.variants.validate_variant("containerized", default=True, values=(True, False))
+
+        with pytest.raises(ramble.variants.RambleVariantError):
+            ramble.variants.validate_variant("containerized", values=["invalid_value"])
 
         # Verify that containerized is false by default in workspace config context
         # (It should load from etc/ramble/defaults/variants.yaml)
         exp_set = ws.build_experiment_set()
         for _, app, _ in exp_set.all_experiments():
             assert not app.object_variants.value("containerized")
+            assert not app.experiment_variants().value("containerized")
 
         # Set it to true in workspace config and verify
         config("add", "variants:containerized:true", global_args=global_args)
@@ -692,6 +699,7 @@ def test_containerized_reserved_variant(request):
         exp_set = ws.build_experiment_set()
         for _, app, _ in exp_set.all_experiments():
             assert app.object_variants.value("containerized")
+            assert app.experiment_variants().value("containerized")
 
 
 def test_workflow_manager_containerized_propagation(request):
@@ -728,14 +736,85 @@ def test_workflow_manager_containerized_propagation(request):
         # Verify it defaults to containerized=True
         exp_set = ws.build_experiment_set()
         for _, app, _ in exp_set.all_experiments():
-            assert app.object_variants.value("containerized")
+            assert app.experiment_variants().value("containerized")
 
         # Now set it explicitly to false, and verify it respects the user override
         config("add", "variants:containerized:false", global_args=global_args)
         ws._re_read()
         exp_set = ws.build_experiment_set()
         for _, app, _ in exp_set.all_experiments():
-            assert not app.object_variants.value("containerized")
+            assert not app.experiment_variants().value("containerized")
+
+
+def test_modifier_containerized_propagation(request, mock_modifiers, mock_base_modifiers):
+    mock_modifiers.put_first(
+        ramble.repository.Repo(ramble.paths.builtin_path, ramble.repository.ObjectTypes.modifiers)
+    )
+    mock_base_modifiers.put_first(
+        ramble.repository.Repo(
+            ramble.paths.builtin_path, ramble.repository.ObjectTypes.base_modifiers
+        )
+    )
+    ws_name = request.node.name
+    global_args = ["-w", ws_name]
+
+    with ramble.workspace.create(ws_name) as ws:
+        workspace(
+            "manage",
+            "experiments",
+            "when-variants",
+            "--wf",
+            "test_wl",
+            "-v",
+            "n_ranks=1",
+            "-v",
+            "n_nodes=1",
+            "-v",
+            "processes_per_node=1",
+            "-p",
+            "spack",
+            "--default-variable-value",
+            "1",
+            global_args=global_args,
+        )
+
+        # Define mpi_command and container_uri variables
+        config("add", "variables:mpi_command:mpirun -n {n_ranks}", global_args=global_args)
+        config("add", "variables:container_uri:fake-uri", global_args=global_args)
+
+        # By default, user-managed workflow manager without container
+        # modifier has containerized=False
+        exp_set = ws.build_experiment_set()
+        for _, app, _ in exp_set.all_experiments():
+            assert not app.experiment_variants().value("containerized")
+            assert "container_only_var" not in app.variables
+
+        # Add docker modifier (inherits containerized=True from container-base)
+        workspace(
+            "manage",
+            "modifiers",
+            "--add",
+            "-s",
+            "workspace",
+            "-n",
+            "docker",
+            global_args=global_args,
+        )
+        ws._re_read()
+
+        exp_set = ws.build_experiment_set()
+        for _, app, _ in exp_set.all_experiments():
+            assert app.experiment_variants().value("containerized")
+            assert "container_only_var" in app.variables
+
+        # Explicit user override variants:containerized:false takes precedence
+        config("add", "variants:containerized:false", global_args=global_args)
+        ws._re_read()
+
+        exp_set = ws.build_experiment_set()
+        for _, app, _ in exp_set.all_experiments():
+            assert not app.experiment_variants().value("containerized")
+            assert "container_only_var" not in app.variables
 
 
 def test_containerized_app_variable_guarding(request):
