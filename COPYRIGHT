@@ -40,10 +40,6 @@ PackageName: archspec
 PackageHomePage: https://github.com/archspec/archspec
 PackageLicenseDeclared: Apache-2.0 OR MIT
 
-PackageName: ctest_log_parser
-PackageHomePage: https://github.com/Kitware/CMake
-PackageLicenseDeclared: BSD-3-Clause
-
 PackageName: jsonschema
 PackageHomePage: https://pypi.python.org/pypi/jsonschema
 PackageLicenseDeclared: MIT
