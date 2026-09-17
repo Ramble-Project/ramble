@@ -21,6 +21,7 @@ RUN cd /opt &&  \
     python -m pip install --no-cache-dir -r /opt/requirements-pinned.txt
 COPY share/ramble/cloud-build/container_test.sh /container_test.sh
 RUN chmod a+x /container_test.sh
+RUN chmod a+rx /root && ([ ! -d /root/.spack ] || chmod -R a+rX /root/.spack)
 FROM ${BASE_IMG}:${BASE_VER}
 
 COPY --from=builder / /

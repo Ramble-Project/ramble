@@ -556,6 +556,8 @@ def test_config_compiler_find_attribute(
 
     import os
 
+    # compilers.yaml is written to support older spack versions.
+    # The compiler information was changed to exist in the packages.yaml file around v1.0.0
     compilers_config = """
 compilers::
 - compiler:
@@ -573,9 +575,29 @@ compilers::
     extra_rpaths: []
 """
 
+    packages_config = """
+packages::
+  gcc:
+    externals:
+    - spec: gcc@12.1.0 languages=c,fortran
+      prefix: /path/to
+      extra_attributes:
+        compilers:
+          c: /path/to/gcc
+          cxx: /path/to/g++
+          fortran: /path/to/gfortran
+    buildable: false
+"""
+
     with tmpdir.as_cwd():
+        env_path = os.path.join(os.getcwd(), "test_env")
+        os.mkdir(env_path)
+        packages_path = os.path.join(os.getcwd(), "packages.yaml")
         compilers_path = os.path.join(os.getcwd(), "compilers.yaml")
         # Write spack_configs
+        with open(packages_path, "w+", encoding="utf-8") as f:
+            f.write(packages_config)
+
         with open(compilers_path, "w+", encoding="utf-8") as f:
             f.write(compilers_config)
 
@@ -590,9 +612,12 @@ compilers::
                     pkg_spec = "gcc@12.2.0 +binutils"
                     compiler_spec = "gcc@12.2.0"
                     sr = SpackRunner(dry_run=True)
-                    sr.create_env(os.getcwd())
+                    sr.create_env(env_path)
                     sr.activate()
+                    sr.add_include_file(packages_path)
                     sr.add_include_file(compilers_path)
+                    stage_env_path = sr.create_stage_env()
+                    sr.migrate_stage_env(stage_env_path, env_path)
                     sr.install_compiler(pkg_spec, compiler_spec)
                     captured = capsys.readouterr()
 

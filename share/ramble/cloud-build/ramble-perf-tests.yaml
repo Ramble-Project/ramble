@@ -28,22 +28,7 @@ steps:
     args:
       - '-c'
       - |
-        cd /workspace
-
-        git branch develop origin/develop
-
-        . /opt/spack/share/spack/setup-env.sh
-
-        spack load py-pip ^python
-
-        pip install -r /workspace/requirements-pinned.txt
-
-        export SPACK_PYTHON=$(which python3)
-
-        . /workspace/share/ramble/setup-env.sh
-
-        echo "Spack version is $(spack --version)"
-        echo "Python version is $(python3 --version)"
+        . /workspace/share/ramble/cloud-build/setup-ci-env.sh
 
         echo "Running Perf Tests..."
         ramble unit-test --perf
