@@ -43,17 +43,21 @@ def _make_validator():
 
             yield jsonschema.ValidationError(msg)
 
-    ValidatorClass = jsonschema.validators.extend(
-        jsonschema.Draft4Validator, {"deprecatedProperties": _deprecated_properties}
-    )
-
     import spack.util.spack_yaml as syaml
 
-    # Add syaml_bool to the accepted boolean types for validation
-    boolean_types = ValidatorClass.DEFAULT_TYPES.get("boolean", bool)
-    if not isinstance(boolean_types, tuple):
-        boolean_types = (boolean_types,)
-    ValidatorClass.DEFAULT_TYPES["boolean"] = boolean_types + (syaml.syaml_bool,)
+    # Ramble's YAML loader represents `true`/`false` as `syaml_bool`, which derives from
+    # `int` rather than `bool`, so jsonschema's stock `isinstance(instance, bool)` check
+    # rejects it. Redefine the "boolean" type check to accept it, otherwise every boolean
+    # in every Ramble config file fails validation.
+    type_checker = jsonschema.Draft4Validator.TYPE_CHECKER.redefine(
+        "boolean", lambda checker, instance: isinstance(instance, (bool, syaml.syaml_bool))
+    )
+
+    ValidatorClass = jsonschema.validators.extend(
+        jsonschema.Draft4Validator,
+        {"deprecatedProperties": _deprecated_properties},
+        type_checker=type_checker,
+    )
 
     return ValidatorClass
 

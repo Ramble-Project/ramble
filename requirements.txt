@@ -14,3 +14,4 @@ setuptools
 scipy
 types-PyYAML
 distro
+jsonschema>=3.2

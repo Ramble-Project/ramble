@@ -44,10 +44,6 @@ PackageName: ctest_log_parser
 PackageHomePage: https://github.com/Kitware/CMake
 PackageLicenseDeclared: BSD-3-Clause
 
-PackageName: jsonschema
-PackageHomePage: https://pypi.python.org/pypi/jsonschema
-PackageLicenseDeclared: MIT
-
 PackageName: ruamel.yaml
 PackageHomePage: https://yaml.readthedocs.io/
 PackageLicenseDeclared: MIT

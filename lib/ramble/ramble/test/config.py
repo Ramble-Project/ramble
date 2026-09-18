@@ -119,3 +119,64 @@ def test_unhashable_yaml_keys_coverage():
 
     with pytest.raises(ruamel.yaml.constructor.ConstructorError, match="found unhashable key"):
         loader.construct_mapping(node2, MockMap())
+
+
+def test_syaml_bool_validates_as_json_boolean():
+    """Booleans from Ramble YAML must satisfy a schema's ``"type": "boolean"``.
+
+    Ramble's YAML loader represents ``true``/``false`` as ``syaml_bool``, which
+    derives from ``int`` rather than ``bool``, so stock jsonschema rejects it.
+    ``ramble.schema`` compensates by redefining the "boolean" type check. This
+    test pins that behavior down: without the redefinition every boolean in
+    every Ramble config file fails validation.
+    """
+    import io
+
+    import jsonschema
+
+    import ramble.schema
+    import ramble.schema.internals
+
+    import spack.util.spack_yaml as syaml
+
+    schema = ramble.schema.internals.schema
+    data = syaml.load_config(io.StringIO("""
+internals:
+  custom_executables:
+    test_exec:
+      template:
+        - 'echo hello'
+      use_mpi: true
+      force: false
+"""))
+
+    value = data["internals"]["custom_executables"]["test_exec"]["use_mpi"]
+    assert isinstance(value, syaml.syaml_bool)
+    # The reason this test exists: syaml_bool is not a bool.
+    assert not isinstance(value, bool)
+
+    # Control: an unpatched validator rejects it, so the check below has teeth.
+    assert list(jsonschema.Draft4Validator(schema).iter_errors(data))
+
+    assert not list(ramble.schema.Validator(schema).iter_errors(data))
+
+
+def test_non_boolean_still_rejected():
+    """Accepting syaml_bool must not weaken boolean type checking generally."""
+    import io
+
+    import ramble.schema
+    import ramble.schema.internals
+
+    import spack.util.spack_yaml as syaml
+
+    data = syaml.load_config(io.StringIO("""
+internals:
+  custom_executables:
+    test_exec:
+      use_mpi: definitely_not_a_boolean
+"""))
+
+    validator = ramble.schema.Validator(ramble.schema.internals.schema)
+    errors = [e.message for e in validator.iter_errors(data)]
+    assert any("is not of type 'boolean'" in e for e in errors), errors
