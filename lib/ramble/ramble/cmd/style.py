@@ -89,7 +89,7 @@ base_class_file = repository.type_definitions[repository.ObjectTypes.base_classe
 #
 # For each file, if the filename pattern matches, we'll add per-line
 # exemptions if any patterns in the sub-dict match.
-pattern_exemptions = {
+_raw_pattern_exemptions = {
     # exemptions applied only to application.py files.
     rf"application.py|{base_class_file}$": {
         # Allow 'from ramble.appkit import *' in applications,
@@ -130,8 +130,14 @@ pattern_exemptions = {
         "F403": [r"^from ramble.syskit import \*$"],
         **common_object_exemptions,
     },
+    rf"utility.py|{base_class_file}$": {
+        # Allow 'from ramble.toolkit import *' in utilities,
+        # but no other wildcards
+        "F403": [r"^from ramble.toolkit import \*$"],
+        **common_object_exemptions,
+    },
     # exemptions applied to all files.
-    r".py$": {
+    r"\.py$": {
         "E501": [
             r"(https?|ftp|file)\:",  # URLs
             r'([\'"])[0-9a-fA-F]{32,}\1',  # long hex checksums
@@ -144,7 +150,7 @@ pattern_exemptions = {
     re.compile(file_pattern): {
         code: [re.compile(p) for p in patterns] for code, patterns in error_dict.items()
     }
-    for file_pattern, error_dict in pattern_exemptions.items()
+    for file_pattern, error_dict in _raw_pattern_exemptions.items()
 }
 
 # Tools run in the given order
@@ -386,6 +392,12 @@ def filter_file(source, dest, output=False):
     if not os.path.isfile(source):
         return
 
+    file_exemptions = [
+        errors
+        for file_pattern, errors in pattern_exemptions.items()
+        if file_pattern.search(source)
+    ]
+
     with open(source, encoding="utf-8") as infile:
         parent = os.path.dirname(dest)
         mkdirp(parent)
@@ -395,10 +407,7 @@ def filter_file(source, dest, output=False):
                 line_errors = []
 
                 # pattern exemptions
-                for file_pattern, errors in pattern_exemptions.items():
-                    if not file_pattern.search(source):
-                        continue
-
+                for errors in file_exemptions:
                     for code, patterns in errors.items():
                         for pattern in patterns:
                             if pattern.search(line):
