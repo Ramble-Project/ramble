@@ -39,6 +39,7 @@ import ramble.util.install_cache
 import ramble.util.lock as lk
 import ramble.util.path
 import ramble.util.version
+import ramble.util.web as web_util
 from ramble.mirror import MirrorStats
 from ramble.namespace import namespace
 from ramble.util import json_util
@@ -48,7 +49,6 @@ from ramble.util.path import substitute_path_variables
 
 import spack.util.spack_yaml as syaml
 import spack.util.url as url_util
-import spack.util.web as web_util
 
 # Workspace-related constants
 

@@ -22,9 +22,9 @@ from llnl.util.filesystem import mkdirp, rename
 
 import ramble
 import ramble.config
+import ramble.error
 from ramble.util.logger import logger
 
-import spack.error
 import spack.util.gcs as gcs_util
 import spack.util.s3 as s3_util
 import spack.util.url as url_util
@@ -96,7 +96,7 @@ def read_from_url(url, accept_content_type=None):
     try:
         response = _urlopen(req, timeout=timeout, context=context)
     except URLError as err:
-        raise SpackWebError("Download failed") from err
+        raise RambleWebError("Download failed") from err
 
     if accept_content_type and not is_web_url:
         content_type = get_header(response.headers, "Content-type")
@@ -276,7 +276,7 @@ def url_exists(url):
     try:
         read_from_url(url)
         return True
-    except (SpackWebError, URLError):
+    except (RambleWebError, URLError):
         return False
 
 
@@ -402,5 +402,5 @@ def get_header(headers, header_name):
         raise
 
 
-class SpackWebError(spack.error.SpackError):
-    """Superclass for Spack web spidering errors."""
+class RambleWebError(ramble.error.RambleError):
+    """Superclass for Ramble web spidering errors."""

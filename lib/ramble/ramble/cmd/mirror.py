@@ -7,11 +7,11 @@
 # except according to those terms.
 import ramble.config
 import ramble.mirror
+import ramble.util.web as web_util
 from ramble.cmd.common import arguments
 from ramble.util.logger import logger
 
 import spack.util.url as url_util
-import spack.util.web as web_util
 from spack.util.spack_yaml import syaml_dict
 
 description = "manage mirrors (inputs)"
