@@ -428,6 +428,71 @@ def test_multiline_plot(mutable_mock_workspace_path, mutable_config, tmpdir_fact
         assert os.path.isfile(os.path.join(out_path, file))
 
 
+def test_multiline_format_lines_by(
+    mutable_mock_workspace_path, mutable_config, tmpdir_factory, monkeypatch
+):
+    results_dir_path = tmpdir_factory.mktemp("unit_test_fmt")
+    results_file = os.path.join(results_dir_path, "results.json")
+
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name=f"exp_{i}",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("fom_1", 10.0 * i, "s", "app", "application", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0", "line_style_var": f"style_{i}"},
+            ramble_raw_vars={},
+            n_nodes=1,
+        )
+        for i in range(1, 4)
+    ]
+
+    test_exp_results = {"experiments": test_exps}
+
+    with open(results_file, "w+", encoding="utf-8") as f:
+        json_util.dump(test_exp_results, f)
+
+    captured_linestyles = []
+    orig_write = ramble.reports.MultiLinePlot.write
+
+    def spy_write(self, fig, filename, pdf_report):
+        if filename.startswith("multi_line"):
+            ax = fig.axes[0]
+            captured_linestyles.extend([line.get_linestyle() for line in ax.get_lines()])
+        return orig_write(self, fig, filename, pdf_report)
+
+    monkeypatch.setattr(ramble.reports.MultiLinePlot, "write", spy_write)
+
+    with ramble.config.override("config:report_dirs", results_dir_path):
+        output = results(
+            "report",
+            "-f",
+            results_file,
+            "--multi-line",
+            "fom_1",
+            "n_nodes",
+            "--split-by",
+            "experiment_name",
+            "--format-lines-by",
+            "line_style_var",
+        )
+
+    assert "Report generated successfully" in output
+
+    timestamp_capture = re.compile(r"\.(\d{4}-\d{2}-\d{2}_\d{2}\.\d{2}\.\d{2})")
+    ts = timestamp_capture.search(output).group(1)
+    out_path = os.path.join(results_dir_path, f"unknown_workspace.{ts}")
+
+    assert os.path.isdir(out_path)
+    assert os.path.isfile(os.path.join(out_path, f"unknown_workspace.{ts}.multi_line.pdf"))
+
+    assert len(set(captured_linestyles)) == 3
+    assert set(captured_linestyles) == {"-", "--", "-."}
+
+
 def test_where_query(mutable_mock_workspace_path):
     where_query = 'fom_name == "fom_1"'
     foms = ["fom_1", "fom_2"]

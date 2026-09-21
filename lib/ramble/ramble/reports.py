@@ -557,6 +557,7 @@ class PlotFactory:
         split_by = args.split_by
         simplify_names = getattr(args, "simplify_names", False)
         where = getattr(args, "where", None)
+        format_lines_by = getattr(args, "format_lines_by", None)
 
         spec, plot_class = self.determine_plot_type(args)
 
@@ -571,6 +572,7 @@ class PlotFactory:
                 split_by,
                 simplify_names=simplify_names,
                 where=where,
+                format_lines_by=format_lines_by,
             )
             return plot
 
@@ -589,6 +591,7 @@ class PlotGenerator:
         split_by,
         simplify_names=False,
         where=None,
+        format_lines_by=None,
     ):
         pd = import_pandas()
         self.normalize = normalize
@@ -607,6 +610,7 @@ class PlotGenerator:
         self.split_by = split_by
         self.simplify_names = simplify_names
         self.where = where
+        self.format_lines_by = format_lines_by
 
         self.have_statistics = False
         self.better_direction = BetterDirection.INDETERMINATE
@@ -793,7 +797,7 @@ class PlotGenerator:
                 )
 
     def write(self, fig, filename, pdf_report):
-        filename = filename.replace(" ", "-")
+        filename = filename.replace(" ", "-").replace("/", "_")
         plt.savefig(os.path.join(self.report_dir_path, filename), bbox_inches="tight")
         self.add_to_inventory(filename)
         pdf_report.savefig(fig, bbox_inches="tight")
@@ -810,6 +814,14 @@ class ScalingPlotGenerator(PlotGenerator):
         perf_measure, scale_var, *additional_vars = self.spec
 
         all_foms = get_all_foms(self.result_index)
+        all_vars = get_all_vars(self.result_index)
+
+        if self.format_lines_by:
+            if self.format_lines_by not in all_foms and self.format_lines_by not in all_vars:
+                logger.die(
+                    f"{self.format_lines_by} was not found in the results data. "
+                    "Use `ramble results index -v` to see available FOMs and variables."
+                )
 
         foms = [perf_measure]
         variables = []
@@ -822,6 +834,22 @@ class ScalingPlotGenerator(PlotGenerator):
         for var in additional_vars + [self.split_by]:
             if var not in variables and var not in foms:
                 variables.append(var)
+
+        if self.format_lines_by:
+            if self.format_lines_by in all_foms:
+                if self.format_lines_by not in foms:
+                    foms.append(self.format_lines_by)
+            elif self.format_lines_by not in variables:
+                variables.append(self.format_lines_by)
+
+            if (
+                self.format_lines_by not in additional_vars
+                and self.format_lines_by != scale_var
+                and self.format_lines_by != perf_measure
+            ):
+                additional_vars.append(self.format_lines_by)
+
+        self.additional_vars = additional_vars
 
         results = extract_data(
             self.exp_results,
@@ -1269,33 +1297,92 @@ class MultiLinePlot(ScalingPlotGenerator):
         # TODO: prep_draw method in subclass ScalingPlotGenerator, not this class
         fig, ax = self.prep_draw(perf_measure, scale_var)
 
+        style_map = {}
+        color_map = {}
+        grouping_vars = []
+        if self.format_lines_by and self.format_lines_by in self.output_df.columns:
+            raw_fmt_vals = self.output_df[self.format_lines_by].dropna().unique().tolist()
+            try:
+                format_values = sorted(
+                    raw_fmt_vals,
+                    key=lambda x: (float(x) if str(x).replace(".", "", 1).isdigit() else str(x)),
+                )
+            except Exception:
+                format_values = sorted(raw_fmt_vals, key=str)
+
+            format_styles = ["-", "--", "-.", ":", (0, (3, 1, 1, 1)), (0, (5, 1))]
+            style_map = {
+                val: format_styles[i % len(format_styles)] for i, val in enumerate(format_values)
+            }
+
+            additional_vars = getattr(self, "additional_vars", [])
+            grouping_vars = [self.split_by] + [
+                v for v in additional_vars if v != self.format_lines_by
+            ]
+
+            unique_color_keys = []
+            for series in self.output_df.loc[:, ReportVars.SERIES.value].unique():
+                series_data = self.output_df.query(f'series == "{series}"')
+                if series_data.empty:
+                    continue
+                c_key = tuple(
+                    str(series_data[v].iloc[0]) for v in grouping_vars if v in series_data.columns
+                )
+                if c_key not in unique_color_keys:
+                    unique_color_keys.append(c_key)
+
+            prop_cycle = plt.rcParams.get("axes.prop_cycle")
+            default_colors = (
+                prop_cycle.by_key()["color"] if prop_cycle else [f"C{i}" for i in range(10)]
+            )
+            color_map = {
+                k: default_colors[i % len(default_colors)] for i, k in enumerate(unique_color_keys)
+            }
+
         for series in self.output_df.loc[:, ReportVars.SERIES.value].unique():
             series_data = self.output_df.query(f'series == "{series}"').copy()
+
+            plot_kwargs = {"marker": "o"}
+            if style_map and self.format_lines_by in series_data.columns:
+                fmt_val = series_data[self.format_lines_by].iloc[0]
+                if fmt_val in style_map:
+                    plot_kwargs["linestyle"] = style_map[fmt_val]
+
+            if color_map:
+                c_key = tuple(
+                    str(series_data[v].iloc[0]) for v in grouping_vars if v in series_data.columns
+                )
+                if c_key in color_map:
+                    plot_kwargs["color"] = color_map[c_key]
+
             if self.normalize:
                 ax.plot(
                     series_data.index,
                     ReportVars.NORMALIZED_FOM_VALUE.value,
                     data=series_data,
-                    marker="o",
                     label=f"{series} (Normalized)",
+                    **plot_kwargs,
                 )
             else:
                 ax.plot(
                     series_data.index,
                     ReportVars.FOM_VALUE.value,
                     data=series_data,
-                    marker="o",
                     label=f"{series}",
+                    **plot_kwargs,
                 )
 
             if self.have_statistics:
                 logger.debug("Adding fill lines for min and max")
+                fill_kwargs = {"alpha": 0.2}
+                if "color" in plot_kwargs:
+                    fill_kwargs["color"] = plot_kwargs["color"]
                 ax.fill_between(
                     series_data.index,
                     ReportVars.FOM_VALUE_MIN.value,
                     ReportVars.FOM_VALUE_MAX.value,
                     data=series_data,
-                    alpha=0.2,
+                    **fill_kwargs,
                 )
 
         _, ymax = ax.get_ylim()
