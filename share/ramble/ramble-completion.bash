@@ -665,7 +665,7 @@ _ramble_results_index() {
 }
 
 _ramble_results_report() {
-    RAMBLE_COMPREPLY="-h --help --workspace --strong-scaling --weak-scaling --multi-line --compare --foms --pandas-where -n --normalize --logx --logy --simplify-names --split-by -f --file"
+    RAMBLE_COMPREPLY="-h --help --workspace --strong-scaling --weak-scaling --multi-line --compare --foms --pandas-where -n --normalize --logx --logy --simplify-names --split-by --format-lines-by -f --file"
 }
 
 _ramble_software_definitions() {

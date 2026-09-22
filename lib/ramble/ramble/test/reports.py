@@ -17,10 +17,12 @@
 # Test that PDF is generated and contains data (size > some value?)
 
 import copy
+import io
 import os
 import re
 from typing import Any, Dict, Optional
 
+import matplotlib.pyplot as plt
 import pandas as pd
 
 # Possible to test that a specific chart was correctly generated? Not sure...
@@ -35,6 +37,15 @@ import spack.util.spack_yaml as syaml
 
 config = RambleCommand("config")
 results = RambleCommand("results")
+
+
+@pytest.fixture
+def fast_plot_write(monkeypatch):
+    monkeypatch.setattr(
+        ramble.reports.PlotGenerator,
+        "write",
+        lambda self, fig, name, pdf: plt.close(fig),
+    )
 
 
 def create_test_fom_result(
@@ -491,6 +502,199 @@ def test_multiline_format_lines_by(
 
     assert len(set(captured_linestyles)) == 3
     assert set(captured_linestyles) == {"-", "--", "-."}
+
+
+def test_multiline_format_lines_by_invalid(capsys, fast_plot_write):
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name="exp_1",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("fom_1", 10.0, "s", "app", "application", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=1,
+        )
+    ]
+    plot = ramble.reports.MultiLinePlot(
+        ["fom_1", "n_nodes"],
+        False,
+        "",
+        test_exps,
+        False,
+        False,
+        "experiment_name",
+        format_lines_by="non_existent_var_or_fom",
+    )
+    with PdfPages(io.BytesIO()) as pdf_report:
+        with pytest.raises(SystemExit):
+            plot.generate_plot_data(pdf_report)
+    captured = capsys.readouterr().err
+    assert "non_existent_var_or_fom was not found in the results data" in captured
+
+
+def test_multiline_format_lines_by_fom(fast_plot_write):
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name="exp_1",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("fom_1", 10.0, "s", "app", "application", foms.FomType.TIME)),
+                ("null", ("fom_2", 20.0, "s", "app", "application", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=1,
+        )
+    ]
+    plot = ramble.reports.MultiLinePlot(
+        ["fom_1", "n_nodes"],
+        False,
+        "",
+        test_exps,
+        False,
+        False,
+        "experiment_name",
+        format_lines_by="fom_2",
+    )
+    with PdfPages(io.BytesIO()) as pdf_report:
+        with pytest.raises(KeyError):
+            plot.generate_plot_data(pdf_report)
+
+
+def test_multiline_format_lines_by_mixed_values(fast_plot_write):
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name=f"exp_{i}",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("fom_1", 10.0 * i, "s", "app", "application", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0", "style_var": "10" if i == 1 else "abc"},
+            ramble_raw_vars={},
+            n_nodes=1,
+        )
+        for i in range(1, 3)
+    ]
+    plot = ramble.reports.MultiLinePlot(
+        ["fom_1", "n_nodes"],
+        False,
+        "",
+        test_exps,
+        False,
+        False,
+        "experiment_name",
+        format_lines_by="style_var",
+    )
+    with PdfPages(io.BytesIO()) as pdf_report:
+        plot.generate_plot_data(pdf_report)
+
+
+def test_multiline_format_lines_by_empty_series(monkeypatch, fast_plot_write):
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name=f"exp_{i}",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("fom_1", 10.0 * i, "s", "app", "application", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0", "style_var": f"style_{i}"},
+            ramble_raw_vars={},
+            n_nodes=1,
+        )
+        for i in range(1, 3)
+    ]
+    plot = ramble.reports.MultiLinePlot(
+        ["fom_1", "n_nodes"],
+        False,
+        "",
+        test_exps,
+        False,
+        False,
+        "experiment_name",
+        format_lines_by="style_var",
+    )
+    orig_prep_draw = ramble.reports.MultiLinePlot.prep_draw
+    called = [False]
+
+    def spy_prep_draw(self, perf_measure, scale_var):
+        fig, ax = orig_prep_draw(self, perf_measure, scale_var)
+        orig_query = self.output_df.query
+
+        def spy_query(expr, **kwargs):
+            if not called[0]:
+                called[0] = True
+                return self.output_df.iloc[0:0]
+            return orig_query(expr, **kwargs)
+
+        self.output_df.query = spy_query
+        return fig, ax
+
+    monkeypatch.setattr(ramble.reports.MultiLinePlot, "prep_draw", spy_prep_draw)
+
+    with PdfPages(io.BytesIO()) as pdf_report:
+        plot.generate_plot_data(pdf_report)
+
+    assert called[0]
+
+
+@pytest.mark.parametrize("normalize", [False, True])
+def test_multiline_format_lines_by_with_statistics(normalize, fast_plot_write):
+    app_name = "app"
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name=f"exp_{i}",
+            application_name=app_name,
+            workload_name="wl",
+            foms=[
+                (
+                    "null",
+                    (
+                        foms.SummaryFoms.SUMMARY.value,
+                        2,
+                        "repeats",
+                        app_name,
+                        f"summary::{foms.SummaryFoms.N_SUCCESS.value}",
+                        foms.FomType.MEASURE,
+                    ),
+                ),
+                ("null", ("fom_1", 8.0 * i, "s", app_name, "summary::min", foms.FomType.TIME)),
+                ("null", ("fom_1", 12.0 * i, "s", app_name, "summary::max", foms.FomType.TIME)),
+                ("null", ("fom_1", 10.0 * i, "s", app_name, "summary::mean", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0", "style_var": f"style_{i}"},
+            ramble_raw_vars={},
+            n_nodes=i,
+            N_REPEATS=2,
+        )
+        for i in range(1, 3)
+    ]
+    plot = ramble.reports.MultiLinePlot(
+        ["fom_1", "n_nodes"],
+        normalize,
+        "",
+        test_exps,
+        False,
+        False,
+        "workload_name",
+        format_lines_by="style_var",
+    )
+    with PdfPages(io.BytesIO()) as pdf_report:
+        plot.generate_plot_data(pdf_report)
+
+    assert plot.have_statistics
+    if normalize:
+        assert plot.normalize
 
 
 def test_where_query(mutable_mock_workspace_path):
@@ -1004,3 +1208,268 @@ def test_fom_plot_with_simplify_names(mutable_mock_workspace_path, tmpdir_factor
 
     assert os.path.isfile(pdf_path)
     assert os.path.isfile(os.path.join(report_dir_path, "foms_fom_1_by_experiments.png"))
+
+
+@pytest.mark.parametrize("normalize", [True, False])
+def test_scaling_plot_first_perf_value_zero(normalize, fast_plot_write):
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name="exp_1",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("fom_1", 0.0, "s", "app", "application", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=1,
+        ),
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name="exp_2",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("fom_1", 10.0, "s", "app", "application", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=2,
+        ),
+    ]
+    plot = ramble.reports.StrongScalingPlot(
+        ["fom_1", "n_nodes"],
+        normalize,
+        "",
+        test_exps,
+        False,
+        False,
+        "experiment_name",
+    )
+    with PdfPages(io.BytesIO()) as pdf_report:
+        plot.generate_plot_data(pdf_report)
+
+
+def test_fom_plot_with_summary_statistics(fast_plot_write):
+    app_name = "app"
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name=f"exp_{i}",
+            application_name=app_name,
+            workload_name="wl",
+            foms=[
+                (
+                    "null",
+                    (
+                        foms.SummaryFoms.SUMMARY.value,
+                        2,
+                        "repeats",
+                        app_name,
+                        f"summary::{foms.SummaryFoms.N_SUCCESS.value}",
+                        foms.FomType.MEASURE,
+                    ),
+                ),
+                ("null", ("fom_1", 8.0 * i, "s", app_name, "summary::min", foms.FomType.TIME)),
+                ("null", ("fom_1", 12.0 * i, "s", app_name, "summary::max", foms.FomType.TIME)),
+                ("null", ("fom_1", 10.0 * i, "s", app_name, "summary::mean", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=i,
+            N_REPEATS=2,
+            experiment_namespace=str(i),
+        )
+        for i in range(1, 3)
+    ]
+    plot = ramble.reports.FomPlot(
+        ["fom_1"],
+        True,
+        "",
+        test_exps,
+        False,
+        False,
+        "experiment_name",
+    )
+    with PdfPages(io.BytesIO()) as pdf_report:
+        plot.generate_plot_data(pdf_report)
+    assert plot.have_statistics
+
+
+def test_weak_scaling_plot_idealized_data(fast_plot_write):
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name=f"exp_{i}",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("fom_1", 10.0 * i, "s", "app", "application", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=i,
+        )
+        for i in range(1, 3)
+    ]
+    plot = ramble.reports.WeakScalingPlot(
+        ["fom_1", "n_nodes"],
+        False,
+        "",
+        test_exps,
+        False,
+        False,
+        "experiment_name",
+    )
+    with PdfPages(io.BytesIO()) as pdf_report:
+        plot.generate_plot_data(pdf_report)
+
+
+def test_comparison_plot_no_dimensions_and_normalized(fast_plot_write):
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name=f"exp_{i}",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("fom_1", 10.0 * i, "s", "app", "application", foms.FomType.TIME)),
+            ],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=1,
+        )
+        for i in range(1, 3)
+    ]
+    plot = ramble.reports.ComparisonPlot(
+        ["fom_1"],
+        True,
+        "",
+        test_exps,
+        False,
+        False,
+        "experiment_name",
+    )
+    with PdfPages(io.BytesIO()) as pdf_report:
+        plot.generate_plot_data(pdf_report)
+
+
+def test_fom_plot_non_numeric_and_unit(fast_plot_write):
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name="exp_1",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                (
+                    "null",
+                    (
+                        "str_fom",
+                        "non_numeric",
+                        "units_str",
+                        "app",
+                        "application",
+                        foms.FomType.INFO,
+                    ),
+                ),
+            ],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=1,
+            experiment_namespace="app.wl.exp_1",
+        )
+    ]
+    plot = ramble.reports.FomPlot(
+        ["str_fom"],
+        False,
+        "",
+        test_exps,
+        False,
+        False,
+        "experiment_name",
+    )
+    with PdfPages(io.BytesIO()) as pdf_report:
+        plot.generate_plot_data(pdf_report)
+
+
+def test_filter_exp_results_failed_and_chain():
+    exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name="c.chain.0",
+            application_name="app",
+            workload_name="wl",
+            foms=[],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=1,
+            N_REPEATS=2,
+            name="app.wl.c.chain.0",
+        ),
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name="c.1.chain.0",
+            application_name="app",
+            workload_name="wl",
+            foms=[],
+            ramble_vars={"repeat_index": "1"},
+            ramble_raw_vars={},
+            n_nodes=1,
+            N_REPEATS=0,
+            name="app.wl.c.1.chain.0",
+        ),
+        create_test_exp_result(
+            ramble_status="FAILED",
+            experiment_name="failed",
+            application_name="app",
+            workload_name="wl",
+            foms=[],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=1,
+            N_REPEATS=0,
+            name="app.wl.failed",
+        ),
+    ]
+    filtered = ramble.reports.filter_exp_results(exps)
+    assert len(filtered) == 1
+    assert filtered[0]["name"] == "app.wl.c.chain.0"
+    assert ramble.reports.is_key_to_skip("install_path")
+    assert ramble.reports.is_key_to_skip("work_dir")
+
+
+def test_generate_result_index_with_modifier_foms():
+    test_exps = [
+        create_test_exp_result(
+            ramble_status="SUCCESS",
+            experiment_name="exp_1",
+            application_name="app",
+            workload_name="wl",
+            foms=[
+                ("null", ("mod_fom", 1.23, "s", "my_modifier", "modifier")),
+            ],
+            ramble_vars={"repeat_index": "0"},
+            ramble_raw_vars={},
+            n_nodes=1,
+        )
+    ]
+    idx = ramble.reports.generate_result_index(test_exps)
+    assert "modifiers" in idx
+    assert "my_modifier" in idx["modifiers"]
+    assert "mod_fom" in idx["modifiers"]["my_modifier"]["FOMs"]
+
+
+def test_name_simplification_edge_cases():
+    assert ramble.reports.clean_redundant_prefixes("", "app", "wl") == ""
+    assert ramble.reports.clean_redundant_prefixes(None, "app", "wl") is None
+    assert ramble.reports.get_common_stripped_prefix([], []) == ""
+    assert ramble.reports.get_common_stripped_prefix(["a"], []) == ""
+    assert ramble.reports.get_common_stripped_prefix(["foo_bar", "baz_bar"], ["bar", "bar"]) == ""
+
+
+def test_get_reports_path_missing_config(mutable_config):
+    ramble.config.set("config:report_dirs", None)
+    with pytest.raises(SystemExit):
+        ramble.reports.get_reports_path()
