@@ -416,3 +416,50 @@ ramble:
         ):
             exp3.build_modifier_instances()
             assert "directive-test-mod" in [m.name for m in exp3._modifier_instances]
+
+
+def test_disabled_modifier_not_in_instances(
+    mutable_mock_workspace_path, mutable_applications, mock_modifiers, workspace_name
+):
+    with ramble.workspace.create(workspace_name) as ws:
+        ws.write()
+        config_path = os.path.join(ws.config_dir, ramble.workspace.CONFIG_FILE_NAME)
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("""
+ramble:
+  variables:
+    mpi_command: 'mpirun'
+    batch_submit: 'batch_submit'
+    processes_per_node: '1'
+    n_ranks: '1'
+    info-app-dep_path: '/mock/path'
+  variants:
+    package_manager: user-managed
+  applications:
+    hostname:
+      workloads:
+        local:
+          experiments:
+            exp_enabled:
+              modifiers:
+                - name: info
+                  mode: info-mode
+            exp_disabled:
+              modifiers:
+                - name: info
+                  mode: disabled
+            exp_disabled_case:
+              modifiers:
+                - name: info
+                  mode: Disabled
+""")
+        ws._re_read()
+        experiment_set = ws.build_experiment_set()
+        exp_enabled = experiment_set.get_experiment("hostname.local.exp_enabled")
+        exp_disabled = experiment_set.get_experiment("hostname.local.exp_disabled")
+        exp_disabled_case = experiment_set.get_experiment("hostname.local.exp_disabled_case")
+
+        assert len(exp_enabled._modifier_instances) == 1
+        assert "info" in [m.name for m in exp_enabled._modifier_instances]
+        assert len(exp_disabled._modifier_instances) == 0
+        assert len(exp_disabled_case._modifier_instances) == 0

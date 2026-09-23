@@ -269,8 +269,9 @@ class ObjectMixin:
             exclude_types.append(ObjectTypes.modifiers)
             new_set.merge_variants(include_modifier.object_variants)
 
-        for _, obj in app_inst.objects(exclude_types=exclude_types):
-            new_set.merge_variants(obj.object_variants)
+        if app_inst is not None:
+            for _, obj in app_inst.objects(exclude_types=exclude_types):
+                new_set.merge_variants(obj.object_variants)
 
         if allow_caching:
             self._variant_cache[cache_key] = new_set
