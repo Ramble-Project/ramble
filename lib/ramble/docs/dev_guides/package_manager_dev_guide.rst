@@ -63,9 +63,9 @@ that is stored within a directory named for the package manager. As an example,
 Ramble comes with a repository named ``builtin``. This repository contains
 several standard package manager definitions that are provided to the
 community. One of the package manager definition files provided is 
-`spack <https://github.com/GoogleCloudPlatform/ramble/blob/develop/var/ramble/repos/builtin/package_managers/spack/package_manager.py>`_
+`spack <https://github.com/Ramble-Project/ramble/blob/develop/var/ramble/repos/builtin/package_managers/spack/package_manager.py>`_
 which inherits from
-`spack-lightweight <https://github.com/GoogleCloudPlatform/ramble/blob/develop/var/ramble/repos/builtin/package_managers/spack-lightweight/package_manager.py>`_.
+`spack-lightweight <https://github.com/Ramble-Project/ramble/blob/develop/var/ramble/repos/builtin/package_managers/spack-lightweight/package_manager.py>`_.
 
 The ``spack`` package manager definition file is named ``package_manager.py``
 and is stored within a directory named ``spack``. Witihn the
@@ -186,7 +186,7 @@ package managers can be used as a reference.
 
 **NOTE**: Ramble's unit tests contain a tests called
 `known_applications
-<https://github.com/GoogleCloudPlatform/ramble/blob/develop/lib/ramble/ramble/test/end_to_end/known_applications.py>`_.
+<https://github.com/Ramble-Project/ramble/blob/develop/lib/ramble/ramble/test/end_to_end/known_applications.py>`_.
 This unit test by default will dry-run every possible application with every
 possible package manager. As a result, it is unlikely that a package manager
 without dry-run support would pass Ramble's unit tests.

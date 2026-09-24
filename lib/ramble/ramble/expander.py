@@ -39,6 +39,7 @@ _DUMMY_TYPE = type("_DUMMY_TYPE", (), {})
 _AST_CONSTANT = getattr(ast, "Constant", _DUMMY_TYPE)
 _AST_NUM = getattr(ast, "Num", _DUMMY_TYPE)
 _AST_STR = getattr(ast, "Str", _DUMMY_TYPE)
+_AST_NAME_CONSTANT = getattr(ast, "NameConstant", _DUMMY_TYPE)
 
 
 def _get_source_segment(source, node):
@@ -140,13 +141,19 @@ if sys.version_info >= (3, 8):
     def _is_num_node(node):
         return False
 
-else:
+    def _is_name_constant_node(node):
+        return False
+
+else:  # pragma: no cover
 
     def _is_str_node(node):
         return isinstance(node, _AST_STR)
 
     def _is_num_node(node):
         return isinstance(node, _AST_NUM)
+
+    def _is_name_constant_node(node):
+        return isinstance(node, _AST_NAME_CONSTANT)
 
 
 if sys.version_info >= (3, 9):
@@ -1035,6 +1042,8 @@ class Expander:
         try:
             if hasattr(ast, "Constant") and isinstance(node, ast.Constant):
                 return self._ast_constant(node)
+            elif _is_name_constant_node(node):  # pragma: no cover
+                return self._ast_constant(node)
             elif _is_num_node(node):
                 return self._ast_num(node)
             elif isinstance(node, ast.Name):
@@ -1220,7 +1229,7 @@ class Expander:
                     )
                 return val
         # TODO: Remove `or` logic after 3.6 & 3.7 series python are unsupported
-        elif isinstance(node.left, ast.Constant) or _is_str_node(node.left):
+        elif isinstance(node.left, (_AST_CONSTANT, _AST_NAME_CONSTANT)) or _is_str_node(node.left):
             lhs_value = self.eval_math(node.left, expansion_vars=expansion_vars)
 
             found = False
@@ -1230,7 +1239,7 @@ class Expander:
                         rhs_value = self.eval_math(elt, expansion_vars=expansion_vars)
                         if lhs_value == rhs_value:
                             found = True
-                elif isinstance(comp, ast.Constant) or _is_str_node(comp):
+                elif isinstance(comp, (_AST_CONSTANT, _AST_NAME_CONSTANT)) or _is_str_node(comp):
                     # Attempt evaluating `"str" in "string"`
                     rhs_value = self.eval_math(comp, expansion_vars=expansion_vars)
                     if isinstance(rhs_value, str) and lhs_value in rhs_value:
@@ -1328,7 +1337,9 @@ class Expander:
 
                     if _is_index_node(slice_node):
                         key = self.eval_math(slice_node.value, expansion_vars=active_vars)
-                    elif isinstance(slice_node, ast.Constant) or _is_str_node(slice_node):
+                    elif isinstance(
+                        slice_node, (_AST_CONSTANT, _AST_NAME_CONSTANT)
+                    ) or _is_str_node(slice_node):
                         key = self.eval_math(slice_node, expansion_vars=active_vars)
                     else:
                         key = None

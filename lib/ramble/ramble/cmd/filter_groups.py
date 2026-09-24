@@ -79,15 +79,15 @@ def filter_groups(parser, args):
         return
 
     if action == "list":
-        filter_groups_list(args)
+        return filter_groups_list(args)
     elif action == "blame":
-        filter_groups_blame(args)
+        return filter_groups_blame(args)
     else:
         scope = _resolve_scope(args, default_scope="user")
         if action == "add":
-            filter_groups_add(scope, args)
+            return filter_groups_add(scope, args)
         elif action in ("remove", "rm"):
-            filter_groups_remove(scope, args)
+            return filter_groups_remove(scope, args)
 
 
 def filter_groups_add(scope, args):
@@ -159,8 +159,8 @@ def print_filter_groups(resolved_scope_name=None, original_scope_name=None, verb
                     {"scope": display_name, "name": name, "definition": definition}
                 )
         else:
-            logger.msg(f"No filter groups defined in scope '{original_scope_name}'.")
-            return
+            logger.warn(f"No filter groups defined in scope '{original_scope_name}'.")
+            return 0
     else:
         for scope in ramble.config.config:
             try:
@@ -177,8 +177,8 @@ def print_filter_groups(resolved_scope_name=None, original_scope_name=None, verb
                 pass
 
     if not groups_to_print:
-        logger.msg("No filter groups defined.")
-        return
+        logger.warn("No filter groups defined.")
+        return 0
 
     if verbose:
         current_scope = None
@@ -228,6 +228,8 @@ def print_filter_groups(resolved_scope_name=None, original_scope_name=None, verb
             )
             colify(names, **colify_opts)
 
+    return 0
+
 
 def filter_groups_list(args):
     verbose = getattr(args, "verbose", False)
@@ -235,7 +237,7 @@ def filter_groups_list(args):
     if args.scope is not None:
         resolved_scope_name = _resolve_scope(args)
 
-    print_filter_groups(
+    return print_filter_groups(
         resolved_scope_name=resolved_scope_name,
         original_scope_name=args.scope,
         verbose=verbose,

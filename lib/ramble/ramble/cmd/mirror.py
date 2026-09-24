@@ -7,11 +7,11 @@
 # except according to those terms.
 import ramble.config
 import ramble.mirror
+import ramble.util.web as web_util
 from ramble.cmd.common import arguments
 from ramble.util.logger import logger
 
 import spack.util.url as url_util
-import spack.util.web as web_util
 from spack.util.spack_yaml import syaml_dict
 
 description = "manage mirrors (inputs)"
@@ -164,10 +164,11 @@ def mirror_list(args):
 
     mirrors = ramble.mirror.MirrorCollection(scope=args.scope)
     if not mirrors:
-        logger.msg("No mirrors configured.")
-        return
+        logger.warn("No mirrors configured.")
+        return 0
 
     mirrors.display()
+    return 0
 
 
 def mirror_destroy(args):
@@ -196,4 +197,4 @@ def mirror(parser, args):
     if args.no_checksum:
         ramble.config.set("config:checksum", False, scope="command_line")
 
-    action[args.mirror_command](args)
+    return action[args.mirror_command](args)

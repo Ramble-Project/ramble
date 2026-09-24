@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-REPO=${1:-https://github.com/GoogleCloudPlatform/ramble}
+REPO=${1:-https://github.com/Ramble-Project/ramble}
 BRANCH=${2:-origin/develop}
 
 rm -rf /workspace

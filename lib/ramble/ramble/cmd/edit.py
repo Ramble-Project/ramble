@@ -13,9 +13,8 @@ import ramble.cmd
 import ramble.paths
 import ramble.repository
 import ramble.spec
+from ramble.util.editor import editor
 from ramble.util.logger import logger
-
-from spack.util.editor import editor
 
 description = "open application files in $EDITOR"
 section = "application dev"
@@ -209,7 +208,7 @@ def edit(parser, args):
 
             try:
                 editor(*edit_files)
-            except TypeError:
+            except (TypeError, OSError):
                 logger.die("No valid editor was found.")
             return
 
@@ -286,5 +285,5 @@ def edit(parser, args):
 
         try:
             editor(path)
-        except TypeError:
+        except (TypeError, OSError):
             logger.die("No valid editor was found.")

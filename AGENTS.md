@@ -158,7 +158,7 @@ This section provides a practical guide for creating a new Ramble application de
 
 ## Key Ramble Resources
 
-*   **GitHub Repository:** [https://github.com/GoogleCloudPlatform/ramble](https://github.com/GoogleCloudPlatform/ramble)
+*   **GitHub Repository:** [https://github.com/Ramble-Project/ramble](https://github.com/Ramble-Project/ramble)
     *   Source code, issue tracker, and discussions.
     *   The `develop` branch has the latest contributions.
 *   **Documentation:** [https://ramble.readthedocs.io/en/latest/](https://ramble.readthedocs.io/en/latest/)
@@ -169,7 +169,7 @@ This section provides a practical guide for creating a new Ramble application de
     *   [Package Managers](https://ramble.readthedocs.io/en/latest/package_managers.html)
     *   [Developer Guides](https://ramble.readthedocs.io/en/latest/dev_guides.html)
     *   [Command Reference](https://ramble.readthedocs.io/en/latest/command_index.html)
-*   **Examples:** The [examples directory](https://github.com/GoogleCloudPlatform/ramble/tree/develop/examples) in the GitHub repo contains many example configuration files.
+*   **Examples:** The [examples directory](https://github.com/Ramble-Project/ramble/tree/develop/examples) in the GitHub repo contains many example configuration files.
 
 ## Common Tasks & Questions
 

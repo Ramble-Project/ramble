@@ -8,6 +8,7 @@
 
 import collections
 import contextlib
+import functools
 from typing import Any, Callable, List, Optional, Union
 
 import ramble.language.language_base
@@ -37,13 +38,8 @@ inherit from the SharedMeta class.
 """
 
 
-class SharedMeta(ramble.language.language_base.DirectiveMeta):
-    _directive_names = set()
-    _directives_to_be_executed = []
-    _directive_init_values = {"custom_edit_functions": {}}
-
-
-shared_directive = SharedMeta.directive
+SharedMeta = ramble.language.language_base.DirectiveMeta
+shared_directive = functools.partial(SharedMeta.directive, language_type="shared")
 
 
 def _add_specs(
@@ -88,7 +84,7 @@ def _add_list_attributes(obj, attr_name, values):
     setattr(obj, attr_name, sorted(set(base_list + list(values))))
 
 
-@shared_directive("executables")
+@shared_directive(dicts=("executables", "custom_edit_functions"), init_value={})
 def edit_file(
     name,
     file_path,
@@ -819,7 +815,7 @@ def register_phase(name, pipeline=None, run_before=None, run_after=None, when=No
     return _execute_register_phase
 
 
-@shared_directive(dicts=())
+@shared_directive(dicts="maintainers", init_value=[])
 def maintainers(*names: str, **kwargs):
     """Add a new maintainer directive, to specify maintainers in a declarative way.
 
@@ -834,7 +830,7 @@ def maintainers(*names: str, **kwargs):
     return _execute_maintainers
 
 
-@shared_directive(dicts=())
+@shared_directive(dicts="tags", init_value=[])
 def tags(*values: str, **kwargs):
     """Add a new tag directive, to specify tags in a declarative way.
 
@@ -864,7 +860,7 @@ def class_family(*names: str, **kwargs):
     return _define_class_family
 
 
-@shared_directive(dicts=())
+@shared_directive(dicts="shell_support_pattern", init_value=None)
 def target_shells(shell_support_pattern=None, **kwargs):
     """Directive to specify supported shells.
 
@@ -1108,7 +1104,7 @@ def conflict(
     return _execute_conflicts
 
 
-@shared_directive("object_variables")
+@shared_directive(dicts=("object_variables", "object_environment_variables", "validators"))
 def variable(
     name: str,
     default,
@@ -1191,7 +1187,14 @@ def variable(
     return _define_variable
 
 
-@shared_directive(dicts=("workload_group_env_vars", "object_environment_variables"))
+@shared_directive(
+    dicts=(
+        "object_environment_variables",
+        "workload_group_env_vars",
+        "workload_groups",
+        "workloads",
+    )
+)
 def environment_variable(
     name,
     value,
@@ -1326,7 +1329,7 @@ def variant(
             description (str): Description of the variant
             values: Values for variant.
         """
-        ramble.variants.validate_variant(name)
+        ramble.variants.validate_variant(name, values=values, default=default)
 
         args_dict = {
             "name": name,
@@ -1341,7 +1344,7 @@ def variant(
     return _define_variant
 
 
-@shared_directive("scripts_to_source")
+@shared_directive(dicts="scripts_to_source", init_value=[])
 def source_script(
     script_path: str,
     when=None,
@@ -1390,22 +1393,30 @@ def version(
 
         # Ensure only one version is marked as preferred
         if new_version.preferred:
-            if not hasattr(obj, "preferred_version"):
-                obj.preferred_version = new_version
-            elif obj.preferred_version.version == new_version.version:
+            curr_preferred = getattr(obj, "preferred_version", None)
+            this_class = getattr(_define_version, "_defining_class", None)
+            curr_class = (
+                getattr(curr_preferred, "_defining_class", None) if curr_preferred else None
+            )
+
+            if curr_preferred is None or (this_class is not None and curr_class != this_class):
+                for ver in obj.known_versions.values():
+                    ver.preferred = False
+                new_version._defining_class = this_class
+            elif curr_preferred.version == new_version.version:
                 # Ignore identical preferred versions, which happens when app is subclassed
                 pass
             else:
                 raise ramble.language.language_base.DirectiveError(
                     f"Object {obj.name} already has a preferred version "
-                    f"({obj.preferred_version.version}). Only one version can be marked preferred."
+                    f"({curr_preferred.version}). Only one version can be marked preferred."
                 )
         obj.known_versions[number] = new_version
 
     return _define_version
 
 
-@shared_directive(dicts=())
+@shared_directive(dicts="enable_strict_versions", init_value=True)
 def strict_versions(strict: bool = True, **kwargs):
     """Directive to specify if the object has strict versioning.
     If true, only known versions can be used in experiments.
@@ -1420,7 +1431,7 @@ def strict_versions(strict: bool = True, **kwargs):
     return _execute_strict_versions
 
 
-@shared_directive("required_vars")
+@shared_directive(dicts="required_vars")
 def required_variable(
     var: str,
     results_level="variable",

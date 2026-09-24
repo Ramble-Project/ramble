@@ -9,7 +9,7 @@
 import functools
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import ramble.error
 import ramble.util.colors as color
@@ -29,7 +29,14 @@ reserved_variants = {
     "is_repeat_child",
     "is_repeat_parent",
     "repeat_index",
-    "containerized",
+}
+
+standard_variants: Dict[str, Dict[str, Any]] = {
+    "containerized": {
+        "default": False,
+        "values": (True, False),
+        "description": "Whether this experiment is run inside a container",
+    },
 }
 
 variant_types = Enum("variant_types", ["default", "experiment", "version"])
@@ -133,6 +140,14 @@ class VariantSet:
             if name not in self.default_variants:
                 self.default_variants[name] = variant.copy()
                 mutated = True
+            elif name in standard_variants:
+                std_default = standard_variants[name].get("default", False)
+                if (
+                    variant.default != std_default
+                    and self.default_variants[name].default == std_default
+                ):
+                    self.default_variants[name] = variant.copy()
+                    mutated = True
         return mutated
 
     @invalidates_cache
@@ -233,23 +248,19 @@ class VariantSet:
         if default_var and isinstance(default_var.default, (bool, syaml_bool)):
             if isinstance(value, str):
                 value = value.lower() == "true"
+        elif name in standard_variants and isinstance(
+            standard_variants[name].get("default"), (bool, syaml_bool)
+        ):
+            if isinstance(value, str):
+                value = value.lower() == "true"
 
-        if name in reserved_variants:
-            self._define_variant(
-                name,
-                variant_type=variant_types.experiment,
-                default=value,
-                description=None,
-                values=None,
-            )
-        else:
-            self._define_variant(
-                name,
-                variant_type=variant_types.experiment,
-                default=value,
-                description=None,
-                values=None,
-            )
+        self._define_variant(
+            name,
+            variant_type=variant_types.experiment,
+            default=value,
+            description=None,
+            values=None,
+        )
 
     @invalidates_cache
     def multi_value_variant(self, name: str, value: Any):
@@ -418,12 +429,22 @@ class VariantSet:
                 out_set.update(var.as_definitions())
 
         for name, variant in self.experiment_variants.items():
-            if name in self.default_variants or name in reserved_variants:
+            if (
+                name in self.default_variants
+                or name in reserved_variants
+                or name in standard_variants
+            ):
+                values = None
                 if (
                     name in self.default_variants
                     and name not in reserved_variants
                     and self.default_variants[name].values
                 ):
+                    values = self.default_variants[name].values
+                elif name in standard_variants and standard_variants[name].get("values"):
+                    values = standard_variants[name]["values"]
+
+                if values:
                     val = variant.default
                     if expander and isinstance(val, str) and "{" in val:
                         try:
@@ -433,11 +454,12 @@ class VariantSet:
                     if isinstance(val, str) and "{" in val:
                         pass
                     else:
-                        values = self.default_variants[name].values
                         if callable(values):
                             is_valid = values(val)
-                        else:
+                        elif isinstance(values, (list, tuple, set, Sequence)):
                             is_valid = str(val).lower() in [str(v).lower() for v in values]
+                        else:
+                            is_valid = True
                         if not is_valid:
                             raise RambleVariantError(
                                 f"When defining variant {name} the value {val} is not valid.\n"
@@ -567,20 +589,42 @@ class Variant:
         return self.as_str(n_indent=0)
 
 
-def validate_variant(variant: str):
-    """Check if a variant name is valid or not
+def validate_variant(
+    variant: str,
+    values: Optional[Union[Sequence, Callable[[Any], bool]]] = None,
+    default: Optional[Any] = None,
+):
+    """Check if a variant name and definition are valid or not.
 
     If the input variant name is not valid, this function will raise an
     exception. Otherwise this function will not perform any actions.
 
     Args:
         variant (str): Variant name to test
+        values: Allowed values for the variant
+        default: Default value of the variant
     """
 
     if variant in reserved_variants:
         raise RambleVariantError(
             f"Variant {variant} is invalid, as this name is reserved by ramble"
         )
+
+    if variant in standard_variants:
+        std_info = standard_variants[variant]
+        std_values = std_info.get("values")
+        if (
+            std_values
+            and values is not None
+            and isinstance(std_values, (list, tuple, set, Sequence))
+        ):
+            if isinstance(values, (list, tuple, set, Sequence)):
+                for val in values:
+                    if val not in std_values:
+                        raise RambleVariantError(
+                            f"Variant {variant} is a standard variant and value {val} "
+                            f"is not in standard values {std_values}"
+                        )
 
 
 class RambleVariantError(ramble.error.RambleError):

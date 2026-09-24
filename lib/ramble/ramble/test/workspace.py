@@ -12,7 +12,8 @@ import shutil
 
 import pytest
 
-import ramble
+import ramble.config
+from ramble.namespace import namespace
 from ramble.workspace import TEMPLATE_EXTENSION, workspace
 
 # everything here uses the mock_workspace_path
@@ -182,7 +183,7 @@ def test_add_experiments_with_zips(make_workspace_from_config):
         zips=["my_zip=[var1,var2]"],
     )
     ws._re_read()
-    app_config = ws.get_applications()
+    app_config = ramble.config.get(namespace.application)
     exp_config = app_config["basic"]["workloads"]["test_wl"]["experiments"]["test_exp"]
     assert "zips" in exp_config
     assert exp_config["zips"]["my_zip"] == ["var1", "var2"]

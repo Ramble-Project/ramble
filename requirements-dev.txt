@@ -9,6 +9,6 @@ pytest-xdist
 pytest-clarity
 line_profiler
 isort
-codecov-cli
+codecov-cli;python_version>="3.9"
 mypy
-ruff
+ruff;python_version>="3.7"

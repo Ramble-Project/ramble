@@ -14,10 +14,8 @@ from typing import List
 
 import ramble.definitions.families
 import ramble.repository
-import ramble.util.class_attributes
-import ramble.variants
-from ramble.language.package_manager_language import PackageManagerMeta
-from ramble.language.shared_language import SharedMeta, register_phase
+from ramble.language.language_base import DirectiveMeta
+from ramble.language.shared_language import register_phase
 from ramble.software_environments import (
     RambleSoftwareEnvironmentError,
     TemplatePackage,
@@ -28,12 +26,13 @@ from ramble.util.naming import NS_SEPARATOR
 ObjectMixin = ramble.repository.get_base_class("object-mixin")
 
 
-class PackageManagerBase(ObjectMixin, metaclass=PackageManagerMeta):
+class PackageManagerBase(ObjectMixin, metaclass=DirectiveMeta):
     origin_type = "package_manager"
     _builtin_name = NS_SEPARATOR.join(
         ("package_manager_builtin", "{obj_name}", "{name}")
     )
-    _language_classes = [PackageManagerMeta, SharedMeta]
+    _language_types = ["package_manager", "shared"]
+    _language_classes = _language_types
     pipelines = [
         "analyze",
         "archive",
@@ -66,8 +65,6 @@ class PackageManagerBase(ObjectMixin, metaclass=PackageManagerMeta):
             self.families = ramble.definitions.families.Families(
                 self.origin_type, list(self.class_families)
             )
-
-        ramble.util.class_attributes.convert_class_attributes(self)
 
         self._file_path = file_path
 

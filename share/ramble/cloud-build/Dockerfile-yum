@@ -6,7 +6,7 @@ ARG SPACK_REF=releases/latest
 ARG PYTHON_VER=3.11.14
 
 # TODO: install fish shell. Building from spack takes a long time, and a simple yum install doesn't work. Right now fish is installed on the debian-based image only
-RUN yum install -yq make git python3 python3-pip wget mercurial which svn curl gcc tar bzip2 gcc-c++ gcc-gfortran xz gzip patch findutils tcsh && yum clean all && rm -rf /var/cache/yum
+RUN yum install -yq make git python3 python3-pip wget mercurial which svn curl gcc tar bzip2 gcc-c++ gcc-gfortran xz gzip patch findutils tcsh graphviz && yum clean all && rm -rf /var/cache/yum
 RUN cd /opt && \
     git clone https://github.com/spack/spack && \
     cd spack && \

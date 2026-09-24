@@ -7,6 +7,7 @@
 # except according to those terms.
 
 import os
+import signal
 import sys
 
 import pytest
@@ -320,6 +321,7 @@ def test_create_interactive_wizard_validation_and_abort(mutable_config, tmpdir, 
     # create_cmd should exit gracefully without raising exception
     out = create_cmd("-i", fail_on_error=False)
     assert "[ABORTED] Object creation cancelled" in out
+    assert create_cmd.returncode == ramble.main.POSIX_SIGNAL_EXIT_OFFSET + signal.SIGINT.value
 
 
 @pytest.mark.parametrize(

@@ -6,18 +6,14 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import functools
 from typing import Optional
 
 import ramble.language.language_helpers
 import ramble.language.shared_language
 
-
-class UtilityMeta(ramble.language.shared_language.SharedMeta):
-    _directive_names = set()
-    _directives_to_be_executed = []
-
-
-utility_directive = UtilityMeta.directive
+UtilityMeta = ramble.language.shared_language.SharedMeta
+utility_directive = functools.partial(UtilityMeta.directive, language_type="utility")
 
 
 @utility_directive("env_sources")

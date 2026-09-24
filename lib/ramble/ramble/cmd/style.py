@@ -46,6 +46,7 @@ include_patterns = [
     "bin/**",
     "lib/ramble/ramble/**",
     "var/ramble/repos/**",
+    "share/ramble/scripts/**",
     "conftest.py",
 ]
 
@@ -88,54 +89,32 @@ base_class_file = repository.type_definitions[repository.ObjectTypes.base_classe
 #
 # For each file, if the filename pattern matches, we'll add per-line
 # exemptions if any patterns in the sub-dict match.
-pattern_exemptions = {
-    # exemptions applied only to application.py files.
-    rf"application.py|{base_class_file}$": {
-        # Allow 'from ramble.appkit import *' in applications,
+_raw_pattern_exemptions = {
+    rf"\b{type_def['file_name']}$": {
+        # Allow 'from ramble.<kit_name> import *' in object definitions,
         # but no other wildcards
-        "F403": [r"^from ramble.appkit import \*$"],
+        "F403": [rf"^from ramble.{type_def['kit_name']} import \*$"],
         **common_object_exemptions,
-    },
-    # exemptions applied only to modifier.py files.
-    rf"modifier.py|{base_class_file}$": {
-        # Allow 'from ramble.modkit import *' in modifiers,
-        # but no other wildcards
-        "F403": [r"^from ramble.modkit import \*$"],
-        **common_object_exemptions,
-    },
-    # exemptions applied only to package_manager.py files.
-    rf"package_manager.py|{base_class_file}$": {
-        # Allow 'from ramble.pkgmankit import *' in package_managers,
-        # but no other wildcards
-        "F403": [r"^from ramble.pkgmankit import \*$"],
-        **common_object_exemptions,
-    },
-    # exemptions applied only to workflow_manager.py files.
-    rf"workflow_manager.py|{base_class_file}$": {
-        # Allow 'from ramble.wmkit import *' in workflow_managers,
-        # but no other wildcards
-        "F403": [r"^from ramble.wmkit import \*$"],
-        **common_object_exemptions,
-    },
-    rf"platform.py|{base_class_file}$": {
-        # Allow 'from ramble.platkit import *' in platforms,
-        # but no other wildcards
-        "F403": [r"^from ramble.platkit import \*$"],
-        **common_object_exemptions,
-    },
-    rf"system.py|{base_class_file}$": {
-        # Allow 'from ramble.syskit import *' in systems,
-        # but no other wildcards
-        "F403": [r"^from ramble.syskit import \*$"],
-        **common_object_exemptions,
-    },
-    # exemptions applied to all files.
-    r".py$": {
-        "E501": [
-            r"(https?|ftp|file)\:",  # URLs
-            r'([\'"])[0-9a-fA-F]{32,}\1',  # long hex checksums
-        ]
-    },
+    }
+    for type_def in repository.type_definitions.values()
+    if type_def["kit_name"] is not None
+}
+_raw_pattern_exemptions[rf"\b{base_class_file}$"] = {
+    "F403": sorted(
+        {
+            rf"^from ramble.{type_def['kit_name']} import \*$"
+            for type_def in repository.type_definitions.values()
+            if type_def["kit_name"] is not None
+        }
+    ),
+    **common_object_exemptions,
+}
+# exemptions applied to all files.
+_raw_pattern_exemptions[r"\.py$"] = {
+    "E501": [
+        r"(https?|ftp|file)\:",  # URLs
+        r'([\'"])[0-9a-fA-F]{32,}\1',  # long hex checksums
+    ]
 }
 
 # compile all regular expressions.
@@ -143,7 +122,7 @@ pattern_exemptions = {
     re.compile(file_pattern): {
         code: [re.compile(p) for p in patterns] for code, patterns in error_dict.items()
     }
-    for file_pattern, error_dict in pattern_exemptions.items()
+    for file_pattern, error_dict in _raw_pattern_exemptions.items()
 }
 
 # Tools run in the given order
@@ -385,6 +364,12 @@ def filter_file(source, dest, output=False):
     if not os.path.isfile(source):
         return
 
+    file_exemptions = [
+        errors
+        for file_pattern, errors in pattern_exemptions.items()
+        if file_pattern.search(source)
+    ]
+
     with open(source, encoding="utf-8") as infile:
         parent = os.path.dirname(dest)
         mkdirp(parent)
@@ -394,10 +379,7 @@ def filter_file(source, dest, output=False):
                 line_errors = []
 
                 # pattern exemptions
-                for file_pattern, errors in pattern_exemptions.items():
-                    if not file_pattern.search(source):
-                        continue
-
+                for errors in file_exemptions:
                     for code, patterns in errors.items():
                         for pattern in patterns:
                             if pattern.search(line):
@@ -592,7 +574,9 @@ def run_mypy(mypy_cmd, file_list, args):
     mypy_args.extend(get_tool_args(args, "mypy"))
 
     if file_list:
-        mypy_files = [f for f in file_list if f.startswith("lib/ramble/ramble/")]
+        mypy_files = [
+            f for f in file_list if f.startswith(("lib/ramble/ramble/", "share/ramble/scripts/"))
+        ]
         if not mypy_files:
             print_tool_result("mypy", 0)
             return 0

@@ -55,6 +55,10 @@ steps:
         # https://cloud.google.com/build/docs/configuring-builds/substitute-variable-values
         conflict_err=$$?
 
+        ramble python share/ramble/qa/check_configs.py
+        configs_err=$$?
+
+        error=0
         if [ $$conflict_err -gt 0 ]; then
           echo " ***** Conflicts in software definitions detected."
           error=1
@@ -62,6 +66,11 @@ steps:
 
         # $$ characters are required for cloud-build:
         # https://cloud.google.com/build/docs/configuring-builds/substitute-variable-values
+        if [ $$configs_err -gt 0 ]; then
+          echo " ***** One or more workspace configurations failed validation."
+          error=1
+        fi
+
         exit $$error
     id: ramble-style-tests
     entrypoint: /bin/bash

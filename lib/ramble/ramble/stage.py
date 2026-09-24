@@ -29,7 +29,6 @@ import ramble.mirror
 import ramble.util.lock
 from ramble.util.logger import logger
 
-import spack.config
 import spack.util.url as url_util
 from spack.util import pattern
 from spack.util.crypto import bit_length, prefix_bits
@@ -244,8 +243,7 @@ class InputStage:
         for path in self.expected_archive_files:
             if os.path.exists(path):
                 return path
-        else:
-            return None
+        return None
 
     @property
     def expanded(self):
@@ -331,14 +329,10 @@ class InputStage:
                 self.fetcher = fetcher
                 self.fetcher.fetch()
                 break
-            except spack.fetch_strategy.NoCacheError:
+            except fs.NoCacheError:
                 # Don't bother reporting when something is not cached.
                 continue
             except ramble.error.RambleError as e:
-                errors.append(f"Fetching from {fetcher} failed.")
-                logger.debug(e)
-                continue
-            except spack.util.web.SpackWebError as e:
                 errors.append(f"Fetching from {fetcher} failed.")
                 logger.debug(e)
                 continue

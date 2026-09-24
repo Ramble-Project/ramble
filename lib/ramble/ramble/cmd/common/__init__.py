@@ -8,7 +8,17 @@
 
 import ramble.paths
 import ramble.util.colors as color
+from ramble.cmd.common.arguments import (
+    sanitize_arg_name,
+    setup_subcommands_from_prefix,
+)
 from ramble.util.logger import logger
+
+__all__ = [
+    "shell_init_instructions",
+    "sanitize_arg_name",
+    "setup_subcommands_from_prefix",
+]
 
 
 def shell_init_instructions(cmd, equivalent):

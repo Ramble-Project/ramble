@@ -28,7 +28,7 @@ class InstallRamble(BasicModifier):
 
     modifier_variable(
         "ramble_url",
-        default="https://github.com/GoogleCloudPlatform/ramble",
+        default="https://github.com/Ramble-Project/ramble",
         description="URL to clone ramble from",
         modes=["standard", "quiet"],
     )

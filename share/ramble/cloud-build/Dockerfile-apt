@@ -5,7 +5,7 @@ FROM ${BASE_IMG}:${BASE_VER} AS builder
 ARG SPACK_REF=releases/latest
 ARG PYTHON_VER=3.11.14
 
-RUN apt-get update && apt-get install -yq build-essential make git python3 python3-venv python3-pip wget mercurial which subversion curl gcc tar bzip2 fish tcsh && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -yq build-essential make git python3 python3-venv python3-pip wget mercurial which subversion curl gcc tar bzip2 fish tcsh graphviz && rm -rf /var/lib/apt/lists/*
 RUN cd /opt && \
     git clone https://github.com/spack/spack && \
     cd spack && \

@@ -58,6 +58,12 @@ def test_mirror_nonexisting(tmp_scope):
         mirror("set-url", "--scope", tmp_scope, "not-a-mirror", "http://ramble.io")
 
 
+def test_mirror_list_empty(tmp_scope):
+    out = mirror("list", "--scope", tmp_scope)
+    assert mirror.returncode == 0
+    assert "No mirrors configured." in out
+
+
 def test_mirror_add(tmp_scope):
     mirror("add", "--scope", tmp_scope, "first", "my.url.com")
 

@@ -103,7 +103,9 @@ substitutions:
   _PYTHON_VER: 3.11.6
   _BASE_IMG: rockylinux
   _BASE_VER: '8'
+  _WORKER_POOL: ''
 timeout: 3600s
 queueTtl: 7200s
 options:
-  machineType: E2_HIGHCPU_8
+  pool:
+    name: '$_WORKER_POOL'

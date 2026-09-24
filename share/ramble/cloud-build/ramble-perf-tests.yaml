@@ -83,7 +83,7 @@ steps:
               --dataset-id "$_DATASET_ID" \
               --table-id "$_TABLE_ID" \
               --pr-number "$_PR_NUMBER" \
-              --repo "GoogleCloudPlatform/ramble"
+              --repo "Ramble-Project/ramble"
             
             post_err=$$?
             if [ $$post_err -ne 0 ]; then
@@ -118,7 +118,7 @@ substitutions:
   _UPLOAD_TO_BQ: 'false'
   # client_id is recommended over app id.
   # client_id is not a secret.
-  _GITHUB_CLIENT_ID: 'Iv23limpijbNRXQzHurG'
+  _GITHUB_CLIENT_ID: 'Iv23lijUJezfMNVKLbBM'
   _WORKER_POOL: ''
 
 timeout: 3600s

@@ -14,6 +14,7 @@ from enum import Enum
 from functools import partial
 from typing import Set
 
+import ramble.config
 import ramble.context
 import ramble.error
 import ramble.expander
@@ -63,15 +64,17 @@ class ExperimentSet:
         # Set all workspace variables as base variables.
         workspace_context = ramble.context.Context()
         workspace_context.context_name = workspace.name
-        workspace_context.variables = workspace.get_workspace_vars()
-        workspace_context.env_variables = workspace.get_workspace_env_vars()
-        workspace_context.formatted_executables = workspace.get_workspace_formatted_executables()
-        workspace_context.internals = workspace.get_workspace_internals()
-        workspace_context.modifiers = workspace.get_workspace_modifiers()
-        workspace_context.zips = workspace.get_workspace_zips()
-        workspace_context.variants = workspace.get_workspace_variants()
-        workspace_context.success_criteria = workspace.get_workspace_success_criteria()
-        workspace_context.tables = workspace.get_workspace_tables()
+        workspace_context.variables = ramble.config.get(namespace.variables)
+        workspace_context.env_variables = ramble.config.get(namespace.env_var)
+        workspace_context.formatted_executables = ramble.config.get(
+            namespace.formatted_executables
+        )
+        workspace_context.internals = ramble.config.get(namespace.internals)
+        workspace_context.modifiers = ramble.config.get(namespace.modifiers)
+        workspace_context.zips = ramble.config.get(namespace.zips)
+        workspace_context.variants = ramble.config.get(namespace.variants)
+        workspace_context.success_criteria = ramble.config.get(namespace.success)
+        workspace_context.tables = ramble.config.get(namespace.tables)
 
         try:
             self.keywords.check_reserved_keys(workspace_context.variables)
@@ -223,12 +226,12 @@ class ExperimentSet:
         # Setup the application instance
         app_inst = ramble.repository.get(final_app_spec)
         variables[self.keywords.application_name] = app_inst.name
+        app_inst.set_internals(context.internals)
         app_inst.set_variables_and_variants(variables, context.variants, self._workspace, self)
         app_inst.validate_version()
         app_inst.set_active_workload()
         app_inst.set_modifiers(context.modifiers)
         app_inst.set_required_variables()
-        app_inst.set_internals(context.internals)
         app_inst.set_chained_experiments(context.chained_experiments)
         app_inst.set_env_variable_sets(context.env_variables)
         app_inst.set_template(context.is_template)

@@ -124,3 +124,23 @@ def test_list_update(tmpdir):
     assert update_file.exists()
     with update_file.open() as f:
         assert f.read() == "empty\n"
+
+
+def test_list_no_results_warning():
+    out = list("nonexistent_app_name_xyz")
+    assert list.returncode == 0
+    assert "No applications found matching filter 'nonexistent_app_name_xyz'" in out
+
+    out = list("--tags", "nonexistent_tag_xyz")
+    assert list.returncode == 0
+    assert "No applications found matching tags 'nonexistent_tag_xyz'" in out
+
+    out = list("--type", "modifiers", "nonexistent_mod_xyz")
+    assert list.returncode == 0
+    assert "No modifiers found matching filter 'nonexistent_mod_xyz'" in out
+
+    out = list("--tags", "nonexistent_tag", "nonexistent_app")
+    assert list.returncode == 0
+    assert (
+        "No applications found matching filter 'nonexistent_app' and tags 'nonexistent_tag'" in out
+    )

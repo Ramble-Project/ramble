@@ -7,7 +7,6 @@
 # except according to those terms.
 
 from ramble.app.builtin.mock.basic import Basic as BaseBasic
-from ramble.appkit import *  # noqa
 
 
 class BasicUnderscores(BaseBasic):

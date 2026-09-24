@@ -76,7 +76,7 @@ class Mirror:
             data = spack.util.spack_yaml.load(stream)
             return Mirror.from_dict(data, name)
         except yaml_error.MarkedYAMLError as e:
-            raise spack.util.spack_yaml.SpackYAMLError("error parsing YAML mirror:", str(e)) from e
+            raise MirrorError(f"error parsing YAML mirror: {e}") from e
 
     @staticmethod
     def from_json(stream, name=None):

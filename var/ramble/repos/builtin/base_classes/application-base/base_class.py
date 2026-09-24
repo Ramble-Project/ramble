@@ -16,7 +16,6 @@ import re
 import shlex
 import shutil
 import stat
-import string
 import time
 from html import escape
 from typing import Dict, List
@@ -34,7 +33,6 @@ import ramble.repeats
 import ramble.repository
 import ramble.stage
 import ramble.success_criteria
-import ramble.util.class_attributes
 import ramble.util.colors as rucolor
 import ramble.util.env
 import ramble.util.executable
@@ -53,9 +51,8 @@ from ramble.error import (
     ObjectValidationError,
 )
 from ramble.experiment_result import ExperimentResult, ExperimentStatus
-from ramble.language.application_language import ApplicationMeta
+from ramble.language.language_base import DirectiveMeta
 from ramble.language.shared_language import (
-    SharedMeta,
     archive_pattern,
     register_builtin,
     register_phase,
@@ -153,7 +150,7 @@ def _get_phase_func_wrapper(workspace, phase_func, phase_name):
     return profiler(phase_func)
 
 
-class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
+class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
     _mro_obj_type_cache = {}
     name = "application-base"
     origin_type = "application"
@@ -172,12 +169,18 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         "execute",
         "logs",
     ]
-    _language_classes = [ApplicationMeta, SharedMeta]
+    _language_types = ["application", "shared"]
+    _language_classes = _language_types
 
     variant(
         "inject_modifiers_from_directives",
         default=True,
         description="Whether to include automatically injected modifiers",
+    )
+    variant(
+        namespace.containerized,
+        default=False,
+        description="Whether this experiment is run inside a container",
     )
 
     license_names: List[str] = []
@@ -192,8 +195,6 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
     def __init__(self, file_path):
         super().__init__()
-
-        ramble.util.class_attributes.convert_class_attributes(self)
 
         self.object_variants = ramble.variants.VariantSet()
         for var_args in self.class_variants.values():
@@ -215,15 +216,10 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
             default=0,
             description="Index of this experiment, in repeat space",
         )
-        self.object_variants.default_variant(
-            name=namespace.containerized,
-            default=False,
-            description="Whether this experiment is run inside a container",
-        )
 
         self._vars_are_expanded = False
         self.expander = None
-        self._formatted_executables = {}
+        self._context_formatted_executables = {}
         self.variables = None
         self.variants = None
         self._active_workload = None
@@ -306,8 +302,8 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         new_clone = type(self)(self._file_path)
         self.has_generated_experiments = True
 
-        if self.known_versions:
-            new_clone.known_versions = self.known_versions.copy()
+        self._copy_evaluated_directives(new_clone)
+
         clone_variables = {} if not self.variables else self.variables
         clone_variants = {} if not self.variants else self.variants
         new_clone.set_variables_and_variants(
@@ -320,12 +316,12 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
             new_clone.set_env_variable_sets(self._env_variable_sets.copy())
         if self.internals:
             new_clone.set_internals(self.internals.copy())
-        if self._formatted_executables:
+        if self._context_formatted_executables:
             new_clone.set_formatted_executables(
-                self._formatted_executables.copy()
+                self._context_formatted_executables.copy()
             )
 
-        new_clone.workloads = copy.deepcopy(self.workloads)
+        new_clone.custom_executables = self.custom_executables.copy()
         new_clone.keywords = ramble.keywords.keywords.copy()
         new_clone.set_template(False)
         new_clone.repeats.set_repeats(False, 0)
@@ -351,6 +347,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         """Checks if a workload name is valid and returns the workload that
         satisfies `when` conditions.
         """
+        self._define_custom_workloads()
         workload = None
         workload_found = False
         for when_set, workloads in self.workloads.items():
@@ -414,6 +411,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         Use this instead of get_workload() if calling before variants are set,
         e.g. in set_variables()
         """
+        self._define_custom_workloads()
         if not workload_name:
             workload_name = self.expander.workload_name
 
@@ -431,6 +429,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
     def get_all_workloads(self):
         """Retrieves all workloads satisfying current `when` conditions."""
+        self._define_custom_workloads()
         all_workloads_names = set()
         found = False
         for when_set, workloads in self.workloads.items():
@@ -740,7 +739,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                 version_number=maybe_version,
                 description=self.expander.application_spec,
             )
-        elif hasattr(self, "preferred_version"):
+        elif self.preferred_version is not None:
             super().set_version(
                 version=self.preferred_version,
                 description=self.expander.application_spec,
@@ -868,6 +867,8 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
             self.expander.replacement_paths = (
                 experiment_set._workspace.workspace_paths()
             )
+
+        self._define_custom_executables()
 
     def non_reserved_variables(
         self, remove_keys: set = None
@@ -1057,6 +1058,10 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         """Set internal reference to application internals"""
 
         self.internals = internals
+        self._define_custom_inputs()
+        self._define_custom_workloads()
+        if self.expander:
+            self._define_custom_executables()
 
     def set_template(self, is_template):
         """Set if this instance is a template or not"""
@@ -1073,6 +1078,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         if modifiers:
             self.modifiers = modifiers.copy()
         self.build_modifier_instances()
+        self.clear_variant_cache()
 
     def set_tags(self, tags):
         """Set experiment tags for this instance"""
@@ -1086,7 +1092,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
 
     def set_formatted_executables(self, formatted_executables):
         """Set formatted executables for this instance"""
-        self._formatted_executables = formatted_executables.copy()
+        self._context_formatted_executables = formatted_executables.copy()
 
     def has_tags(self, tags):
         """Check if this instance has provided tags.
@@ -1264,6 +1270,20 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
             color.cprint(
                 f"{indent}{header}: {str(self.internals[namespace.executable_injection])}"
             )
+
+        if namespace.custom_inputs in self.internals:
+            header = rucolor.nested_4("Custom Inputs")
+            color.cprint(f"{indent}{header}:")
+
+            for name in self.internals[namespace.custom_inputs]:
+                color.cprint(f"{indent}  {name}")
+
+        if namespace.custom_workloads in self.internals:
+            header = rucolor.nested_4("Custom Workloads")
+            color.cprint(f"{indent}{header}:")
+
+            for name in self.internals[namespace.custom_workloads]:
+                color.cprint(f"{indent}  {name}")
 
     def print_chain_order(self, indent=""):
         if not self.chain_order:
@@ -1657,9 +1677,9 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                 mod_inst.expander.add_no_expand_var(var)
 
         # Define any missing modifier variables
-        self.define_missing_variables()
         if self.modifiers:
             self.clear_variant_cache()
+        self.define_missing_variables()
 
     @property
     def inventory_file(self):
@@ -1831,7 +1851,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         commands = []
         all_cleanups = {}
         for when_set, named_cleanups in self.cleanups.items():
-            if self.expander.satisfies(when_set, self.object_variants):
+            if self.expander.satisfies(when_set, self.experiment_variants()):
                 all_cleanups.update(named_cleanups)
 
         for name, cleanup_props in all_cleanups.items():
@@ -1892,6 +1912,135 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
             filtered_executables.update(executables)
 
         return filtered_executables, full_executables
+
+    def _define_custom_inputs(self):
+        """Define custom inputs from internals"""
+        if namespace.custom_inputs in self.internals:
+            self.inputs = copy.deepcopy(self.inputs)
+            empty_when = frozenset()
+            if empty_when not in self.inputs:
+                self.inputs[empty_when] = {}
+
+            for name, conf in self.internals[namespace.custom_inputs].items():
+                existing_input = None
+                for when_set in list(self.inputs.keys()):
+                    if name in self.inputs[when_set]:
+                        existing_input = self.inputs[when_set][name]
+                        del self.inputs[when_set][name]
+
+                if existing_input:
+                    new_input = existing_input.copy()
+                    new_input["url"] = conf["url"]
+                    if "sha256" in conf:
+                        new_input["sha256"] = conf["sha256"]
+                    if "target_dir" in conf:
+                        new_input["target_dir"] = conf["target_dir"]
+                    if "expand" in conf:
+                        new_input["expand"] = conf["expand"]
+                    if "extension" in conf:
+                        ext = conf["extension"]
+                        new_input["extension"] = (
+                            ext.lstrip(".") if ext else ext
+                        )
+                    if "description" in conf:
+                        new_input["description"] = conf["description"]
+                    new_input["when"] = []
+                    self.inputs[empty_when][name] = new_input
+                else:
+                    ext = conf.get("extension", None)
+                    if ext:
+                        ext = ext.lstrip(".")
+                    new_input = {
+                        "url": conf["url"],
+                        "sha256": conf.get("sha256", None),
+                        "target_dir": conf.get(
+                            "target_dir", "{workload_input_dir}"
+                        ),
+                        "expand": conf.get("expand", True),
+                        "extension": ext,
+                        "description": conf.get("description", ""),
+                        "when": [],
+                    }
+                    self.inputs[empty_when][name] = new_input
+
+            self._input_fetchers = None
+
+    def _define_custom_workloads(self):
+        """Define custom workloads from internals"""
+        if namespace.custom_workloads in self.internals:
+            self.workloads = copy.deepcopy(self.workloads)
+            empty_when = frozenset()
+            if empty_when not in self.workloads:
+                self.workloads[empty_when] = {}
+
+            for name, conf in self.internals[
+                namespace.custom_workloads
+            ].items():
+                existing_wl = None
+                for when_set in list(self.workloads.keys()):
+                    if name in self.workloads[when_set]:
+                        existing_wl = self.workloads[when_set][name]
+                        del self.workloads[when_set][name]
+
+                if namespace.executables in conf:
+                    executables = conf[namespace.executables]
+                    if isinstance(executables, (str, int, float)):
+                        executables = [str(executables)]
+                    elif executables is None:
+                        executables = []
+                    else:
+                        executables = [str(x) for x in executables]
+                elif existing_wl:
+                    executables = existing_wl.executables.copy()
+                else:
+                    executables = []
+
+                if namespace.inputs in conf:
+                    inputs = conf[namespace.inputs]
+                    if isinstance(inputs, (str, int, float)):
+                        inputs = [str(inputs)]
+                    elif inputs is None:
+                        inputs = []
+                    else:
+                        inputs = [str(x) for x in inputs]
+                elif existing_wl:
+                    inputs = existing_wl.inputs.copy()
+                else:
+                    inputs = []
+
+                if namespace.tags in conf:
+                    tags = conf[namespace.tags]
+                    if isinstance(tags, (str, int, float)):
+                        tags = [str(tags)]
+                    elif tags is None:
+                        tags = []
+                    else:
+                        tags = [str(x) for x in tags]
+                elif existing_wl:
+                    tags = existing_wl.tags.copy()
+                else:
+                    tags = []
+
+                custom_wl = ramble.workload.Workload(
+                    name=name,
+                    executables=executables,
+                    inputs=inputs,
+                    tags=tags,
+                )
+
+                if existing_wl:
+                    custom_wl.variables = copy.deepcopy(existing_wl.variables)
+                    custom_wl.environment_variables = copy.deepcopy(
+                        existing_wl.environment_variables
+                    )
+                    if existing_wl.where:
+                        custom_wl.where = existing_wl.where.copy()
+                    if existing_wl.exclude_where:
+                        custom_wl.exclude_where = (
+                            existing_wl.exclude_where.copy()
+                        )
+
+                self.workloads[empty_when][name] = custom_wl
 
     def _define_custom_executables(self):
         # Define custom executables
@@ -2002,6 +2151,9 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         Define variables for each input file, of the format:
             '{input_file_name}' = <path_to_input>
         """
+        if not self.expander or not self.expander.workload_name:
+            return
+
         self._inputs_and_fetchers(self.expander.workload_name)
 
         for input_file, input_conf in self._input_fetchers.items():
@@ -2313,7 +2465,9 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         self.variables[self.keywords.unformatted_command_without_logs] = (
             "\n".join(self._command_list_without_logs)
         )
-        formatted_exec_groups = [{frozenset(): self._formatted_executables}]
+        formatted_exec_groups = [
+            {frozenset(): self._context_formatted_executables}
+        ]
 
         objs_to_extract = [self, self.workflow_manager, self.package_manager]
 
@@ -2394,13 +2548,16 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         if self._template_paths_defined:
             return
 
+        self._set_input_path()
+
         workspace = self.workspace
-        for template_name, _ in workspace.all_templates():
-            expand_path = os.path.join(
-                self.expander.expand_var("{experiment_run_dir}"),
-                template_name,
-            )
-            self.variables[template_name] = expand_path
+        if workspace:
+            for template_name, _ in workspace.all_templates():
+                expand_path = os.path.join(
+                    self.expander.expand_var("{experiment_run_dir}"),
+                    template_name,
+                )
+                self.variables[template_name] = expand_path
 
         var_attr = {
             "type": ramble.keywords.key_type.reserved,
@@ -2430,6 +2587,7 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         Take a workload name and extract all inputs for the workload.
         If the workload is set to None, extract all inputs for all workloads.
         """
+        self._define_custom_inputs()
 
         if self._input_fetchers is not None:
             return
@@ -2481,6 +2639,9 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
                     )
 
                 # Expand input value as it may be a var
+                if "url" not in input_conf:
+                    continue
+
                 expanded_url = self.expander.expand_var(input_conf["url"])
                 input_conf["url"] = expanded_url
 
@@ -3486,280 +3647,11 @@ class ApplicationBase(ObjectMixin, metaclass=ApplicationMeta):
         Success criteria are defined within the application.py, but can also be
         injected in a workspace config.
         """
+        import ramble.analysis
 
-        if (
-            self.get_status() == ExperimentStatus.UNKNOWN
-            and not workspace.dry_run
-        ):
-            logger.warn(
-                f"Experiment has status {self.get_status()}. Skipping analysis..\n"
-            )
-            self.result.finalize(workspace)
-            return
-
-        def format_context(context_match, context_format):
-
-            context_val = {}
-            if isinstance(context_format, str):
-                for group in string.Formatter().parse(context_format):
-                    if group[1]:
-                        context_val[group[1]] = context_match[group[1]]
-
-            context_string = context_format.format(**context_val)
-            return context_string
-
-        # Exit early if read from cache works.
-        if self.result.read_cache(workspace, self):
-            self.result.finalize(workspace)
-            return
-
-        criteria_list = self.success_list
-        if not criteria_list:
-            criteria_list = ramble.success_criteria.ScopedCriteriaList()
-        criteria_list.reset()
-
-        files, f_defs, inmem_defs = self.analysis_dicts(criteria_list)
-
-        exp_lock = self.experiment_lock
-
-        fom_values = {}
-        context_metadata = {}
-        null_key = (_NULL_CONTEXT, _NULL_CONTEXT, frozenset())
-        context_metadata[null_key] = {
-            "name": _NULL_CONTEXT,
-            "def_name": _NULL_CONTEXT,
-            "vars": {},
-        }
-
-        # Iterate over files. We already know they exist
-        with lk.ReadTransaction(exp_lock):
-            for file, file_conf in files.items():
-
-                # Start with no active contexts in a file.
-                active_contexts = {}
-                logger.debug(f"Reading log file: {file}")
-
-                if not os.path.exists(file):
-                    logger.debug(
-                        f"Skipping analysis of non-existent file: {file}"
-                    )
-                    continue
-
-                per_file_crit_objs = [
-                    criteria_list.find_criteria(c)
-                    for c in file_conf["success_criteria"]
-                ]
-
-                with open(file, encoding="utf-8", errors="replace") as f:
-                    for line in f:
-                        new_per_file_crit_objs = []
-                        for crit_obj in per_file_crit_objs:
-                            if crit_obj.passed(line, self):
-                                crit_obj.mark_found()
-                            elif crit_obj.anti_matched(line):
-                                crit_obj.mark_anti_found()
-                            else:
-                                new_per_file_crit_objs.append(crit_obj)
-                        per_file_crit_objs = new_per_file_crit_objs
-
-                        # Iterate over contexts and add matched contexts to active_contexts
-                        for context, foms in file_conf["contexts"].items():
-                            if context != _NULL_CONTEXT:
-                                context_conf = f_defs[context]["definition"]
-                                if (
-                                    context_conf.get("pre_filter", "")
-                                    not in line
-                                ):
-                                    context_match = None
-                                else:
-                                    context_match = context_conf[
-                                        "regex"
-                                    ].match(line)
-
-                                if context_match:
-                                    context_name = format_context(
-                                        context_match,
-                                        context_conf["format"],
-                                    )
-                                    logger.debug(f"Line was: {line}")
-                                    logger.debug(
-                                        f" Context match {context} -- {context_name}"
-                                    )
-
-                                    context_vars = context_match.groupdict()
-                                    context_key = (
-                                        context_name,
-                                        context,
-                                        frozenset(context_vars.items()),
-                                    )
-
-                                    active_contexts[context] = context_key
-
-                                    if context_key not in fom_values:
-                                        fom_values[context_key] = {}
-                                        context_metadata[context_key] = {
-                                            "name": context_name,
-                                            "def_name": context,
-                                            "vars": context_vars,
-                                        }
-
-                            for fom in foms:
-                                fom_conf = f_defs[context]["foms"][fom]
-                                if fom_conf.get("pre_filter", "") not in line:
-                                    fom_match = None
-                                else:
-                                    fom_match = fom_conf["regex"].match(line)
-
-                                if fom_match:
-                                    fom_vars = fom_match.groupdict()
-                                    if (
-                                        fom_conf["fom_name_expanded"]
-                                        is not None
-                                    ):
-                                        fom_name = fom_conf[
-                                            "fom_name_expanded"
-                                        ]
-                                    else:
-                                        fom_name = self.expander.expand_var(
-                                            fom, extra_vars=fom_vars
-                                        )
-
-                                    if (
-                                        fom_conf["group"]
-                                        in fom_conf["regex"].groupindex
-                                    ):
-                                        logger.debug(
-                                            f" --- Matched fom {fom_name}"
-                                        )
-                                        fom_contexts = []
-                                        # if a FOM has contexts, check if each is active
-                                        if fom_conf["contexts"]:
-                                            for _ in fom_conf["contexts"]:
-                                                context_key = (
-                                                    active_contexts[context]
-                                                    if context
-                                                    in active_contexts
-                                                    else null_key
-                                                )
-                                                fom_contexts.append(
-                                                    context_key
-                                                )
-                                        else:
-                                            fom_contexts.append(null_key)
-
-                                        for fom_context in fom_contexts:
-                                            if fom_context not in fom_values:
-                                                fom_values[fom_context] = {}
-                                            fom_val = fom_match.group(
-                                                fom_conf["group"]
-                                            )
-                                            if fom_val is None:
-                                                continue
-                                            if (
-                                                fom_conf["units_expanded"]
-                                                is not None
-                                            ):
-                                                fom_unit = fom_conf["units"]
-                                            else:
-                                                fom_unit = (
-                                                    self.expander.expand_var(
-                                                        fom_conf["units"],
-                                                        extra_vars=fom_vars,
-                                                    )
-                                                )
-                                            fom_values[fom_context][
-                                                fom_name
-                                            ] = {
-                                                "value": fom_val,
-                                                "units": fom_unit,
-                                                "origin": fom_conf["origin"],
-                                                "origin_type": fom_conf[
-                                                    "origin_type"
-                                                ],
-                                                "fom_type": fom_conf[
-                                                    "fom_type"
-                                                ],
-                                            }
-        self.extract_inmem_foms(inmem_defs, fom_values, context_metadata)
-
-        # Test all non-file based success criteria
-        for criteria_obj, _ in criteria_list.all_criteria():
-            if criteria_obj.file is None:
-                if criteria_obj.passed(app_inst=self, fom_values=fom_values):
-                    criteria_obj.mark_found()
-
-        # If an app has no FOMs defined, don't fail it for that
-        success = (not f_defs and not inmem_defs) or False
-        for fom in fom_values.values():
-            for value in fom.values():
-                if (
-                    "origin_type" in value
-                    and value["origin_type"] == "application"
-                ):
-                    success = True
-        success = success and criteria_list.passed()
-
-        if success:
-            status = ExperimentStatus.SUCCESS
-        else:
-            preserved_terminal = {
-                ExperimentStatus.CANCELLED,
-                ExperimentStatus.TIMEOUT,
-                ExperimentStatus.FAILED,
-            }
-            current_status = self.get_status()
-            if current_status in preserved_terminal:
-                status = current_status
-            else:
-                status = ExperimentStatus.FAILED
-
-        # When workflow_manager is present, only use app_status when workflow is completed or
-        # unresolved.
-        if self.workflow_manager is not None:
-            wm_status = self.workflow_manager.get_status(workspace)
-            if not (
-                wm_status is None
-                or wm_status
-                in [ExperimentStatus.COMPLETE, ExperimentStatus.UNRESOLVED]
-            ):
-                status = wm_status
-
-        self.set_status(status)
-        self.result.finalize(workspace)
-
-        for criteria_obj, criteria_scope in criteria_list.all_criteria():
-            if criteria_obj.owner is not None:
-                criteria_name = (
-                    f"{criteria_obj.owner.scoped_name}::{criteria_obj.name}"
-                )
-            else:
-                criteria_name = (
-                    f"config::{criteria_scope}::{criteria_obj.name}"
-                )
-            if criteria_obj.ok():
-                self.result.success_criteria[criteria_name] = "PASSED"
-            else:
-                self.result.success_criteria[criteria_name] = "FAILED"
-
-        for context_key, fom_map in fom_values.items():
-            metadata = context_metadata[context_key]
-            context_map = {
-                "name": metadata["name"],
-                "foms": [],
-                "display_name": _get_context_display_name(metadata["name"]),
-                "context_def_name": metadata["def_name"],
-                "context_vars": metadata["vars"],
-            }
-
-            for fom_name, fom in fom_map.items():
-                fom_copy = fom.copy()
-                fom_copy["name"] = fom_name
-                context_map["foms"].append(fom_copy)
-
-            if metadata["name"] == _NULL_CONTEXT:
-                self.result.contexts.insert(0, context_map)
-            else:
-                self.result.contexts.append(context_map)
+        strategy_name = getattr(self, "analysis_strategy", None) or "backwards"
+        strategy = ramble.analysis.get_strategy(strategy_name, self)
+        strategy(workspace)
 
     register_phase(
         "append_results_to_workspace",

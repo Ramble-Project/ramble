@@ -8,7 +8,7 @@
 
 import pytest
 
-from ramble.spec import Spec, SpecFormatStringError
+from ramble.spec import Spec
 
 
 class TestSpec:
@@ -63,16 +63,17 @@ class TestSpec:
             assert s.namespace == "my-namespace"
             assert s.fullname == "my-namespace.my-app"
             assert s is not s1
+            assert s == s1
+            assert hash(s) == hash(s1)
 
-    def test_format(self):
-        s = Spec("ns.app")
-        assert s.format("{name}") == "app"
-        assert s.format("{namespace}") == "ns"
-        assert s.format("{fullname}") == "ns.app"
-        assert s.format("Name: {name}, Namespace: {namespace}") == "Name: app, Namespace: ns"
+    def test_repr_and_equality(self):
+        s1 = Spec("my-namespace.my-app")
+        assert "name='my-app'" in repr(s1)
+        assert "namespace='my-namespace'" in repr(s1)
 
-    @pytest.mark.parametrize("format_str", ["{", "}", "{foo", "{_private}", "{nonexistent}"])
-    def test_format_errors(self, format_str):
-        s = Spec("ns.app")
-        with pytest.raises(SpecFormatStringError):
-            s.format(format_str)
+        s2 = Spec("my-namespace.my-app")
+        s3 = Spec("other-namespace.my-app")
+        assert s1 == s2
+        assert s1 != s3
+        assert s1 != "my-namespace.my-app"
+        assert len({s1, s2, s3}) == 2

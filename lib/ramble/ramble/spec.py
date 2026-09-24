@@ -7,14 +7,7 @@
 # except according to those terms.
 
 import functools
-import io
-from typing import Mapping
-
-import ramble.error
-import ramble.util.colors as clr
-
-color_formats: Mapping[str, str] = {}
-default_format = "{name}"
+from typing import Optional
 
 
 @functools.lru_cache(maxsize=None)
@@ -57,155 +50,54 @@ class Spec:
         """Create a new Spec.
 
         Arguments:
-          spec_like (optional string or Spec): If not provided we initialize an
-          anonymous Spec that matches any Spec object; if provided we parse
-          this as a Spec string.
-          object_type (optional ObjectTypes): Optional object type enum.
+            spec_like (optional string or Spec): If not provided we initialize an
+                anonymous Spec that matches any Spec object; if provided we parse
+                this as a Spec string.
+            object_type (optional ObjectTypes): Optional object type enum.
         """
-
         # Copy if spec_like is a Spec.
         if isinstance(spec_like, Spec):
-            self._dup(spec_like)
-            if object_type is not None:
-                self.object_type = object_type
+            self.name: Optional[str] = spec_like.name
+            self.namespace: Optional[str] = spec_like.namespace
+            self.object_type = object_type if object_type is not None else spec_like.object_type
             return
 
         # init an empty spec that matches anything.
-        self.name = None
-        self.namespace = None
+        self.name: Optional[str] = None
+        self.namespace: Optional[str] = None
         self.object_type = object_type
 
         if isinstance(spec_like, str):
-            self._parse_spec_string(spec_like)
+            self.name, self.namespace, parsed_type = _parse_spec_string(spec_like)
+            if self.object_type is None:
+                self.object_type = parsed_type
 
-    def _parse_spec_string(self, spec_like):
-        self.name, self.namespace, parsed_type = _parse_spec_string(spec_like)
-        if self.object_type is None:
-            self.object_type = parsed_type
+    def copy(self) -> "Spec":
+        return Spec(self)
 
-    def copy(self):
-        new_spec = Spec()
-        new_spec._dup(self)
-        return new_spec
-
-    def _dup(self, other):
-        self.name = other.name
-        self.namespace = other.namespace
-        self.object_type = getattr(other, "object_type", None)
-
-    def format(self, format_string=default_format, **kwargs):
-        r"""Prints out particular pieces of a spec, depending on what is
-        in the format string.
-
-        Using the ``{attribute}`` syntax, any field of the spec can be
-        selected.  Those attributes can be recursive.
-
-        Commonly used attributes of the Spec for format strings include::
-
-            name
-
-        Args:
-            format_string (str): string containing the format to be expanded
-
-        Keyword Args:
-            color (bool): True if returned string is colored
-            transform (dict): maps full-string formats to a callable \
-                              that accepts a string and returns another one
-
-        """
-
-        color = kwargs.get("color", False)
-        transform = kwargs.get("transform", {})
-
-        out = io.StringIO()
-
-        def write(s, c=None):
-            f = clr.cescape(s)
-            if c is not None:
-                f = color_formats[c] + f + "@."
-            clr.cwrite(f, stream=out, color=color)
-
-        def write_attribute(spec, attribute, color):
-            current = spec
-
-            if attribute == "":
-                raise SpecFormatStringError("Format string attributes must be non-empty")
-            attribute = attribute.lower()
-
-            parts = attribute.split(".")
-            assert parts
-
-            # find the morph function for our attribute
-            morph = transform.get(attribute, lambda s, x: x)
-
-            # Iterate over components using getattr to get next element
-            for idx, part in enumerate(parts):
-                if not part:
-                    raise SpecFormatStringError("Format string attributes must be non-empty")
-                if part.startswith("_"):
-                    raise SpecFormatStringError("Attempted to format private attribute")
-                else:
-                    try:
-                        current = getattr(current, part)
-                    except AttributeError:
-                        parent = ".".join(parts[:idx])
-                        m = f"Attempted to format attribute {attribute}."
-                        m += f"Spec {parent} has no attribute {part}"
-                        raise SpecFormatStringError(m) from None
-
-                    if callable(current):
-                        raise SpecFormatStringError("Attempted to format callable object")
-                    if not current:
-                        # We're not printing anything
-                        return
-
-            # Finally, write the output
-            col = None
-            write(morph(spec, str(current)), col)
-
-        attribute = ""
-        in_attribute = False
-        escape = False
-
-        for c in format_string:
-            if escape:
-                out.write(c)
-                escape = False
-            elif c == "\\":
-                escape = True
-            elif in_attribute:
-                if c == "}":
-                    write_attribute(self, attribute, color)
-                    attribute = ""
-                    in_attribute = False
-                else:
-                    attribute += c
-            else:
-                if c == "}":
-                    raise SpecFormatStringError("Encountered closing } before opening {")
-                elif c == "{":
-                    in_attribute = True
-                else:
-                    out.write(c)
-        if in_attribute:
-            raise SpecFormatStringError(
-                "Format string terminated while reading attribute." "Missing terminating }."
-            )
-
-        formatted_spec = out.getvalue()
-        return formatted_spec.strip()
-
-    def cformat(self, *args, **kwargs):
-        """Same as format, but color defaults to auto instead of False."""
-        kwargs = kwargs.copy()
-        kwargs.setdefault("color", None)
-        return self.format(*args, **kwargs)
-
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name if self.name is not None else ""
 
+    def __repr__(self) -> str:
+        return (
+            f"Spec(name={self.name!r}, namespace={self.namespace!r}, "
+            f"object_type={self.object_type!r})"
+        )
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Spec):
+            return (
+                self.name == other.name
+                and self.namespace == other.namespace
+                and self.object_type == other.object_type
+            )
+        return False
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.namespace, self.object_type))
+
     @property
-    def fullname(self):
+    def fullname(self) -> str:
         if not self.name:
             return ""
         import ramble.repository
@@ -220,7 +112,3 @@ class Spec:
                 abbrev = ramble.repository.type_definitions[self.object_type]["abbrev"]
                 return f"{abbrev}.{self.name}"
             return self.name
-
-
-class SpecFormatStringError(ramble.error.SpecError):
-    """Called for errors in Spec format strings."""

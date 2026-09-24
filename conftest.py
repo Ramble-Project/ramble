@@ -31,7 +31,6 @@ from ramble.util.file_util import is_dry_run_path
 
 import spack.platforms
 import spack.util.executable
-import spack.util.spack_yaml as syaml
 
 
 def _can_access(path, perms):
@@ -458,70 +457,6 @@ def mock_low_high_config(tmpdir):
         yield config
 
 
-@pytest.fixture(scope="session")
-def _store_dir_and_cache(tmpdir_factory):
-    """Returns the directory where to build the mock database and
-    where to cache it.
-    """
-    store = tmpdir_factory.mktemp("mock_store")
-    cache = tmpdir_factory.mktemp("mock_store_cache")
-    return store, cache
-
-
-class MockLayout:
-    def __init__(self, root):
-        self.root = root
-
-    def path_for_spec(self, spec):
-        return "/".join([self.root, spec.name])
-
-    def check_installed(self, spec):
-        return True
-
-
-@pytest.fixture()
-def gen_mock_layout(tmpdir):
-    # Generate a MockLayout in a temporary directory. In general the prefixes
-    # specified by MockLayout should never be written to, but this ensures
-    # that even if they are, that it causes no harm
-    def create_layout(root):
-        subroot = tmpdir.mkdir(root)
-        return MockLayout(str(subroot))
-
-    yield create_layout
-
-
-class MockConfig:
-    def __init__(self, configuration, writer_key):
-        self._configuration = configuration
-        self.writer_key = writer_key
-
-    def configuration(self):
-        return self._configuration
-
-    def writer_configuration(self):
-        return self.configuration()[self.writer_key]
-
-
-class ConfigUpdate:
-    def __init__(self, root_for_conf, writer_mod, writer_key, monkeypatch):
-        self.root_for_conf = root_for_conf
-        self.writer_mod = writer_mod
-        self.writer_key = writer_key
-        self.monkeypatch = monkeypatch
-
-    def __call__(self, filename):
-        file = os.path.join(self.root_for_conf, filename + ".yaml")
-        with open(file, encoding="utf-8") as f:
-            mock_config = MockConfig(syaml.load_config(f), self.writer_key)
-
-        self.monkeypatch.setattr(ramble.modules.common, "configuration", mock_config.configuration)
-        self.monkeypatch.setattr(
-            self.writer_mod, "configuration", mock_config.writer_configuration
-        )
-        self.monkeypatch.setattr(self.writer_mod, "configuration_registry", {})
-
-
 ##########
 # Class and fixture to work around problems raising exceptions in directives,
 # which cause tests like test_from_list_url to hang for Python 2.x metaclass
@@ -553,7 +488,7 @@ def clear_directive_functions():
     # functions.
     import ramble.language.language_base
 
-    ramble.language.language_base.DirectiveMeta._directives_to_be_executed = []
+    ramble.language.language_base.DirectiveMeta._directives_to_be_executed.clear()
 
 
 @pytest.fixture

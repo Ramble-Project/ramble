@@ -44,7 +44,8 @@ ramble:
                 - cleanup
                 - define_nproc_y
                 - define_nproc_x
-                - fix_12km
+                - fix_12km_start_hour
+                - fix_12km_restart
                 - start_time
                 - execute
                 - end_time

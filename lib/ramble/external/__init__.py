@@ -9,28 +9,6 @@
 """This module contains the following external, potentially separately
 licensed, packages that are included in Spack:
 
-archspec
---------
-
-* Homepage: https://pypi.python.org/pypi/archspec
-* Usage: Labeling, comparison and detection of microarchitectures
-* Version: 0.1.2 (commit 2846749dc5b12ae2b30ff1d3f0270a4a5954710d)
-
-ctest_log_parser
-----------------
-
-* Homepage: https://github.com/Kitware/CMake/blob/master/Source/CTest/cmCTestBuildHandler.cxx
-* Usage: Functions to parse build logs and extract error messages.
-* Version: Unversioned
-* Note: This is a homemade port of Kitware's CTest build handler.
-
-jinja2
-------
-
-* Homepage: https://pypi.python.org/pypi/Jinja2
-* Usage: A modern and designer-friendly templating language for Python.
-* Version: 2.10
-
 jsonschema
 ----------
 
@@ -41,13 +19,6 @@ jsonschema
   cannot be upgraded any further until we drop 2.6.
   Also, jsonschema/validators.py has been modified NOT to try to import
   requests (see 7a1dd517b8).
-
-markupsafe
-----------
-
-* Homepage: https://pypi.python.org/pypi/MarkupSafe
-* Usage: Implements a XML/HTML/XHTML Markup safe string for Python.
-* Version: 1.0
 
 ruamel.yaml
 ------

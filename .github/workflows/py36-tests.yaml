@@ -1,0 +1,72 @@
+# Workflow for validating Ramble support on Python 3.6
+# Runs standalone inside a Python 3.6 container to ensure compatibility
+# without requiring external Spack or uv.
+name: Python 3.6 Compatibility Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'lib/ramble/**'
+      - 'bin/**'
+      - 'var/ramble/repos/**'
+      - 'requirements*.txt'
+      - 'pyproject*.toml'
+      - '.github/workflows/py36-tests.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  py36-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Python 3.6 Validation
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}":/ramble \
+            -w /ramble \
+            python:3.6-buster \
+            bash -c '
+              set -ex
+
+              # Prevent dubious ownership warnings when running git inside container
+              git config --global --add safe.directory /ramble || true
+
+              echo "=== 1. Environment Information ==="
+              python --version
+              pip --version
+
+              echo "=== 2. Install Dependencies for Testing ==="
+              python -m pip install --upgrade "pip<22"
+              pip install -r requirements.txt
+
+              echo "=== 3. CLI Smoke Tests ==="
+              . share/ramble/setup-env.sh
+              echo "RAMBLE_ROOT=$RAMBLE_ROOT"
+              ramble --version
+              ramble -h
+              ramble help -a
+              ramble list --type applications > /dev/null
+              ramble list --type base_classes > /dev/null
+              ramble repo list
+              ramble workspace --help
+
+              echo "=== 4. End-to-End Workspace Validation (hostname) ==="
+              rm -rf /tmp/test_ws
+              ramble workspace create -d /tmp/test_ws
+              ramble -D /tmp/test_ws workspace manage experiments hostname --workload-filter local
+              ramble -D /tmp/test_ws workspace info
+              ramble -D /tmp/test_ws workspace setup
+              ramble -D /tmp/test_ws on
+              ramble -D /tmp/test_ws workspace analyze
+              test -f /tmp/test_ws/results.latest.txt
+              grep -q "Status = SUCCESS" /tmp/test_ws/results.latest.txt
+              rm -rf /tmp/test_ws
+              echo "Workspace test succeeded."
+            '

@@ -222,6 +222,26 @@ class TestURLFetchStrategy:
         with pytest.raises(FetchError, match="Invalid timeout value 'invalid'"):
             fetcher._fetch_curl("http://example.com/foo.tar.gz")
 
+    def test_urllib_web_error(self, fetcher, mock_config, mock_tty, monkeypatch):
+        """Test that RambleWebError from urllib is converted to FailedDownloadError."""
+        _, config = mock_config
+        config["config:url_fetch_method"] = "urllib"
+        fetcher.stage.archive_file = None
+
+        monkeypatch.setattr(
+            fetch_strategy.ramble.util.web,
+            "read_from_url",
+            mock.MagicMock(
+                side_effect=fetch_strategy.ramble.util.web.RambleWebError("Download failed")
+            ),
+        )
+
+        with pytest.raises(FailedDownloadError, match="Urllib fetch failed to verify url"):
+            fetcher._existing_url("http://example.com/foo.tar.gz")
+
+        with pytest.raises(FailedDownloadError, match="urllib failed to fetch with error"):
+            fetcher._fetch_urllib("http://example.com/foo.tar.gz")
+
 
 class TestGitFetchStrategy:
     @pytest.fixture

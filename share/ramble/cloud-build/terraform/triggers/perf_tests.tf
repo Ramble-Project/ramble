@@ -18,9 +18,8 @@ resource "google_cloudbuild_trigger" "perf_test_pr" {
   name        = "PerfTest-PR-${local.perf_test_img.base}${local.perf_test_img.base_ver}-${replace(local.perf_test_img.spack, ".", "-")}spack-${replace(local.perf_test_img.python, ".", "-")}python"
   description = "Ramble perf tests for PR builds"
 
-  github {
-    owner = var.github_owner
-    name  = var.github_repo
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/Ramble-USC1/repositories/${var.github_owner}-${var.github_repo}"
     pull_request {
       branch          = "(?:main|develop)"
       comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"
@@ -59,9 +58,8 @@ resource "google_cloudbuild_trigger" "perf_test_push" {
   name        = "PerfTest-Push-${local.perf_test_img.base}${local.perf_test_img.base_ver}-${replace(local.perf_test_img.spack, ".", "-")}spack-${replace(local.perf_test_img.python, ".", "-")}python"
   description = "Continuous monitoring of Ramble performance for develop push"
 
-  github {
-    owner = var.github_owner
-    name  = var.github_repo
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/Ramble-USC1/repositories/${var.github_owner}-${var.github_repo}"
     push {
       branch = "^develop$"
     }

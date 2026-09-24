@@ -172,12 +172,24 @@ def perform_list(args):
         sorted_objects = set(sorted_objects) & objects_with_tags
         sorted_objects = sorted(sorted_objects)
 
+    if not sorted_objects:
+        filter_strs = []
+        if args.filter:
+            filter_strs.append(f"filter '{' '.join(args.filter)}'")
+        if args.tags:
+            filter_strs.append(f"tags '{', '.join(args.tags)}'")
+        if filter_strs:
+            logger.warn(f"No {object_type.name} found matching {' and '.join(filter_strs)}.")
+        else:
+            logger.warn(f"No {object_type.name} found.")
+        return 0
+
     if args.update:
         # change output stream if user asked for update
         if os.path.exists(args.update):
             if os.path.getmtime(args.update) > ramble.repository.paths[object_type].last_mtime():
                 logger.msg(f"File is up to date: {args.update}")
-                return
+                return 0
 
         logger.msg(f"Updating file: {args.update}")
         with open(args.update, "w", encoding="utf-8") as f:
@@ -186,3 +198,5 @@ def perform_list(args):
     else:
         # Print to stdout
         formatter(sorted_objects, sys.stdout, object_type)
+
+    return 0

@@ -35,7 +35,6 @@ import spack
 import spack.cmd
 import spack.config
 import spack.environment as ev
-import spack.modules
 import spack.paths
 import spack.platforms
 import spack.repo
@@ -691,14 +690,10 @@ def print_setup_info(*info):
     # print sys type
     shell_set('_sp_sys_type', str(spack.spec.ArchSpec.default_arch()))
     shell_set('_sp_compatible_sys_types', ':'.join(_compatible_sys_types()))
-    # print roots for all module systems
     module_to_roots = {
         'tcl': list(),
         'lmod': list()
     }
-    for name in module_to_roots.keys():
-        path = spack.modules.common.root_path(name, 'default')
-        module_to_roots[name].append(path)
 
     other_spack_instances = spack.config.get(
         'upstreams') or {}

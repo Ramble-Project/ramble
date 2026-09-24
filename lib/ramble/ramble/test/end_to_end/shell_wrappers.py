@@ -202,8 +202,9 @@ exit 0
         cmd = [shell, test_script_path]
         process = subprocess.run(
             cmd,
-            capture_output=True,
-            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
             cwd=str(tmpdir),
             env=os.environ.copy(),
             check=False,
@@ -216,7 +217,8 @@ exit 0
         ramble_exe = os.path.join(paths.ramble_root, "bin", "ramble")
         subprocess.run(
             [ramble_exe, "workspace", "rm", "-y", ws_name],
-            capture_output=True,
-            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
             check=False,
         )

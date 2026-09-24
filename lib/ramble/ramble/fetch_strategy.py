@@ -360,7 +360,7 @@ class URLFetchStrategy(FetchStrategy):
             # Telling urllib to check if url is accessible
             try:
                 url, _, response = ramble.util.web.read_from_url(url)
-            except ramble.util.web.SpackWebError as werr:
+            except ramble.util.web.RambleWebError as werr:
                 msg = f"Urllib fetch failed to verify url {url}\n with error {werr}"
                 raise FailedDownloadError(url, msg) from None
             return response.getcode() is None or response.getcode() == 200
@@ -395,7 +395,7 @@ class URLFetchStrategy(FetchStrategy):
         # Run urllib but grab the mime type from the http headers
         try:
             url, headers, response = ramble.util.web.read_from_url(url)
-        except ramble.util.web.SpackWebError as e:
+        except ramble.util.web.RambleWebError as e:
             # clean up archive on failure.
             if self.archive_file:
                 os.remove(self.archive_file)

@@ -7,9 +7,8 @@ resource "google_cloudbuild_trigger" "pr_doc_build_tests" {
   name        = "PR-Doc-Build-Tests"
   description = "A presubmit check for building Ramble documentation"
 
-  github {
-    owner = var.github_owner
-    name  = var.github_repo
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/Ramble-USC1/repositories/${var.github_owner}-${var.github_repo}"
     pull_request {
       branch          = "(?:main|develop)"
       comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"

@@ -218,3 +218,74 @@ def test_use_repositories_exception_cleanup(extra_repo):
             raise RuntimeError("test error inside context")
     assert ramble.repository.paths[ramble.repository.ObjectTypes.applications] is orig_path
     assert sys.meta_path == orig_meta_path
+
+
+def test_namespace_import_and_attribute_access(mutable_mock_apps_repo):
+    import ramble.app.builtin.mock.basic as mock_basic
+
+    assert hasattr(mock_basic, "Basic")
+
+    import ramble.app.builtin.mock as mock_ns
+
+    assert hasattr(mock_ns, "basic")
+    assert mock_ns.basic.Basic.name == "basic"
+
+    import ramble.app as app_ns
+
+    assert hasattr(app_ns.builtin.mock, "basic")
+    assert app_ns.builtin.mock.basic.Basic.name == "basic"
+
+
+def test_namespace_nonexistent_attribute(mutable_mock_apps_repo):
+    import ramble.app.builtin.mock as mock_ns
+
+    assert not hasattr(mock_ns, "nonexistent_object")
+    assert getattr(mock_ns, "nonexistent_object", "default") == "default"
+    with pytest.raises(AttributeError):
+        _ = mock_ns.nonexistent_object
+
+    import ramble.app as app_ns
+
+    assert not hasattr(app_ns, "nonexistent_subnamespace")
+    assert getattr(app_ns, "nonexistent_subnamespace", None) is None
+    with pytest.raises(AttributeError):
+        _ = app_ns.nonexistent_subnamespace
+
+
+def test_failed_constructor_error_message():
+    try:
+        raise ValueError("test exception message")
+    except ValueError:
+        exc_info = sys.exc_info()
+
+    # Without object_type
+    err = ramble.repository.FailedConstructorError("my_obj", *exc_info)
+    assert "Class constructor failed for 'my_obj'." in str(err)
+    assert "ValueError: test exception message" in str(err)
+    assert "None" not in str(err)
+    assert "%s" not in str(err)
+
+    # With string object_type
+    err_str = ramble.repository.FailedConstructorError("my_obj", *exc_info, object_type="modifier")
+    assert "Class constructor failed for modifier 'my_obj'." in str(err_str)
+
+    # With ObjectTypes enum
+    err_enum = ramble.repository.FailedConstructorError(
+        "my_obj", *exc_info, object_type=ramble.repository.ObjectTypes.applications
+    )
+    assert "Class constructor failed for application 'my_obj'." in str(err_enum)
+
+
+def test_repo_get_raises_failed_constructor_error(mutable_mock_apps_repo, monkeypatch):
+    def failing_constructor(*args, **kwargs):
+        raise TypeError("simulated constructor failure")
+
+    repo = mutable_mock_apps_repo.repo_for_obj("basic")
+    monkeypatch.setattr(repo, "get_obj_class", lambda name: failing_constructor)
+
+    with pytest.raises(ramble.repository.FailedConstructorError) as exc_info:
+        mutable_mock_apps_repo.get("basic")
+
+    err_msg = str(exc_info.value)
+    assert "Class constructor failed for application 'basic'." in err_msg
+    assert "TypeError: simulated constructor failure" in err_msg

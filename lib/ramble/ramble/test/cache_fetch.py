@@ -28,9 +28,13 @@ def test_fetch_missing_cache(tmpdir, _fetch_method):
         abs_pref = "" if is_windows else "/"
         url = "file://" + abs_pref + "not-a-real-cache-file"
         fetcher = CacheURLFetchStrategy(url=url)
-        with InputStage(fetcher, name=f"test_fetch_missing_cache_{_fetch_method}", path=testpath):
+        with InputStage(
+            fetcher, name=f"test_fetch_missing_cache_{_fetch_method}", path=testpath
+        ) as stage:
             with pytest.raises(NoCacheError, match=r"No cache"):
                 fetcher.fetch()
+            with pytest.raises(ramble.fetch_strategy.FetchError, match="All fetchers failed"):
+                stage.fetch()
 
 
 @pytest.mark.parametrize("_fetch_method", ["curl", "urllib"])

@@ -100,7 +100,7 @@ def get_installation_token(client_id, private_key, repo):
 
 
 
-def format_markdown(metrics, historical_data, commit_sha=None, repo="GoogleCloudPlatform/ramble"):
+def format_markdown(metrics, historical_data, commit_sha=None, repo="Ramble-Project/ramble"):
     lines = [
         "## Ramble Performance Test Metrics",
     ]
@@ -150,7 +150,7 @@ def main():
     parser.add_argument("--dataset-id", help="BigQuery Dataset ID")
     parser.add_argument("--table-id", help="BigQuery Table ID")
     parser.add_argument("--pr-number", required=True, help="GitHub Pull Request number")
-    parser.add_argument("--repo", default="GoogleCloudPlatform/ramble", help="GitHub repository (owner/repo)")
+    parser.add_argument("--repo", default="Ramble-Project/ramble", help="GitHub repository (owner/repo)")
     parser.add_argument("--commit-sha", help="Commit SHA results were produced with")
     parser.add_argument("--dry-run", action="store_true", help="Print only")
     

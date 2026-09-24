@@ -12,7 +12,6 @@ import os
 from llnl.util.tty.colify import colified
 
 import ramble.cmd
-import ramble.reports
 import ramble.uploader
 import ramble.util.colors as color
 from ramble.util.logger import logger
@@ -244,6 +243,8 @@ def _print_attr_dict(attr_dict: dict, n_indent=0):
 
 def results_index(args):
     """List attributes in results including FOMs and template variables"""
+    import ramble.reports
+
     results_dict = _load_results(args)
     filtered_experiments = ramble.reports.filter_exp_results(results_dict["experiments"])
     result_index = ramble.reports.generate_result_index(
@@ -259,6 +260,8 @@ def results_index(args):
 
 def results_report(args):
     """Create a report with charts from Ramble experiment results."""
+    import ramble.reports
+
     results_dict = _load_results(args)
 
     if "workspace_name" in results_dict:

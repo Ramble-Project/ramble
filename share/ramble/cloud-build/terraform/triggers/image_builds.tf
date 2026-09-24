@@ -5,9 +5,8 @@ resource "google_cloudbuild_trigger" "image_builders" {
   name        = "ramble-image-builder-${each.value.base}${replace(each.value.base_ver, ".", "-")}-py${replace(each.value.python, ".", "-")}-spack${replace(each.value.spack, ".", "-")}"
   description = "Build Ramble cloud build image for ${each.value.base} ${each.value.base_ver} with Python ${each.value.python} and Spack ${each.value.spack}"
 
-  github {
-    owner = var.github_owner
-    name  = var.github_repo
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/Ramble-USC1/repositories/${var.github_owner}-${var.github_repo}"
     push {
       branch = "^develop$"
     }

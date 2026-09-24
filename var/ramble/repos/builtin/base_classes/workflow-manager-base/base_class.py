@@ -11,12 +11,11 @@ import abc
 from typing import Collection, Iterator
 
 import ramble.definitions.families
-import ramble.util.class_attributes
 import ramble.variants
 from ramble.expander import ExpanderError
-from ramble.language.shared_language import SharedMeta
+from ramble.language.language_base import DirectiveMeta
+from ramble.language.shared_language import variant
 from ramble.language.workflow_manager_language import (
-    WorkflowManagerMeta,
     workflow_manager_variable,
 )
 from ramble.util.naming import NS_SEPARATOR
@@ -25,18 +24,24 @@ from ramble.workspace import namespace
 ObjectMixin = ramble.repository.get_base_class("object-mixin")
 
 
-class WorkflowManagerBase(ObjectMixin, metaclass=WorkflowManagerMeta):
+class WorkflowManagerBase(ObjectMixin, metaclass=DirectiveMeta):
     origin_type = "workflow_manager"
     _builtin_name = NS_SEPARATOR.join(
         ("workflow_manager_builtin", "{obj_name}", "{name}")
     )
-    _language_classes = [WorkflowManagerMeta, SharedMeta]
+    _language_types = ["workflow_manager", "shared"]
+    _language_classes = _language_types
     pipelines = [
         "analyze",
         "setup",
         "execute",
     ]
-    is_containerized = False
+
+    variant(
+        namespace.containerized,
+        default=False,
+        description="Whether this workflow manager runs in containers",
+    )
 
     workflow_manager_variable(
         "workflow_banner",
@@ -74,8 +79,6 @@ class WorkflowManagerBase(ObjectMixin, metaclass=WorkflowManagerMeta):
                 self.origin_type, list(self.class_families.keys())
             )
 
-        ramble.util.class_attributes.convert_class_attributes(self)
-
         self._file_path = file_path
 
         self.object_variants.default_variant(
@@ -97,15 +100,6 @@ class WorkflowManagerBase(ObjectMixin, metaclass=WorkflowManagerMeta):
         """Set a reference to the associated app_inst"""
         self.app_inst = app_inst
         self.clear_variant_cache()
-
-        if (
-            self.is_containerized
-            and namespace.containerized not in app_inst.variants
-        ):
-            app_inst.object_variants.experiment_variant(
-                namespace.containerized, True
-            )
-            app_inst.clear_variant_cache()
 
     @abc.abstractmethod
     def get_status(self, workspace):

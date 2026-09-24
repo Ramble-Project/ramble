@@ -24,7 +24,11 @@ class GkeMpi(WorkflowManagerBase):
 
     tags("workflow", "gke", "mpi")
 
-    is_containerized = True
+    variant(
+        "containerized",
+        default=True,
+        description="GKE MPI runs in containers",
+    )
 
     workflow_manager_variable(
         name="job_name",

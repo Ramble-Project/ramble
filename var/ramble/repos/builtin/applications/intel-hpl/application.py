@@ -136,11 +136,3 @@ class IntelHpl(HplBase, IntelMklBenchmarksBase):
         default="1",
         workloads=["*"],
     )
-
-    # Redefine default bcast to 6 for the MKL-optimized case
-    workload_variable(
-        "bcast",
-        default="6",
-        description="BCAST for Intel MKL optimized calculator",
-        workload_group="calculator",
-    )

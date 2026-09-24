@@ -503,8 +503,26 @@ The format of the internals config section is as follows:
       - name: <executable_name>
         order: 'before' / 'after' # Default: 'after'
         [relative_to: <relative_executable_name>]
+      custom_inputs:
+        <input_name>:
+          url: 'url_or_path_to_input' # Supports variable expansion: {var}
+          sha256: 'checksum_or_null' # Default: None (or null to disable check)
+          target_dir: 'target_directory' # Default: '{workload_input_dir}'
+          expand: [True/False] # Default: True
+          extension: 'extension' # Optional file extension override
+          description: 'description_of_input' # Optional
+      custom_workloads:
+        <workload_name>:
+          executables:
+          - list of executables
+          inputs:
+          - list of input names
+          tags:
+          - list of tags
 
-Currently this section has three sub-sections.
+Currently this section has five sub-sections: ``custom_executables``,
+``executables``, ``executable_injection``, ``custom_inputs``, and
+``custom_workloads``.
 
 The ``custom_executables`` sub-section can be used to define new executables
 that an experiment can use. It can also be used to override the definition
@@ -530,6 +548,23 @@ Processing the ``executable_injection`` sub-section occurs after processing the
 listed in the YAML file, with lower precedence scopes being processed first.
 (e.g. ``workspace`` executables are injected before ``experiment`` executables
 are).
+
+The ``custom_inputs`` sub-section can be used to define new input files or
+override built-in inputs for an experiment. When overriding an existing input,
+unspecified attributes (such as ``target_dir``, ``expand``, or ``description``)
+are preserved from the original application definition. The ``url`` attribute
+supports variable expansion (e.g., ``url: 'https://mirror.org/{dataset}.tar.gz'``),
+allowing datasets to be swept across variable matrices. To disable sha256 checksum
+verification (for instance when using modified or custom datasets), specify
+``sha256: null``.
+
+The ``custom_workloads`` sub-section allows users to compose custom workloads or
+override built-in workloads directly in YAML without writing Python application code.
+It links executables (built-in or ``custom_executables``), inputs (built-in or
+``custom_inputs``), and tags. Any workload tags defined here are attached to the
+experiment's tags. Workload variables corresponding to the input names (e.g.
+``{<input_name>}``) are automatically made available to templates and executable
+commands, expanding to the expanded input directory or file path.
 
 .. _licenses-config:
 

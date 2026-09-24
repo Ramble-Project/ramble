@@ -37,6 +37,7 @@ import ramble.config
 import ramble.paths
 import ramble.repository
 import ramble.util.colors as color
+import ramble.util.lock
 import ramble.util.version
 import ramble.workspace
 import ramble.workspace.shell
@@ -88,6 +89,9 @@ required_command_properties = ["level", "section", "description"]
 #: Recorded directory where ramble command was originally invoked
 ramble_working_dir = None
 ramble_ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
+
+#: Standard POSIX offset for exit codes from signal termination (128 + signal)
+POSIX_SIGNAL_EXIT_OFFSET = 128
 
 
 def set_working_dir():
@@ -603,7 +607,7 @@ def setup_main_options(args):
     # override lock configuration if passed on command line
     if args.locks is not None:
         if args.locks is False:
-            spack.util.lock.check_lock_safety(ramble.paths.prefix)
+            ramble.util.lock.check_lock_safety(ramble.paths.prefix)
         ramble.config.set("config:locks", args.locks, scope="command_line")
 
     # override disable_passthrough configuration if passed on command line
@@ -1100,7 +1104,7 @@ def main(argv=None):
             raise
         sys.stderr.write("\n")
         logger.error("Keyboard interrupt.")
-        return signal.SIGINT.value
+        return POSIX_SIGNAL_EXIT_OFFSET + signal.SIGINT.value
 
     except SystemExit as e:
         if ramble.config.get("config:debug"):

@@ -67,7 +67,7 @@ If you're new to Ramble and want to start using it, see :doc:`getting_started`.
    :maxdepth: 2
    :caption: Contributing
 
-   Contributing Guidelines <https://github.com/GoogleCloudPlatform/ramble#contributing>
+   Contributing Guidelines <https://github.com/Ramble-Project/ramble#contributing>
    dev_guides
 
 .. toctree::

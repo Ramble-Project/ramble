@@ -6,6 +6,8 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import functools
+
 import ramble.language.shared_language
 
 """This package contains directives that can be used within a system.
@@ -21,16 +23,11 @@ definition to modify then system, for example:
 In the above example, 'default_platform' is a ramble directive
 """
 
-
-class SystemMeta(ramble.language.shared_language.SharedMeta):
-    _directive_names = set()
-    _directives_to_be_executed = []
+SystemMeta = ramble.language.shared_language.SharedMeta
+system_directive = functools.partial(SystemMeta.directive, language_type="system")
 
 
-system_directive = SystemMeta.directive
-
-
-@system_directive("default_workflow_managers")
+@system_directive(dicts="system_default_workflow_manager", init_value=None)
 def default_workflow_manager(name, **kwargs):
     """Sets the default workflow manager for this system
 
@@ -44,7 +41,7 @@ def default_workflow_manager(name, **kwargs):
     return _execute_default_workflow_manager
 
 
-@system_directive(dicts=())
+@system_directive(dicts="system_default_package_manager", init_value=None)
 def default_package_manager(name, **kwargs):
     """Sets the default package manager for this system
 
@@ -58,7 +55,7 @@ def default_package_manager(name, **kwargs):
     return _execute_default_package_manager
 
 
-@system_directive(dicts=())
+@system_directive(dicts="system_default_platform", init_value=None)
 def default_platform(name, **kwargs):
     """Sets the default platform for this system
 
@@ -72,7 +69,7 @@ def default_platform(name, **kwargs):
     return _execute_default_platform
 
 
-@system_directive(dicts=())
+@system_directive(dicts="system_available_platforms", init_value=[])
 def available_platforms(platforms, **kwargs):
     """Sets the available platforms for this system
 
@@ -93,7 +90,7 @@ def available_platforms(platforms, **kwargs):
     return _execute_available_platforms
 
 
-@system_directive(dicts="platform_variable_maps")
+@system_directive(dicts="platform_variable_maps", init_value={})
 def platform_variable_map(variable_name, var_map, **kwargs):
     """Defines a mapping of platform to variable values
 
@@ -110,7 +107,7 @@ def platform_variable_map(variable_name, var_map, **kwargs):
     return _execute_platform_variable_map
 
 
-@system_directive(dicts="variable_defaults")
+@system_directive(dicts="variable_defaults", init_value={})
 def variable_defaults(variable_definitions, when=None, **kwargs):
     """Defines default values for variables
 
@@ -131,7 +128,7 @@ def variable_defaults(variable_definitions, when=None, **kwargs):
     return _execute_variable_defaults
 
 
-@system_directive(dicts=())
+@system_directive(dicts="class_families", init_value={})
 def system_family(*names: str, **kwargs):
     """Add a new family to this system
 

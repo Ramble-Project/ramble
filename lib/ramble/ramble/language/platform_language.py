@@ -6,6 +6,8 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import functools
+
 import ramble.language.shared_language
 
 """This package contains directives that can be used within a platform.
@@ -21,16 +23,11 @@ definition to modify then platform, for example:
 In the above example, 'platform_family' is a ramble directive
 """
 
-
-class PlatformMeta(ramble.language.shared_language.SharedMeta):
-    _directive_names = set()
-    _directives_to_be_executed = []
+PlatformMeta = ramble.language.shared_language.SharedMeta
+platform_directive = functools.partial(PlatformMeta.directive, language_type="platform")
 
 
-platform_directive = PlatformMeta.directive
-
-
-@platform_directive(dicts=())
+@platform_directive(dicts="class_families", init_value={})
 def platform_family(*names: str, **kwargs):
     """Add a new family to this platform
 

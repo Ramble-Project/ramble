@@ -210,7 +210,7 @@ class NamespaceTrie:
         """True if this namespace has no children in the trie."""
         first, _, rest = namespace.partition(self._sep)
         if not first:
-            return bool(self._subspaces)
+            return not self._subspaces
         elif first not in self._subspaces:
             return False
         else:

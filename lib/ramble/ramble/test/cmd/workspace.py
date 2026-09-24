@@ -133,8 +133,9 @@ def test_workspace_create_links(mutable_mock_workspace_path, tmpdir):
 
 def test_workspace_activate_fails(mutable_mock_workspace_path):
     workspace("create", "foo")
-    out = workspace("activate", "foo")
+    out = workspace("activate", "foo", fail_on_error=False)
     assert "To set up shell support" in out
+    assert workspace.returncode == 1
 
 
 def test_workspace_activate_prompt(workspace_name, monkeypatch):
@@ -230,6 +231,7 @@ def test_workspace_deactivate(workspace_name, working_env):
     # Test deactivation fails without shell args
     output = workspace("deactivate", fail_on_error=False)
     assert "To set up shell support" in output
+    assert workspace.returncode == 1
 
     # Test deactivation fails with ambiguous flags
     ramble.workspace.activate(ws)
@@ -259,6 +261,16 @@ def test_workspace_list(mutable_mock_workspace_path):
     assert "bar" in out
     assert "baz" in out
     assert ".DS_Store" not in out
+
+
+def test_workspace_list_empty(mutable_mock_workspace_path):
+    out = workspace("list")
+    assert workspace.returncode == 0
+    assert "No workspaces found." in out
+
+    out = workspace("list", "--merged")
+    assert workspace.returncode == 0
+    assert "No workspaces found." in out
 
 
 def test_workspace_info(workspace_name):
@@ -1648,21 +1660,21 @@ ramble:
     with fs.working_dir(config_path):
         write_config(ws_path, test_config)
 
-        with ramble.workspace.Workspace(ws_path) as ws:
-            software_dict = ws.get_software_dict()
+        with ramble.workspace.Workspace(ws_path):
+            software_dict = ramble.config.get(namespace.software)
             print(f"software_dict before = {software_dict}")
 
         workspace("concretize", global_args=workspace_flags)
 
-        with ramble.workspace.Workspace(ws_path) as ws:
-            software_dict = ws.get_software_dict()
+        with ramble.workspace.Workspace(ws_path):
+            software_dict = ramble.config.get(namespace.software)
             assert namespace.environments in software_dict
 
         write_config(ws_path, test_config)
 
         workspace("concretize", global_args=workspace_flags)
-        with ramble.workspace.Workspace(ws_path) as ws:
-            software_dict = ws.get_software_dict()
+        with ramble.workspace.Workspace(ws_path):
+            software_dict = ramble.config.get(namespace.software)
             assert namespace.environments in software_dict
 
 
@@ -2903,18 +2915,20 @@ def test_manage_modifier_no_modifiers(workspace_name):
             global_args=global_args,
         )
 
-        output = workspace(
-            "manage",
-            "modifiers",
-            "--add",
-            "-s",
-            "workspace",
-            "-n",
-            "not-a-modifier",
-            global_args=global_args,
-        )
-
-        assert "0 modifiers added" in output
+        # Adding a name that matches no modifier is an error, not a silent no-op.
+        with pytest.raises(
+            ramble.workspace.RambleWorkspaceError, match="No modifiers found matching"
+        ):
+            workspace(
+                "manage",
+                "modifiers",
+                "--add",
+                "-s",
+                "workspace",
+                "-n",
+                "not-a-modifier",
+                global_args=global_args,
+            )
 
         output = workspace(
             "manage",
@@ -3084,18 +3098,18 @@ def test_manage_modifier_no_modifier_errors(workspace_name):
 
     with ramble.workspace.create(workspace_name) as ws:
         ws.write()
-        err_str = f"Error: No modifiers found matching name pattern of {name_pattern}"
-        output = workspace(
-            "manage",
-            "modifiers",
-            "--add",
-            "-s",
-            "workspace",
-            "-n",
-            name_pattern,
-            global_args=global_args,
-        )
-        assert err_str in output
+        err_str = f"No modifiers found matching name pattern of {name_pattern}"
+        with pytest.raises(ramble.workspace.RambleWorkspaceError, match=err_str):
+            workspace(
+                "manage",
+                "modifiers",
+                "--add",
+                "-s",
+                "workspace",
+                "-n",
+                name_pattern,
+                global_args=global_args,
+            )
 
 
 @pytest.mark.parametrize(

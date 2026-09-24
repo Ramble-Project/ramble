@@ -3,9 +3,8 @@ resource "google_cloudbuild_trigger" "pr_image_build_tests_debian" {
   name        = "PR-Image-Build-Tests-Debian"
   description = "A presubmit check for building Debian image used by other cloud build triggers"
 
-  github {
-    owner = var.github_owner
-    name  = var.github_repo
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/Ramble-USC1/repositories/${var.github_owner}-${var.github_repo}"
     pull_request {
       branch          = "(?:main|develop)"
       comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"
@@ -34,9 +33,8 @@ resource "google_cloudbuild_trigger" "pr_image_build_tests_rocky" {
   name        = "PR-Image-Build-Tests-Rocky"
   description = "A presubmit check for building Rocky image used by other cloud build triggers"
 
-  github {
-    owner = var.github_owner
-    name  = var.github_repo
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/Ramble-USC1/repositories/${var.github_owner}-${var.github_repo}"
     pull_request {
       branch          = "(?:main|develop)"
       comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"

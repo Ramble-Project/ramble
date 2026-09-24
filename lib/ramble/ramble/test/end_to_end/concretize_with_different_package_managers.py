@@ -10,8 +10,10 @@ import os
 
 import pytest
 
+import ramble.config
 import ramble.workspace
 from ramble.main import RambleCommand
+from ramble.namespace import namespace
 
 # everything here uses the mock_workspace_path
 pytestmark = pytest.mark.usefixtures("mutable_config", "mutable_mock_workspace_path")
@@ -66,7 +68,7 @@ ramble:
 
         workspace("concretize", global_args=["-w", workspace_name])
 
-        sw_dict = ws1.get_software_dict()
+        sw_dict = ramble.config.get(namespace.software)
 
         assert "wrfv4" in sw_dict["environments"]
         assert "wrfv4" in sw_dict["packages"]

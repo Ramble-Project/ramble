@@ -3,9 +3,8 @@ resource "google_cloudbuild_trigger" "terraform_apply" {
   name        = "ramble-terraform-apply"
   description = "Automatically apply Cloud Build Triggers Terraform configuration when pushed to develop branch"
 
-  github {
-    owner = var.github_owner
-    name  = var.github_repo
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/Ramble-USC1/repositories/${var.github_owner}-${var.github_repo}"
     push {
       branch = "^develop$"
     }

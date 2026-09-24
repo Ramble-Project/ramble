@@ -20,6 +20,7 @@ from llnl.util import tty
 from llnl.util.tty.colify import colified, colify
 
 import ramble.cmd
+import ramble.cmd.common
 import ramble.cmd.filter_groups
 import ramble.config
 import ramble.expander
@@ -34,12 +35,12 @@ import ramble.workspace.shell
 from ramble import ramble_version
 from ramble.cmd.common import arguments
 from ramble.namespace import namespace
+from ramble.util.editor import editor
 from ramble.util.format import when_order
 from ramble.util.logger import logger
 
 import spack.util.environment
 from spack.util import string
-from spack.util.editor import editor
 
 description = "manage experiment workspaces"
 section = "workspaces"
@@ -167,7 +168,7 @@ def workspace_activate(args):
         ramble.cmd.common.shell_init_instructions(
             "ramble workspace activate", "    eval `ramble workspace activate {sh_arg} [...]`"
         )
-        return 1
+        sys.exit(1)
 
     workspace_name_or_dir = args.activate_workspace or args.dir
 
@@ -256,7 +257,7 @@ def workspace_deactivate(args):
             "ramble workspace deactivate",
             "    eval `ramble workspace deactivate {sh_arg}`",
         )
-        return 1
+        sys.exit(1)
 
     # Error out when -w, -W, -D flags are given, cause they are ambiguous.
     if args.workspace or args.no_workspace or args.workspace_dir:
@@ -879,7 +880,7 @@ def workspace_info(args):
             color.cprint(f"    {template}")
 
     # Print workspace variables information
-    workspace_vars = ws.get_workspace_vars()
+    workspace_vars = ramble.config.get(namespace.variables)
 
     ws.software_environments = ramble.software_environments.SoftwareEnvironments(ws)
     software_environments = ws.software_environments
@@ -1140,7 +1141,7 @@ def workspace_info(args):
         if not all_utilities:
             color.cprint("    None")
         else:
-            ws_utilities = ws.get_workspace_utilities() or {}
+            ws_utilities = ramble.config.get(namespace.utilities) or {}
             for utility_name, confs in sorted(all_utilities.items()):
                 color.cprint(color.nested_1(f"    {utility_name}:"))
 
@@ -1184,14 +1185,16 @@ def workspace_list(args):
                 name = color.colorize(f"@*g{{{name}}}")
             color_names.append(name)
 
+        if not names:
+            logger.warn("No workspaces found.")
+            return 0
+
         # say how many there are if writing to a tty
         if sys.stdout.isatty():
-            if not names:
-                logger.msg("No workspaces")
-            else:
-                logger.msg(f"{len(names)} workspaces")
+            logger.msg(f"{len(names)} workspaces")
 
         colify(color_names, indent=4)
+        return 0
     else:
         if args.parent_dir:
             wspaths = ramble.workspace.get_workspace_path()
@@ -1204,11 +1207,13 @@ def workspace_list(args):
         else:
             wspaths = ramble.workspace.get_workspace_path()
 
+        total_workspaces = 0
         for i, wspath in enumerate(wspaths):
             if i > 0:
                 color.cprint("")
             color.cprint(color.section_title("Workspaces from dir:") + " " + wspath)
             names = ramble.workspace.all_workspace_names(parent_dir=wspath)
+            total_workspaces += len(names)
 
             color_names = []
             for name in names:
@@ -1217,13 +1222,15 @@ def workspace_list(args):
                 color_names.append(name)
 
             # say how many there are if writing to a tty
-            if sys.stdout.isatty():
-                if not names:
-                    logger.msg("No workspaces")
-                else:
-                    logger.msg(f"{len(names)} workspaces")
+            if sys.stdout.isatty() and names:
+                logger.msg(f"{len(names)} workspaces")
 
             colify(color_names, indent=4)
+
+        if total_workspaces == 0:
+            logger.warn("No workspaces found.")
+
+        return 0
 
 
 def workspace_edit_setup_parser(subparser):
@@ -1327,7 +1334,7 @@ def workspace_edit(args, unknown_args):
                 logger.debug(f"Passing {unknown_args} to editor...")
             edit_files += unknown_args or []
             editor(*edit_files)
-        except TypeError:
+        except (TypeError, OSError):
             logger.die("No valid editor was found.")
 
 
@@ -1843,13 +1850,13 @@ def workspace_manage_modifiers_setup_parser(subparser):
     actions.add_argument(
         "--add",
         action="store_true",
-        help="whether to remove an existing modifier by index",
+        help="whether to add a new modifier, selected by --name",
     )
 
     actions.add_argument(
         "--remove",
         action="store_true",
-        help="whether to remove an existing modifier by index",
+        help="whether to remove an existing modifier by index or pattern",
     )
 
     subparser.add_argument(
@@ -1913,6 +1920,29 @@ def workspace_manage_modifiers_setup_parser(subparser):
 def workspace_manage_modifiers(args):
     """Execute workspace manage modifiers command"""
 
+    if args.add and args.name is None:
+        logger.die(
+            "ramble workspace manage modifiers --add requires --name. "
+            "See `ramble workspace manage modifiers -h`."
+        )
+
+    if args.remove and args.remove_index is not None:
+        conflicting = [
+            flag
+            for flag, value in (
+                ("--scope", args.scope),
+                ("--name", args.name),
+                ("--mode", args.mode),
+            )
+            if value is not None
+        ]
+        if conflicting:
+            logger.die(
+                "ramble workspace manage modifiers --remove accepts --mod-index or "
+                f"{'/'.join(conflicting)}, but not both. "
+                "See `ramble workspace manage modifiers -h`."
+            )
+
     ws = ramble.cmd.require_active_workspace(cmd_name="workspace manage modifiers")
 
     if args.remove:
@@ -1965,43 +1995,7 @@ def workspace_manage_modifiers(args):
 
 def workspace_manage_filter_groups_setup_parser(subparser):
     """manage workspace filter groups"""
-    scopes_metavar = ramble.config.scopes_metavar
-
-    subparser.add_argument(
-        "--scope",
-        choices=ramble.config.scopes_choices(include_workspace=True),
-        metavar=scopes_metavar,
-        default=None,
-        help="configuration scope to modify/list",
-    )
-
-    actions = subparser.add_subparsers(metavar="ACTION", dest="action")
-
-    add_parser = actions.add_parser("add", help="add a filter group")
-    add_parser.add_argument("-n", "--name", required=True, help="name of filter group")
-    add_parser.add_argument(
-        "--where",
-        action="append",
-        help="inclusive filter expression. Can be specified multiple times.",
-    )
-    add_parser.add_argument(
-        "--exclude-where",
-        dest="exclude_where",
-        action="append",
-        help="exclusive filter expression. Can be specified multiple times.",
-    )
-
-    remove_parser = actions.add_parser("remove", aliases=["rm"], help="remove a filter group")
-    remove_parser.add_argument("-n", "--name", required=True, help="name of filter group")
-
-    list_parser = actions.add_parser("list", help="list defined filter groups")
-    list_parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="show the filter group definition for each",
-    )
-    actions.add_parser("blame", help="show defined filter groups with sources")
+    ramble.cmd.filter_groups.setup_parser(subparser)
 
 
 def workspace_manage_filter_groups(args):
@@ -2118,48 +2112,16 @@ def workspace_experiment_logs(args):
 subcommand_functions: Dict[str, Callable] = {}
 
 
-def sanitize_arg_name(base_name):
-    """Allow function names to be remapped (eg `-` to `_`)"""
-    formatted_name = base_name.replace("-", "_")
-    return formatted_name
-
-
 def setup_parser(subparser):
-    sp = subparser.add_subparsers(metavar="SUBCOMMAND", dest="workspace_command")
-
-    for name in subcommands:
-        if isinstance(name, (list, tuple)):
-            name, aliases = name[0], name[1:]
-        else:
-            aliases = []
-
-        # add commands to subcommands dict
-        function_name = sanitize_arg_name(f"workspace_{name}")
-
-        function = globals()[function_name]
-        for alias in [name] + aliases:
-            subcommand_functions[alias] = function
-
-        # make a subparser and run the command's setup function on it
-        setup_parser_cmd_name = sanitize_arg_name(f"workspace_{name}_setup_parser")
-        setup_parser_cmd = globals()[setup_parser_cmd_name]
-
-        subsubparser = sp.add_parser(
-            name,
-            aliases=aliases,
-            help=setup_parser_cmd.__doc__,
-            description=setup_parser_cmd.__doc__,
-        )
-        setup_parser_cmd(subsubparser)
-
-        # inject --dry-run into subcommands
-        if "--dry-run" not in subsubparser._option_string_actions:
-            subsubparser.add_argument(
-                "--dry-run",
-                dest="dry_run",
-                action="store_true",
-                help=f"perform a dry run of the {name} command",
-            )
+    ramble.cmd.common.setup_subcommands_from_prefix(
+        subparser=subparser,
+        dest="workspace_command",
+        subcommands=subcommands,
+        prefix="workspace",
+        globals_dict=globals(),
+        subcommand_functions=subcommand_functions,
+        inject_dry_run=True,
+    )
 
 
 def workspace(parser, args, unknown_args):
@@ -2185,29 +2147,11 @@ def workspace_manage(args):
 
 def workspace_manage_setup_parser(subparser):
     """manage workspace definitions"""
-    sp = subparser.add_subparsers(metavar="SUBCOMMAND", dest="manage_command")
-
-    for name in manage_commands:
-        if isinstance(name, (list, tuple)):
-            name, aliases = name[0], name[1:]
-        else:
-            aliases = []
-
-        # add commands to subcommands dict
-        function_name = sanitize_arg_name(f"workspace_manage_{name}")
-
-        function = globals()[function_name]
-        for alias in [name] + aliases:
-            manage_subcommand_functions[alias] = function
-
-        # make a subparser and run the command's setup function on it
-        setup_parser_cmd_name = sanitize_arg_name(f"workspace_manage_{name}_setup_parser")
-        setup_parser_cmd = globals()[setup_parser_cmd_name]
-
-        subsubparser = sp.add_parser(
-            name,
-            aliases=aliases,
-            help=setup_parser_cmd.__doc__,
-            description=setup_parser_cmd.__doc__,
-        )
-        setup_parser_cmd(subsubparser)
+    ramble.cmd.common.setup_subcommands_from_prefix(
+        subparser=subparser,
+        dest="manage_command",
+        subcommands=manage_commands,
+        prefix="workspace_manage",
+        globals_dict=globals(),
+        subcommand_functions=manage_subcommand_functions,
+    )

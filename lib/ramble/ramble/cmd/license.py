@@ -280,8 +280,8 @@ def update_copyright_year(args):
         )
         replace_text(
             os.path.join(ramble.paths.ramble_root, "lib", "ramble", "docs", "conf.py"),
-            r"\d{4}-\d{4}, Google LLC",
-            f"{_STRICT_DATE_RANGE}, Google LLC",
+            r"\d{4}-\d{4}, The Ramble Authors",
+            f"{_STRICT_DATE_RANGE}, The Ramble Authors",
         )
 
 

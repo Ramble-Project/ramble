@@ -49,19 +49,19 @@ Installation
 -------------
 
 There are two ways to install Ramble. The first, and recommended, approach is to
-clone its `github repository <https://github.com/GoogleCloudPlatform/ramble>`_.
+clone its `github repository <https://github.com/Ramble-Project/ramble>`_.
 This can be done with:
 
 .. code-block:: console
 
-    $ git clone -c feature.manyFiles=true https://github.com/GoogleCloudPlatform/ramble.git
+    $ git clone -c feature.manyFiles=true https://github.com/Ramble-Project/ramble.git
 
 By default, this will checkout the ``develop`` branch, which is the most
 up-to-date version of Ramble. Several tags, as well as the ``main`` branch
 (which contains the latest tag) can provide a more stable exeperience.
 
 The second approach is to download one of the releases from
-`Ramble's releases page <https://github.com/GoogleCloudPlatform/ramble/releases>`_
+`Ramble's releases page <https://github.com/Ramble-Project/ramble/releases>`_
 
 Once Ramble is available on your system, its python dependencies can be
 installed using the ``requirements.txt`` file included in the root of Ramble's

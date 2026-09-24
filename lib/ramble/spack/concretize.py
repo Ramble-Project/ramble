@@ -37,7 +37,6 @@ import spack.platforms
 import spack.repo
 import spack.spec
 import spack.target
-import spack.tengine
 import spack.variant as vt
 from spack.config import config
 from spack.package_prefs import PackagePrefs, is_spec_buildable, spec_externals
@@ -758,46 +757,9 @@ def _concretize_specs_together_new(*abstract_specs, **kwargs):
 
 
 def _concretize_specs_together_original(*abstract_specs, **kwargs):
-    def make_concretization_repository(abstract_specs):
-        """Returns the path to a temporary repository created to contain
-        a fake package that depends on all of the abstract specs.
-        """
-        tmpdir = tempfile.mkdtemp()
-        repo_path, _ = spack.repo.create_repo(tmpdir)
-
-        debug_msg = '[CONCRETIZATION]: Creating helper repository in {0}'
-        tty.debug(debug_msg.format(repo_path))
-
-        pkg_dir = os.path.join(repo_path, 'packages', 'concretizationroot')
-        fs.mkdirp(pkg_dir)
-        environment = spack.tengine.make_environment()
-        template = environment.get_template('misc/coconcretization.pyt')
-
-        # Split recursive specs, as it seems the concretizer has issue
-        # respecting conditions on dependents expressed like
-        # depends_on('foo ^bar@1.0'), see issue #11160
-        split_specs = [dep.copy(deps=False)
-                       for spec in abstract_specs
-                       for dep in spec.traverse(root=True)]
-
-        with open(os.path.join(pkg_dir, 'package.py'), 'w') as f:
-            f.write(template.render(specs=[str(s) for s in split_specs]))
-
-        return spack.repo.Repo(repo_path)
-
-    abstract_specs = [spack.spec.Spec(s) for s in abstract_specs]
-    concretization_repository = make_concretization_repository(abstract_specs)
-
-    with spack.repo.additional_repository(concretization_repository):
-        # Spec from a helper package that depends on all the abstract_specs
-        concretization_root = spack.spec.Spec('concretizationroot')
-        concretization_root.concretize(tests=kwargs.get("tests", False))
-        # Retrieve the direct dependencies
-        concrete_specs = [
-            concretization_root[spec.name].copy() for spec in abstract_specs
-        ]
-
-    return concrete_specs
+    raise NotImplementedError(
+        "The original concretizer is not supported in Ramble's vendored Spack"
+    )
 
 
 class NoCompilersForArchError(spack.error.SpackError):

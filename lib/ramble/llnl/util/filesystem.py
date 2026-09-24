@@ -55,7 +55,12 @@ else:
     try:
         from typing_extensions import Literal
     except ImportError:
-        Literal = Any  # type: ignore[misc]
+
+        class _Literal:
+            def __getitem__(self, item):
+                return Any
+
+        Literal = _Literal()  # type: ignore[misc]
 
 from llnl.path import path_to_os_path, sanitize_win_longpath, system_path_filter
 from llnl.util import lang, tty

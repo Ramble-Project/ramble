@@ -149,14 +149,19 @@ no_site_packages = true
 # For now, only type-check the util directory
 files = [
   "lib/ramble/ramble/**/*.py",
+  "share/ramble/scripts/**/*.py",
 ]
 ignore_errors = true
 ignore_missing_imports = true
 allow_redefinition = true
 
 [[tool.mypy.overrides]]
-# Only enable ramble modules
-module = "ramble.*"
+# Only enable ramble modules and share helper scripts
+module = [
+    "ramble.*",
+    "_ramble_cleaner",
+    "_ramble_file_editor",
+]
 ignore_errors = false
 
 [[tool.mypy.overrides]]
@@ -171,6 +176,8 @@ module = [
     "ramble.error",
     "ramble.paths",
     "ramble.filters",
+    "_ramble_cleaner",
+    "_ramble_file_editor",
 ]
 check_untyped_defs = true
 
@@ -213,6 +220,10 @@ select = [
 "spack.util.naming" = { msg = "Core Ramble code should not rely on spack.util.naming." }
 "spack.util.cpus" = { msg = "Core Ramble code should not rely on spack.util.cpus." }
 "spack.util.spack_json" = { msg = "Core Ramble code should not rely on spack.util.spack_json." }
+"spack.util.web" = { msg = "Core Ramble code should not rely on spack.util.web." }
+"spack.fetch_strategy" = { msg = "Core Ramble code should not rely on spack.fetch_strategy." }
+"spack.util.lock" = { msg = "Core Ramble code should not rely on spack.util.lock." }
+"spack.util.editor" = { msg = "Core Ramble code should not rely on spack.util.editor." }
 
 [tool.ruff.lint.per-file-ignores]
 "lib/ramble/ramble/*kit.py" = ["F403"]

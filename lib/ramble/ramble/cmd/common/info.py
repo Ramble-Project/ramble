@@ -53,7 +53,7 @@ obj_attribute_map = {
     "registered_phases": "phase_definitions",
     # Modifier specific:
     "modes": None,
-    "default_mode": "_default_usage_mode",
+    "default_mode": "default_usage_mode",
     "variable_modifications": None,
     "executable_modifiers": None,
     "env_var_modifications": None,

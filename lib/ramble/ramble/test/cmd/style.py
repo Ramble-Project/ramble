@@ -12,7 +12,15 @@ import pytest
 from ramble import main
 from ramble.cmd import style
 
+from spack.util.executable import which
+
 style_cmd = main.RambleCommand("style")
+
+
+def _require_tools(*tool_names):
+    missing = [t for t in tool_names if which(t) is None]
+    if missing:  # pragma: no cover
+        pytest.skip(f"Required style tool(s) not installed: {', '.join(missing)}")
 
 
 def _get_changed_files_with_fallback():
@@ -29,6 +37,7 @@ def _get_changed_files_with_fallback():
 
 @pytest.mark.parametrize("tool", style.tool_names)
 def test_style(tool, request):
+    _require_tools(tool)
     fail_on_style = request.config.getoption("--fail-on-style")
     if fail_on_style:
         files = _get_changed_files_with_fallback()
@@ -47,6 +56,7 @@ def test_style(tool, request):
     ],
 )
 def test_style_with_error(tmpdir, content, expected_err):
+    _require_tools(*style.tool_names)
     with tmpdir.as_cwd():
         new_file = "new_file.py"
         with open(new_file, "w+", encoding="utf-8") as f:
@@ -105,6 +115,7 @@ def test_style_invalid_repo(tmpdir):
 
 
 def test_style_valid_repo():
+    _require_tools(*style.tool_names)
     from ramble import paths
 
     builtin_mock_repo = paths.mock_builtin_path
@@ -140,6 +151,7 @@ def test_changed_files_git_failure(tmpdir):
     ],
 )
 def test_style_tool_args(tool, expected_err):
+    _require_tools(tool)
     # Test that invalid tool args cause failure (from the underlying tool itself)
     out = style_cmd(
         "--tool", tool, "--tool-args", f"{tool}:--bogus-option", __file__, fail_on_error=False
@@ -165,6 +177,7 @@ def test_style_tool_args_invalid_format():
 
 
 def test_style_tool_args_multiple():
+    _require_tools("ruff")
     out = style_cmd(
         "--fix",
         "--tool",
@@ -181,6 +194,7 @@ def test_style_tool_args_multiple():
 
 
 def test_style_external_repo(tmpdir):
+    _require_tools("flake8")
     repo_config = tmpdir.join("repo.yaml")
     repo_config.write("repo:\n  namespace: test_external\n")
 

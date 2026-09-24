@@ -39,6 +39,7 @@ import ramble.util.install_cache
 import ramble.util.lock as lk
 import ramble.util.path
 import ramble.util.version
+import ramble.util.web as web_util
 from ramble.mirror import MirrorStats
 from ramble.namespace import namespace
 from ramble.util import json_util
@@ -48,7 +49,6 @@ from ramble.util.path import substitute_path_variables
 
 import spack.util.spack_yaml as syaml
 import spack.util.url as url_util
-import spack.util.web as web_util
 
 # Workspace-related constants
 
@@ -823,23 +823,19 @@ ramble:
         if ramble.config.get("config:generate_file_editing_scripts", True):
             fs.mkdirp(self.shared_utilities_dir)
 
-            # Write to base shared utilities directory
-            base_script_content = ramble.util.file_editor.get_file_editor_script()
+            # Copy file editor helper script to workspace shared utilities
             base_script_path = os.path.join(
                 self.shared_utilities_dir, ramble.util.file_editor.HELPER_SCRIPT_NAME
             )
-            with open(base_script_path, "w+", encoding="utf-8") as f:
-                f.write(base_script_content)
+            shutil.copyfile(
+                ramble.util.file_editor.get_file_editor_source_path(), base_script_path
+            )
 
-            # Write cleaner utility script
-            # TODO: Currently this is guarded by the generate_file_editing_scripts
-            # config. Should it use its own config setting?
-            cleaner_script_content = ramble.util.cleaner.get_cleaner_script()
+            # Copy cleaner helper script to workspace shared utilities
             cleaner_script_path = os.path.join(
                 self.shared_utilities_dir, ramble.util.cleaner.HELPER_SCRIPT_NAME
             )
-            with open(cleaner_script_path, "w+", encoding="utf-8") as f:
-                f.write(cleaner_script_content)
+            shutil.copyfile(ramble.util.cleaner.get_cleaner_source_path(), cleaner_script_path)
 
     def write_auxiliary_software_files(self):
         """Write all auxiliary software files out to workspace"""
@@ -907,7 +903,7 @@ ramble:
         logger.debug(f" With ws dict: {ws_dict}")
 
         # Iterate over applications in ramble.yaml first
-        app_dict = ramble.config.config.get_config(namespace.application)
+        app_dict = copy.deepcopy(ramble.config.get(namespace.application))
 
         for application, contents in app_dict.items():
             app_name, _, maybe_version = application.partition("@")
@@ -1010,7 +1006,7 @@ ramble:
         if package_list and external_path is not None:
             logger.die("Can only manage environments with one of package_list or external_path")
 
-        software_dict = self.get_software_dict().copy()
+        software_dict = copy.deepcopy(ramble.config.get(namespace.software))
 
         if namespace.environments in software_dict:
             environments = software_dict[namespace.environments]
@@ -1085,7 +1081,7 @@ ramble:
             overwrite (bool): Whether colliding definitions should be overwritten
         """
 
-        software_dict = self.get_software_dict().copy()
+        software_dict = copy.deepcopy(ramble.config.get(namespace.software))
 
         if namespace.packages in software_dict:
             packages = software_dict[namespace.packages]
@@ -1280,8 +1276,8 @@ ramble:
 
         edited = False
 
-        workspace_vars = self.get_workspace_vars()
-        apps_dict = self.get_applications().copy()
+        workspace_vars = ramble.config.get(namespace.variables)
+        apps_dict = copy.deepcopy(ramble.config.get(namespace.application))
 
         app_inst = ramble.repository.get(application)
 
@@ -1481,7 +1477,7 @@ ramble:
 
 
         """
-        full_software_dict = self.get_software_dict()
+        full_software_dict = copy.deepcopy(ramble.config.get(namespace.software))
 
         if (
             namespace.packages not in full_software_dict
@@ -2024,8 +2020,8 @@ ramble:
 
     def simplify_software(self):
         # First drop unused experiment templates from app dict so environments aren't rendered
-        app_dict = ramble.config.config.get_config(
-            namespace.application, scope=self.ws_file_config_scope_name()
+        app_dict = copy.deepcopy(
+            ramble.config.get(namespace.application, scope=self.ws_file_config_scope_name())
         )
 
         # Build experiment sets to determine which templates never get used
@@ -2068,8 +2064,8 @@ ramble:
         package_dict = None
         environments_dict = None
 
-        software_dict = ramble.config.config.get_config(
-            namespace.software, scope=self.ws_file_config_scope_name()
+        software_dict = copy.deepcopy(
+            ramble.config.get(namespace.software, scope=self.ws_file_config_scope_name())
         )
 
         if namespace.packages in software_dict:
@@ -2406,9 +2402,12 @@ ramble:
         """Remove an arbitrary number of modifiers from this workspace based
         on some input arguments.
 
+        Modifiers are selected either by index or by pattern, never both.
+
         Args:
             remove_index: Index of modifier to remove. Indices match ordering
-                          from the output of print_modifiers
+                          from the output of print_modifiers. Cannot be
+                          combined with the pattern arguments.
             scope_pattern: Pattern to select which scopes to remove modifiers from.
                            If the pattern matches multiple scopes, each will
                            have matching modifiers removed from them.
@@ -2424,20 +2423,50 @@ ramble:
         Returns:
             int: Number of modifiers removed
         """
+        given_patterns = [
+            arg_name
+            for arg_name, pattern in (
+                ("scope_pattern", scope_pattern),
+                ("name_pattern", name_pattern),
+                ("mode_pattern", mode_pattern),
+            )
+            if pattern is not None
+        ]
+
+        if remove_index is not None and given_patterns:
+            raise RambleWorkspaceError(
+                "Modifiers can be removed by index or by pattern, but not both. "
+                f"Given index {remove_index!r} along with {', '.join(given_patterns)}."
+            )
+
         mod_list = self.index_modifiers()
         to_remove = []
 
         if remove_index is not None:
-            if not isinstance(remove_index, int):
-                logger.error(
-                    "Cannot remove modifier index without an integer index. "
-                    f"Given index was {remove_index}"
+            # Note: bool is a subclass of int, but indexing with it is
+            # certainly not intended, so reject it explicitly.
+            if isinstance(remove_index, bool) or not isinstance(remove_index, int):
+                raise RambleWorkspaceError(
+                    "Cannot remove a modifier without an integer index. "
+                    f"Given index was {remove_index!r}"
                 )
 
-            if remove_index < 0 or remove_index > len(mod_list):
-                logger.error(
-                    f"Modifier index {remove_index} is outside of the range of modifiers."
-                    "Use `ramble worksapce manage modifiers --list` to see indices"
+            if not mod_list:
+                raise RambleWorkspaceError(
+                    f"Cannot remove modifier index {remove_index}. "
+                    "This workspace contains no modifiers."
+                )
+
+            if remove_index < 0 or remove_index >= len(mod_list):
+                valid_str = (
+                    "Valid index is 0."
+                    if len(mod_list) == 1
+                    else f"Valid indices are 0-{len(mod_list) - 1}."
+                )
+                raise RambleWorkspaceError(
+                    f"Modifier index {remove_index} is outside of the range of modifiers. "
+                    f"{valid_str} "
+                    "Use `ramble workspace manage modifiers --list` to see indices."
                 )
 
             to_remove.append(mod_list[remove_index])
@@ -2493,7 +2522,7 @@ ramble:
         """Add an arbitrary number of modifiers to this workspace within a single scope
 
         Args:
-            scope: Scope to add modifiers within.
+            scope: Scope to add modifiers within. Defaults to the workspace scope.
             name_pattern: Pattern to determine which modifiers should be added.
                           If multiple modifiers match, all will be added with
                           the additional arguments.
@@ -2505,6 +2534,34 @@ ramble:
         Returns:
             int: Number of modifiers added to workspace
         """
+        if not isinstance(name_pattern, str) or not name_pattern:
+            raise RambleWorkspaceError(
+                "Cannot add a modifier without a name pattern. "
+                f"Given name pattern was {name_pattern!r}. "
+                "Use `ramble list --type modifiers` to see available modifiers."
+            )
+
+        if scope is None:
+            scope = "workspace"
+
+        # Resolve which modifiers to add before touching the config, so a
+        # failed add leaves the workspace configuration untouched.
+        spec_parts = name_pattern.partition("@")
+
+        mod_type = ramble.repository.ObjectTypes.modifiers
+        mod_objects = ramble.repository.all_object_names(object_type=mod_type)
+        mod_names = [
+            name
+            for name in mod_objects
+            if fnmatch.fnmatchcase(name.lower(), spec_parts[0].lower())
+        ]
+
+        if not mod_names:
+            raise RambleWorkspaceError(
+                f"No modifiers found matching name pattern of {name_pattern}. "
+                "Use `ramble list --type modifiers` to see available modifiers."
+            )
+
         on_exec_list = None
         if on_executable is not None:
             on_exec_list = syaml.syaml_list()
@@ -2512,21 +2569,14 @@ ramble:
 
         base_section = self._get_scope_section(scope)
 
+        if base_section is None:
+            raise RambleWorkspaceError(
+                f"No scope matches requested scope of {scope}. "
+                "This workspace does not define any applications."
+            )
+
         if namespace.modifiers not in base_section:
             base_section[namespace.modifiers] = syaml.syaml_list()
-
-        mod_type = ramble.repository.ObjectTypes.modifiers
-        mod_objects = ramble.repository.all_object_names(object_type=mod_type)
-        if isinstance(name_pattern, str):
-            spec_parts = name_pattern.partition("@")
-        mod_names = [
-            name
-            for name in mod_objects
-            if fnmatch.fnmatchcase(name.lower(), spec_parts[0].lower())
-        ]
-
-        if len(mod_names) < 1:
-            logger.error(f"No modifiers found matching name pattern of {name_pattern}")
 
         added = 0
         for mod_name in mod_names:
@@ -2697,60 +2747,6 @@ ramble:
 
     def _get_application_dict_config(self, key):
         return self.application_configs[key]["yaml"] if key in self.application_configs else None
-
-    def get_workspace_vars(self):
-        """Return a dict of workspace variables"""
-        return ramble.config.config.get_config(namespace.variables)
-
-    def get_workspace_env_vars(self):
-        """Return a dict of workspace environment variables"""
-        return ramble.config.config.get_config(namespace.env_var)
-
-    def get_workspace_formatted_executables(self):
-        """Return a dict of workspace formatted executables"""
-        return ramble.config.config.get_config(namespace.formatted_executables)
-
-    def get_workspace_internals(self):
-        """Return a dict of workspace internals"""
-        return ramble.config.config.get_config(namespace.internals)
-
-    def get_workspace_modifiers(self):
-        """Return a dict of workspace modifiers"""
-        return ramble.config.config.get_config(namespace.modifiers)
-
-    def get_workspace_zips(self):
-        """Return a dict of workspace zips"""
-        return ramble.config.config.get_config(namespace.zips)
-
-    def get_workspace_variants(self):
-        """Return a dict of workspace variants"""
-        return ramble.config.config.get_config(namespace.variants)
-
-    def get_workspace_success_criteria(self):
-        """Return a dict of workspace success_criteria"""
-        return ramble.config.config.get_config(namespace.success)
-
-    def get_software_dict(self):
-        """Return the software dictionary for this workspace"""
-        software_dict = ramble.config.config.get_config(namespace.software)
-        return software_dict
-
-    def get_workspace_tables(self):
-        """Return a dict of workspace tables"""
-        return ramble.config.config.get_config(namespace.tables)
-
-    def get_workspace_utilities(self):
-        """Return a dict of workspace utilities"""
-        return ramble.config.config.get_config(namespace.utilities)
-
-    def get_applications(self):
-        """Get the dictionary of applications"""
-        logger.debug("Getting app dict.")
-        logger.debug(f" {self._get_workspace_dict()}")
-        workspace_dict = self._get_workspace_dict()
-        if namespace.application not in workspace_dict[namespace.ramble]:
-            workspace_dict[namespace.ramble][namespace.application] = syaml.syaml_dict()
-        return workspace_dict[namespace.ramble][namespace.application]
 
     def read_transaction(self):
         """Get a read lock context manager for use in a `with` block."""

@@ -14,7 +14,6 @@ import shutil
 from llnl.util import tty
 
 import ramble.caches
-import ramble.reports
 from ramble.paths import lib_path, var_path
 from ramble.util.logger import logger
 
@@ -92,6 +91,8 @@ def remove_python_caches():
 
 
 def remove_reports_files():
+    import ramble.reports
+
     reports_path = ramble.reports.get_reports_path()
     if reports_path:
 

@@ -6,6 +6,8 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import sys
+
 import pytest
 
 import ramble.repository
@@ -16,7 +18,8 @@ edit = RambleCommand("edit")
 
 @pytest.fixture
 def mock_editor(monkeypatch):
-    """Mock editor so we don't open a real one, using the _exec_func hook in spack.util.editor."""
+    """Mock editor so we don't open a real one, using the _exec_func hook in ramble.util.editor."""
+    monkeypatch.setenv("EDITOR", sys.executable)
     calls = []
 
     def mock_exec_func(exe, args):
@@ -25,7 +28,7 @@ def mock_editor(monkeypatch):
 
     def mocked_editor_wrapper(*args, **kwargs):
         kwargs["_exec_func"] = mock_exec_func
-        from spack.util.editor import editor as real_editor
+        from ramble.util.editor import editor as real_editor
 
         real_editor(*args, **kwargs)
 

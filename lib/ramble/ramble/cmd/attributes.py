@@ -92,7 +92,12 @@ def objects_to_attributes(
 
     app_to_users = defaultdict(set)
     for name in object_names:
-        cls = ramble.repository.paths[object_type].get_obj_class(name)
+        if not ramble.repository.paths[object_type].exists(name):
+            continue
+        try:
+            cls = ramble.repository.paths[object_type].get_obj_class(name)
+        except Exception:
+            continue
         for user in getattr(cls, attr_name):
             app_to_users[name].add(user)
 
@@ -106,7 +111,10 @@ def attributes_to_objects(
     lower_users = {u.lower() for u in users} if users else set()
     object_names = ramble.repository.paths[object_type].all_object_names()
     for name in object_names:
-        cls = ramble.repository.paths[object_type].get_obj_class(name)
+        try:
+            cls = ramble.repository.paths[object_type].get_obj_class(name)
+        except Exception:
+            continue
         for user in getattr(cls, attr_name):
             if not users or user.lower() in lower_users:
                 user_to_apps[user].append(cls.name)
@@ -119,7 +127,10 @@ def defined_objects(attr_name=default_attr, object_type=ramble.repository.defaul
     undefined = []
     object_names = ramble.repository.paths[object_type].all_object_names()
     for name in object_names:
-        cls = ramble.repository.paths[object_type].get_obj_class(name)
+        try:
+            cls = ramble.repository.paths[object_type].get_obj_class(name)
+        except Exception:
+            continue
         if hasattr(cls, attr_name) and getattr(cls, attr_name):
             defined.append(name)
         else:
@@ -153,25 +164,35 @@ def attributes(parser, args):
     if args.defined or args.undefined:
         defined, undefined = defined_objects(attr_name=attr_name, object_type=object_type)
         apps = defined if args.defined else undefined
-        colify(apps)
-        return 0 if apps else 1
+        if not apps:
+            mode_str = "defined" if args.defined else "undefined"
+            logger.warn(f"No {object_type.name} found with {attr_name} {mode_str}.")
+        else:
+            colify(apps)
+        return 0
 
     if args.all:
         if args.by_attribute:
             attributes = attributes_to_objects(
                 args.object_or_attr, attr_name=attr_name, object_type=object_type
             )
-            for user, objects in sorted(attributes.items()):
-                color.cprint(f"@c{{{user}}}: {', '.join(sorted(objects))}")
-            return 0 if attributes else 1
+            if not attributes:
+                logger.warn(f"No {attr_name} found for any {object_type.name}.")
+            else:
+                for user, objects in sorted(attributes.items()):
+                    color.cprint(f"@c{{{user}}}: {', '.join(sorted(objects))}")
+            return 0
 
         else:
             objects = objects_to_attributes(
                 args.object_or_attr, attr_name=attr_name, object_type=object_type
             )
-            for app, attributes in sorted(objects.items()):
-                color.cprint(f"@c{{{app}}}: {', '.join(sorted(attributes))}")
-            return 0 if objects else 1
+            if not objects:
+                logger.warn(f"No {object_type.name} found with {attr_name}.")
+            else:
+                for app, attributes in sorted(objects.items()):
+                    color.cprint(f"@c{{{app}}}: {', '.join(sorted(attributes))}")
+            return 0
 
     if args.by_attribute:
         if not args.object_or_attr:
@@ -182,17 +203,35 @@ def attributes(parser, args):
                 args.object_or_attr, attr_name=attr_name, object_type=object_type
             )
         )
-        colify(objects)
-        return 0 if objects else 1
+        if not objects:
+            attrs_str = ", ".join(args.object_or_attr)
+            logger.warn(f"No {object_type.name} found with {attr_name} '{attrs_str}'.")
+        else:
+            colify(objects)
+        return 0
 
     else:
         if not args.object_or_attr:
             logger.die("ramble attributes requires an object or --all")
+
+        missing = [
+            obj
+            for obj in args.object_or_attr
+            if not ramble.repository.paths[object_type].exists(obj)
+        ]
+        if missing:
+            objs_str = ", ".join(f"'{o}'" for o in missing)
+            logger.error(f"Object {objs_str} not found in {object_type.name} repository.")
+            return 1
 
         users = union_values(
             objects_to_attributes(
                 args.object_or_attr, attr_name=attr_name, object_type=object_type
             )
         )
-        colify(users)
-        return 0 if users else 1
+        if not users:
+            objs_str = ", ".join(args.object_or_attr)
+            logger.warn(f"No {attr_name} found for {object_type.name} '{objs_str}'.")
+        else:
+            colify(users)
+        return 0

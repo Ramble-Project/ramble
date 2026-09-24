@@ -11,6 +11,7 @@ import collections
 import contextlib
 import errno
 import functools
+import importlib
 import importlib.machinery
 import importlib.util
 import inspect
@@ -22,12 +23,13 @@ import sys
 import traceback
 import types
 from enum import Enum
-from typing import Mapping
+from typing import Any, Dict
 
 from ruamel import yaml
 
 import llnl.util.filesystem as fs
 import llnl.util.lang
+from llnl.util.compat import Mapping
 
 import ramble.caches
 import ramble.config
@@ -77,11 +79,12 @@ default_type = ObjectTypes.applications
 
 unified_config = "repo.yaml"
 
-type_definitions = {
+type_definitions: Dict[ObjectTypes, Dict[str, Any]] = {
     ObjectTypes.applications: {
         "file_name": "application.py",
         "dir_name": "applications",
         "abbrev": "app",
+        "kit_name": "appkit",
         "config_section": "repos",
         "accepted_configs": ["application_repo.yaml", unified_config],
         "singular": "application",
@@ -90,6 +93,7 @@ type_definitions = {
         "file_name": "modifier.py",
         "dir_name": "modifiers",
         "abbrev": "mod",
+        "kit_name": "modkit",
         "config_section": "modifier_repos",
         "accepted_configs": ["modifier_repo.yaml", unified_config],
         "singular": "modifier",
@@ -98,6 +102,7 @@ type_definitions = {
         "file_name": "package_manager.py",
         "dir_name": "package_managers",
         "abbrev": "pkg_man",
+        "kit_name": "pkgmankit",
         "config_section": "package_manager_repos",
         "accepted_configs": ["package_manager_repo.yaml", unified_config],
         "singular": "package manager",
@@ -107,6 +112,7 @@ type_definitions = {
         "file_name": "workflow_manager.py",
         "dir_name": "workflow_managers",
         "abbrev": "wm",
+        "kit_name": "wmkit",
         "config_section": "workflow_manager_repos",
         "accepted_configs": ["workflow_manager_repo.yaml", unified_config],
         "singular": "workflow manager",
@@ -116,6 +122,7 @@ type_definitions = {
         "file_name": "system.py",
         "dir_name": "systems",
         "abbrev": "sys",
+        "kit_name": "syskit",
         "config_section": "system_repos",
         "accepted_configs": ["system_repo.yaml", unified_config],
         "singular": "system",
@@ -124,6 +131,7 @@ type_definitions = {
         "file_name": "platform.py",
         "dir_name": "platforms",
         "abbrev": "plat",
+        "kit_name": "platkit",
         "config_section": "platform_repos",
         "accepted_configs": ["platform_repo.yaml", unified_config],
         "singular": "platform",
@@ -132,6 +140,7 @@ type_definitions = {
         "file_name": "base_class.py",
         "dir_name": "base_classes",
         "abbrev": "base_cls",
+        "kit_name": None,
         "config_section": "base_class_repos",
         "accepted_configs": ["base_class_repo.yaml", unified_config],
         "singular": "base class",
@@ -141,6 +150,7 @@ type_definitions = {
         "file_name": "base_application.py",
         "dir_name": "base_applications",
         "abbrev": "base_app",
+        "kit_name": "appkit",
         "config_section": "base_application_repos",
         "accepted_configs": ["base_application_repo.yaml", unified_config],
         "singular": "base application",
@@ -149,6 +159,7 @@ type_definitions = {
         "file_name": "base_modifier.py",
         "dir_name": "base_modifiers",
         "abbrev": "base_mod",
+        "kit_name": "modkit",
         "config_section": "base_modifier_repos",
         "accepted_configs": ["base_modifier_repo.yaml", unified_config],
         "singular": "base modifier",
@@ -157,6 +168,7 @@ type_definitions = {
         "file_name": "base_package_manager.py",
         "dir_name": "base_package_managers",
         "abbrev": "base_pkg_man",
+        "kit_name": "pkgmankit",
         "config_section": "base_package_manager_repos",
         "accepted_configs": ["base_package_manager_repo.yaml", unified_config],
         "singular": "base package manager",
@@ -166,6 +178,7 @@ type_definitions = {
         "file_name": "base_workflow_manager.py",
         "dir_name": "base_workflow_managers",
         "abbrev": "base_wm",
+        "kit_name": "wmkit",
         "config_section": "base_workflow_manager_repos",
         "accepted_configs": ["base_workflow_manager_repo.yaml", unified_config],
         "singular": "base workflow manager",
@@ -175,6 +188,7 @@ type_definitions = {
         "file_name": "base_system.py",
         "dir_name": "base_systems",
         "abbrev": "base_sys",
+        "kit_name": "syskit",
         "config_section": "base_system_repos",
         "accepted_configs": ["base_system_repo.yaml", unified_config],
         "singular": "base system",
@@ -183,6 +197,7 @@ type_definitions = {
         "file_name": "base_platform.py",
         "dir_name": "base_platforms",
         "abbrev": "base_plat",
+        "kit_name": "platkit",
         "config_section": "base_platform_repos",
         "accepted_configs": ["base_platform_repo.yaml", unified_config],
         "singular": "base platform",
@@ -191,6 +206,7 @@ type_definitions = {
         "file_name": "utility.py",
         "dir_name": "utilities",
         "abbrev": "utility",
+        "kit_name": "toolkit",
         "config_section": "utility_repos",
         "accepted_configs": ["utility_repo.yaml", unified_config],
         "singular": "external dependency",
@@ -199,6 +215,7 @@ type_definitions = {
         "file_name": "base_utility.py",
         "dir_name": "base_utilities",
         "abbrev": "base_utility",
+        "kit_name": "toolkit",
         "config_section": "base_utility_repos",
         "accepted_configs": ["base_utility_repo.yaml", unified_config],
         "singular": "base external dependency",
@@ -370,7 +387,6 @@ def set_path(repo, object_type=default_type):
     Overwrite ``path`` and register it as an importer in
     ``sys.meta_path`` if it is a ``Repo`` or ``RepoPath``.
     """
-    global paths  # noqa: F824
     object_type = simplify_object_type(object_type)
     paths[object_type] = repo
 
@@ -392,7 +408,6 @@ def use_repositories(*paths_and_repos, object_type=default_type):
     Returns:
         RepoPath: Corresponding RepoPath object
     """
-    global paths  # noqa: F824
     object_type = simplify_object_type(object_type)
 
     # Construct a temporary RepoPath object from
@@ -425,7 +440,7 @@ def autospec(function):
     return converter
 
 
-class ObjectNamespace(types.ModuleType):
+class RambleNamespace(types.ModuleType):
     """Allow lazy loading of modules."""
 
     def __init__(self, namespace):
@@ -433,13 +448,16 @@ class ObjectNamespace(types.ModuleType):
         self.__file__ = "(ramble namespace)"
         self.__path__ = []
         self.__name__ = namespace
-        self.__application__ = namespace
         self.__modules = {}
 
     def __getattr__(self, name):
         """Getattr lazily loads modules if they're not already loaded."""
-        submodule = self.__application__ + "." + name
-        setattr(self, name, __import__(submodule))
+        submodule = f"{self.__name__}.{name}"
+        try:
+            setattr(self, name, importlib.import_module(submodule))
+        except ImportError:
+            msg = "'{0}' object has no attribute {1}"
+            raise AttributeError(msg.format(type(self), name)) from None
         return getattr(self, name)
 
 
@@ -881,7 +899,7 @@ class RepoPath:
         if not self.by_namespace.is_prefix(fullname):
             raise ImportError(f"No such ramble repo: {fullname}")
 
-        module = ObjectNamespace(fullname)
+        module = RambleNamespace(fullname)
         module.__loader__ = self
         sys.modules[fullname] = module
         return module
@@ -1075,7 +1093,7 @@ class Repo:
             ns = ".".join(self._names[:i])
 
             if ns not in sys.modules:
-                module = ObjectNamespace(ns)
+                module = RambleNamespace(ns)
                 module.__loader__ = self
                 sys.modules[ns] = module
 
@@ -1151,7 +1169,7 @@ class Repo:
         namespace, _, module_name = fullname.rpartition(".")
 
         if self.is_prefix(fullname):
-            module = ObjectNamespace(fullname)
+            module = RambleNamespace(fullname)
 
         elif namespace == self.full_namespace:
             real_name = self.real_name(module_name)
@@ -1216,7 +1234,9 @@ class Repo:
             # handler by wrapping them
             if ramble.config.get("config:debug"):
                 sys.excepthook(*sys.exc_info())
-            raise FailedConstructorError(spec.fullname, *sys.exc_info()) from e
+            raise FailedConstructorError(
+                spec.fullname, *sys.exc_info(), object_type=self.object_type
+            ) from e
 
     @autospec
     def dump_provenance(self, spec, path):
@@ -1498,28 +1518,6 @@ def create(configuration, object_type=default_type):
     return RepoPath(*repo_dirs, object_type=object_type)
 
 
-class RepositoryNamespace(types.ModuleType):
-    """Allow lazy loading of modules."""
-
-    def __init__(self, namespace):
-        super().__init__(namespace)
-        self.__file__ = "(repository namespace)"
-        self.__path__ = []
-        self.__name__ = namespace
-        self.__package__ = namespace
-        self.__modules = {}
-
-    def __getattr__(self, name):
-        """Getattr lazily loads modules if they're not already loaded."""
-        submodule = self.__package__ + "." + name
-        try:
-            setattr(self, name, __import__(submodule))
-        except ImportError:
-            msg = "'{0}' object has no attribute {1}"
-            raise AttributeError(msg.format(type(self), name)) from None
-        return getattr(self, name)
-
-
 class RepoLoader(importlib.machinery.SourceFileLoader):
     """Loads a Python module associated with a object in specific repository"""
 
@@ -1536,9 +1534,9 @@ class RepoLoader(importlib.machinery.SourceFileLoader):
         return True
 
 
-class RepositoryNamespaceLoader:
+class RambleNamespaceLoader:
     def create_module(self, spec):
-        return RepositoryNamespace(spec.name)
+        return RambleNamespace(spec.name)
 
     def exec_module(self, module):
         module.__loader__ = self
@@ -1581,14 +1579,14 @@ class ReposFinder:
                 if object_name:
                     return RepoLoader(fullname, repo, object_name)
 
-            # We are importing a full namespace like 'spack.pkg.builtin'
+            # We are importing a full namespace like 'ramble.app.builtin'
             if fullname == repo.full_namespace:
-                return RepositoryNamespaceLoader()
+                return RambleNamespaceLoader()
 
         # No repo provides the namespace, but it is a valid prefix of
         # something in the RepoPath.
         if paths[self.object_type].by_namespace.is_prefix(fullname):
-            return RepositoryNamespaceLoader()
+            return RambleNamespaceLoader()
 
         return None
 
@@ -1672,8 +1670,14 @@ class FailedConstructorError(RepoError):
     """Raised when an object's class constructor fails."""
 
     def __init__(self, name, exc_type, exc_obj, exc_tb, object_type=None):
+        if object_type:
+            if object_type in type_definitions:
+                object_type = type_definitions[object_type]["singular"]
+            msg = f"Class constructor failed for {object_type} '{name}'."
+        else:
+            msg = f"Class constructor failed for '{name}'."
         super().__init__(
-            f"Class constructor failed for {object_type} '%s'." % name,
+            msg,
             "\nCaused by:\n"
             + (f"{exc_type.__name__}: {exc_obj}\n")
             + "".join(traceback.format_tb(exc_tb)),

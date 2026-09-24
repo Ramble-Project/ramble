@@ -40,6 +40,43 @@
 #
 # See `man bash` for more details.
 
+# Zsh compatibility:
+#
+# Zsh can run bash-style completion functions, but only after some setup, and
+# only when this file is interpreted with `sh` emulation enabled. The most
+# important difference is that zsh arrays are 1-indexed by default, while the
+# logic below (like all bash completion scripts) assumes 0-indexed arrays.
+# `emulate sh` enables KSH_ARRAYS (among other options), so the rest of this
+# file behaves as it does under bash.
+if test -n "${ZSH_VERSION:-}" ; then
+  if [[ "$(emulate)" = zsh ]] ; then
+    if ! typeset -f compdef >& /dev/null ; then
+        # ensure base completion support is enabled, ignore insecure directories
+        autoload -U +X compinit && compinit -i
+    fi
+    if ! typeset -f complete >& /dev/null ; then
+        # ensure bash compatible completion support is enabled
+        autoload -U +X bashcompinit && bashcompinit
+    fi
+    emulate sh -c "source '$0:A'"
+    return # stop interpreting file
+  fi
+fi
+
+# compgen -W doesn't work in some versions of zsh, so use this instead.
+# see https://www.zsh.org/mla/workers/2011/msg00582.html
+_compgen_w() {
+    if test -n "${ZSH_VERSION:-}" ; then
+        typeset -a words
+        words=( ${~=1} )
+        local find="$2"
+        results=(${(M)words[@]:#$find*})
+        echo "${results[@]}"
+    else
+        compgen -W "$1" -- "$2"
+    fi
+}
+
 # Bash programmable completion for Ramble
 _bash_completion_ramble() {
     # In all following examples, let the cursor be denoted by brackets, i.e. []
@@ -47,7 +84,7 @@ _bash_completion_ramble() {
     # For our purposes, flags should not affect tab completion. For instance,
     # `ramble install []` and `ramble -d install --jobs 8 []` should both give the same
     # possible completions. Therefore, we need to ignore any flags in COMP_WORDS.
-    local COMP_WORDS_NO_FLAGS=()
+    local -a COMP_WORDS_NO_FLAGS
     local index=0
     while [[ "$index" -lt "$COMP_CWORD" ]]
     do
@@ -120,10 +157,10 @@ _bash_completion_ramble() {
     #_test_vars >> temp
 
     # Make sure function exists before calling it
-    if [[ "$(type -t $subfunction)" == "function" ]]
+    if declare -f "$subfunction" > /dev/null 2>&1
     then
         $subfunction
-        COMPREPLY=($(compgen -W "$RAMBLE_COMPREPLY" -- "$cur"))
+        COMPREPLY=($(_compgen_w "$RAMBLE_COMPREPLY" "$cur"))
     fi
 }
 
@@ -149,7 +186,7 @@ _all_applications() {
 _repos() {
     if [[ -z "${RAMBLE_REPOS:-}" ]]
     then
-        RAMBLE_REPOS="$(ramble repo list | awk '{print $1}')"
+        RAMBLE_REPOS="$(ramble repo list --format=compact | tail -n +2 | awk '{print $1}')"
     fi
     RAMBLE_COMPREPLY="$RAMBLE_REPOS"
 }
@@ -157,7 +194,7 @@ _repos() {
 _workspaces() {
     if [[ -z "${RAMBLE_WORKSPACES:-}" ]]
     then
-        RAMBLE_WORKSPACES="$(ramble workspace list)"
+        RAMBLE_WORKSPACES="$(ramble --color=never workspace list --merged 2>/dev/null)"
     fi
     RAMBLE_COMPREPLY="$RAMBLE_WORKSPACES"
 }
@@ -584,7 +621,7 @@ _ramble_repo_create() {
 }
 
 _ramble_repo_list() {
-    RAMBLE_COMPREPLY="-h --help --scope -t --type"
+    RAMBLE_COMPREPLY="-h --help --scope --format -t --type"
 }
 
 _ramble_repo_add() {

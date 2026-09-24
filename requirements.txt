@@ -4,8 +4,8 @@ graphlib-backport;python_version<"3.9"
 urllib3==1.26.18;python_version<="3.6"
 protobuf;python_version>"3.6"
 protobuf==3.19.4;python_version<="3.6"
-pyarrow==3.0.0;python_version<="3.6"
-google-cloud-bigquery
+google-cloud-bigquery;python_version>"3.6"
+google-cloud-bigquery<3;python_version<="3.6"
 tqdm
 deprecation
 pandas
@@ -14,3 +14,4 @@ setuptools
 scipy
 types-PyYAML
 distro
+archspec

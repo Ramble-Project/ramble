@@ -7,6 +7,8 @@
 # except according to those terms.
 """This module contains jsonschema files for all of Ramble's YAML formats."""
 
+import sys
+
 import llnl.util.lang
 import llnl.util.tty
 
@@ -64,7 +66,17 @@ def __getattr__(name: str):
 
     try:
         return importlib.import_module(f"ramble.schema.{name}")
-    except ModuleNotFoundError as err:
-        if err.name == f"ramble.schema.{name}":
+    except (ImportError, ModuleNotFoundError) as err:
+        if getattr(err, "name", None) == f"ramble.schema.{name}":
             raise AttributeError(f"module 'ramble.schema' has no attribute '{name}'") from err
         raise
+
+
+if sys.version_info < (3, 7):  # pragma: no cover
+    import types
+
+    class _SchemaModule(types.ModuleType):
+        def __getattr__(self, name: str):
+            return __getattr__(name)
+
+    sys.modules[__name__].__class__ = _SchemaModule

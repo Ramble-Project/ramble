@@ -117,15 +117,14 @@ class BadModifier2(BasicModifier):
     mode('standard', description='Standard mode')
 """)
 
-    try:
-        with ramble.workspace.create(workspace_name) as ws:
-            ws.write()
+    with ramble.workspace.create(workspace_name) as ws:
+        ws.write()
 
-            config_path = os.path.join(ws.config_dir, ramble.workspace.CONFIG_FILE_NAME)
+        config_path = os.path.join(ws.config_dir, ramble.workspace.CONFIG_FILE_NAME)
 
-            # Test 1: With inject_modifiers_from_directives enabled (default)
-            with open(config_path, "w", encoding="utf-8") as f:
-                f.write("""
+        # Test 1: With inject_modifiers_from_directives enabled (default)
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("""
 ramble:
   variables:
     mpi_command: 'mpirun'
@@ -142,26 +141,26 @@ ramble:
                 env_name: 'test'
 """)
 
-            ws._re_read()
-            experiment_set = ws.build_experiment_set()
-            # Find the experiment
-            exp_name = "modifier-directive-app.test.exp1"
-            app_inst = experiment_set.get_experiment(exp_name)
-            assert app_inst is not None
+        ws._re_read()
+        experiment_set = ws.build_experiment_set()
+        # Find the experiment
+        exp_name = "modifier-directive-app.test.exp1"
+        app_inst = experiment_set.get_experiment(exp_name)
+        assert app_inst is not None
 
-            # We expect directive-test-mod to be in the modifiers
-            modifier_names = [m.name for m in app_inst._modifier_instances]
-            assert "directive-test-mod" in modifier_names
-            assert "bad-modifier" not in modifier_names
-            assert "bad-modifier-2" not in modifier_names
+        # We expect directive-test-mod to be in the modifiers
+        modifier_names = [m.name for m in app_inst._modifier_instances]
+        assert "directive-test-mod" in modifier_names
+        assert "bad-modifier" not in modifier_names
+        assert "bad-modifier-2" not in modifier_names
 
-            with ramble.workspace.create(workspace_name + "_2") as ws2:
-                ws2.write()
-                config_path2 = os.path.join(ws2.config_dir, ramble.workspace.CONFIG_FILE_NAME)
+        with ramble.workspace.create(workspace_name + "_2") as ws2:
+            ws2.write()
+            config_path2 = os.path.join(ws2.config_dir, ramble.workspace.CONFIG_FILE_NAME)
 
-                # Test 2: With inject_modifiers_from_directives disabled via variants
-                with open(config_path2, "w", encoding="utf-8") as f:
-                    f.write("""
+            # Test 2: With inject_modifiers_from_directives disabled via variants
+            with open(config_path2, "w", encoding="utf-8") as f:
+                f.write("""
 ramble:
   variables:
     mpi_command: 'mpirun'
@@ -182,19 +181,17 @@ ramble:
                 env_name: 'test'
 """)
 
-                ws2._re_read()
-                experiment_set = ws2.build_experiment_set()
-                exp_name = "modifier-directive-app.test.exp2"
-                app_inst = experiment_set.get_experiment(exp_name)
-                assert app_inst is not None
+            ws2._re_read()
+            experiment_set = ws2.build_experiment_set()
+            exp_name = "modifier-directive-app.test.exp2"
+            app_inst = experiment_set.get_experiment(exp_name)
+            assert app_inst is not None
 
-                # We expect NO modifiers to be injected
-                modifier_names = [m.name for m in app_inst._modifier_instances]
-                assert "directive-test-mod" not in modifier_names
-                assert "bad-modifier" not in modifier_names
-                assert "bad-modifier-2" not in modifier_names
-    finally:
-        pass
+            # We expect NO modifiers to be injected
+            modifier_names = [m.name for m in app_inst._modifier_instances]
+            assert "directive-test-mod" not in modifier_names
+            assert "bad-modifier" not in modifier_names
+            assert "bad-modifier-2" not in modifier_names
 
 
 def test_modifier_directive_from_package_manager(
@@ -289,14 +286,13 @@ class DirectiveMod(BasicModifier):
     )
     mock_modifiers.put_first(mod_repo)
 
-    try:
-        with ramble.workspace.create(workspace_name) as ws:
-            ws.write()
+    with ramble.workspace.create(workspace_name) as ws:
+        ws.write()
 
-            config_path = os.path.join(ws.config_dir, ramble.workspace.CONFIG_FILE_NAME)
+        config_path = os.path.join(ws.config_dir, ramble.workspace.CONFIG_FILE_NAME)
 
-            with open(config_path, "w", encoding="utf-8") as f:
-                f.write("""
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("""
 ramble:
   variables:
     mpi_command: 'mpirun'
@@ -315,19 +311,17 @@ ramble:
                 env_name: 'test'
 """)
 
-            ws._re_read()
-            experiment_set = ws.build_experiment_set()
-            # Find the experiment
-            exp_name = "pm-directive-app.test.exp1"
-            app_inst = experiment_set.get_experiment(exp_name)
-            assert app_inst is not None
+        ws._re_read()
+        experiment_set = ws.build_experiment_set()
+        # Find the experiment
+        exp_name = "pm-directive-app.test.exp1"
+        app_inst = experiment_set.get_experiment(exp_name)
+        assert app_inst is not None
 
-            # We expect directive-mod to be in the modifiers
-            # because the package manager injected it
-            modifier_names = [m.name for m in app_inst._modifier_instances]
-            assert "directive-mod" in modifier_names
-    finally:
-        pass
+        # We expect directive-mod to be in the modifiers
+        # because the package manager injected it
+        modifier_names = [m.name for m in app_inst._modifier_instances]
+        assert "directive-mod" in modifier_names
 
 
 def test_modifier_directive_edge_cases(
@@ -369,12 +363,11 @@ class DirectiveTestMod(BasicModifier):
     )
     mock_modifiers.put_first(mod_repo)
 
-    try:
-        with ramble.workspace.create(workspace_name) as ws:
-            ws.write()
-            config_path = os.path.join(ws.config_dir, ramble.workspace.CONFIG_FILE_NAME)
-            with open(config_path, "w", encoding="utf-8") as f:
-                f.write("""
+    with ramble.workspace.create(workspace_name) as ws:
+        ws.write()
+        config_path = os.path.join(ws.config_dir, ramble.workspace.CONFIG_FILE_NAME)
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("""
 ramble:
   variables:
     mpi_command: 'mpirun'
@@ -395,33 +388,31 @@ ramble:
               variants:
                 inject_modifiers_from_directives: 'True'
 """)
-            ws._re_read()
-            experiment_set = ws.build_experiment_set()
+        ws._re_read()
+        experiment_set = ws.build_experiment_set()
 
-            # Test string 'False'
-            exp1 = experiment_set.get_experiment("edge-case-app.test.exp1")
-            assert "directive-test-mod" not in [m.name for m in exp1._modifier_instances]
+        # Test string 'False'
+        exp1 = experiment_set.get_experiment("edge-case-app.test.exp1")
+        assert "directive-test-mod" not in [m.name for m in exp1._modifier_instances]
 
-            # Test string 'True'
-            exp2 = experiment_set.get_experiment("edge-case-app.test.exp2")
-            assert "directive-test-mod" in [m.name for m in exp2._modifier_instances]
+        # Test string 'True'
+        exp2 = experiment_set.get_experiment("edge-case-app.test.exp2")
+        assert "directive-test-mod" in [m.name for m in exp2._modifier_instances]
 
-            # Test KeyError
-            # Force KeyError by mocking value()
-            import unittest.mock
+        # Test KeyError
+        # Force KeyError by mocking value()
+        import unittest.mock
 
-            exp3 = experiment_set.get_experiment("edge-case-app.test.exp2")
-            original_value = exp3.experiment_variants(allow_caching=False).__class__.value
+        exp3 = experiment_set.get_experiment("edge-case-app.test.exp2")
+        original_value = exp3.experiment_variants(allow_caching=False).__class__.value
 
-            def mock_value(self, name):
-                if name == "inject_modifiers_from_directives":
-                    raise KeyError("Mock KeyError")
-                return original_value(self, name)  # pragma: no cover
+        def mock_value(self, name):
+            if name == "inject_modifiers_from_directives":
+                raise KeyError("Mock KeyError")
+            return original_value(self, name)  # pragma: no cover
 
-            with unittest.mock.patch.object(
-                exp3.experiment_variants(allow_caching=False).__class__, "value", mock_value
-            ):
-                exp3.build_modifier_instances()
-                assert "directive-test-mod" in [m.name for m in exp3._modifier_instances]
-    finally:
-        pass
+        with unittest.mock.patch.object(
+            exp3.experiment_variants(allow_caching=False).__class__, "value", mock_value
+        ):
+            exp3.build_modifier_instances()
+            assert "directive-test-mod" in [m.name for m in exp3._modifier_instances]

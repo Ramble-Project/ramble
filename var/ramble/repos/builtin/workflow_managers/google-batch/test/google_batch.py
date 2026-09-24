@@ -58,7 +58,7 @@ variants:
     ws._re_read()
 
     # Remove batch submit definition
-    ws_vars = ws.get_workspace_vars()
+    ws_vars = ramble.config.get(namespace.variables)
     if "batch_submit" in ws_vars:
         del ws_vars["batch_submit"]
     ramble.config.config.update_config(

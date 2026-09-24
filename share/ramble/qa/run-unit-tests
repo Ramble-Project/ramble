@@ -103,14 +103,17 @@ if [[ "$PUSH_CODECOV" ]]; then
   
   echo "Processing codecov upload for commit $COMMIT_SHA"
 
-  UPLOAD_ARGS="-C $COMMIT_SHA"
+  UPLOAD_ARGS="-C $COMMIT_SHA --git-service github --slug Ramble-Project/ramble"
   if [[ -n "$PR_NUMBER" ]]; then
     UPLOAD_ARGS="$UPLOAD_ARGS --pr $PR_NUMBER"
+  else
+    UPLOAD_ARGS="$UPLOAD_ARGS -B $TARGET_BRANCH"
   fi
   if [[ -n "$MERGE_BASE_SHA" ]]; then
     echo "Picking PR base: $MERGE_BASE_SHA"
     if [[ -n "$PR_NUMBER" ]]; then
-      codecovcli pr-base-picking --base-sha $MERGE_BASE_SHA --pr $PR_NUMBER --slug "GoogleCloudPlatform/ramble"
+      codecovcli pr-base-picking --base-sha $MERGE_BASE_SHA --pr $PR_NUMBER --slug "Ramble-Project/ramble" --service github
+      UPLOAD_ARGS="$UPLOAD_ARGS --parent-sha $MERGE_BASE_SHA"
     else
       echo "Skipping pr-base-picking: PR_NUMBER not set"
     fi

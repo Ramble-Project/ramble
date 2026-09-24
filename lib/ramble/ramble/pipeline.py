@@ -27,6 +27,7 @@ import ramble.uploader
 import ramble.util.hashing
 import ramble.util.path
 import ramble.workspace
+from ramble.namespace import namespace
 from ramble.util import json_util
 from ramble.util.colors import cprint
 from ramble.util.file_util import create_symlink
@@ -783,7 +784,7 @@ class PushDeploymentPipeline(Pipeline):
     ):
         super().__init__(workspace, filters)
 
-        workspace_expander = ramble.expander.Expander(workspace.get_workspace_vars(), None)
+        workspace_expander = ramble.expander.Expander(ramble.config.get(namespace.variables), None)
 
         self.action_string = "Pushing deployment of"
         self.create_tar = create_tar

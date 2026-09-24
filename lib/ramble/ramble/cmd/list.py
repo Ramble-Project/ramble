@@ -18,4 +18,4 @@ def setup_parser(subparser):
 
 
 def list(parser, args):
-    ramble.cmd.common.list.perform_list(args)
+    return ramble.cmd.common.list.perform_list(args)

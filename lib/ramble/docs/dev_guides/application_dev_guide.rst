@@ -120,7 +120,7 @@ is stored within a directory named for the application. As an example, Ramble
 comes with a repository named ``builtin``. This repository contains several
 standard application definitions that are provided to the community. One of the
 application definition files provided is
-`HPL <https://github.com/GoogleCloudPlatform/ramble/tree/develop/var/ramble/repos/builtin/applications/hpl>`_.
+`HPL <https://github.com/Ramble-Project/ramble/tree/develop/var/ramble/repos/builtin/applications/hpl>`_.
 The HPL application definition file is named ``application.py`` and is stored
 within a directory named ``hpl``. Within the ``application.py`` file, a python
 class is defined with a similar name to the application directory. Ramble's
@@ -676,7 +676,7 @@ Writing Tests
 
 Tests added to a ``test`` directory alongside the object definition file get picked by
 Ramble's unit testing facility. This applies to all Ramble object types. As an example,
-the tests defined under `tunables <https://github.com/GoogleCloudPlatform/ramble/blob/develop/var/ramble/repos/builtin/modifiers/tunables/test>`_
+the tests defined under `tunables <https://github.com/Ramble-Project/ramble/blob/develop/var/ramble/repos/builtin/modifiers/tunables/test>`_
 can be run via ``ramble unit-test``.
 
 .. code-block:: console

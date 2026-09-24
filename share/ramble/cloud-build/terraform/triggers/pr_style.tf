@@ -7,9 +7,8 @@ resource "google_cloudbuild_trigger" "pr_style" {
   name        = "PR-Style-${local.pr_style_img.base}${local.pr_style_img.base_ver}-${replace(local.pr_style_img.spack, ".", "-")}spack-${replace(local.pr_style_img.python, ".", "-")}python"
   description = "Run linting on Ramble pull requests"
 
-  github {
-    owner = var.github_owner
-    name  = var.github_repo
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/Ramble-USC1/repositories/${var.github_owner}-${var.github_repo}"
     pull_request {
       branch          = "(?:main|develop)"
       comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"

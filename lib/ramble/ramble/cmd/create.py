@@ -7,10 +7,13 @@
 # except according to those terms.
 
 
+import signal
+
 import ramble.creator
 import ramble.repository
 import ramble.spec
 import ramble.util.naming as nm
+from ramble.main import POSIX_SIGNAL_EXIT_OFFSET
 from ramble.util.logger import logger
 
 description = "create a new application, modifier, or other object definition"
@@ -234,7 +237,7 @@ def create(parser, args):
             obj_type, name, repo, base, maintainers, tags = run_interactive_wizard()
         except KeyboardInterrupt:
             print("\n\n[ABORTED] Object creation cancelled.")
-            return 1
+            return POSIX_SIGNAL_EXIT_OFFSET + signal.SIGINT.value
 
     try:
         file_path, repo_namespace = ramble.creator.create_object(

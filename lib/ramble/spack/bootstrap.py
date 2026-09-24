@@ -26,7 +26,6 @@ import spack.binary_distribution
 import spack.config
 import spack.detection
 import spack.environment
-import spack.modules
 import spack.paths
 import spack.platforms
 import spack.repo
@@ -693,9 +692,8 @@ def _ensure_bootstrap_configuration():
                             spack.config.set(
                                 'config', user_configuration['config']
                             )
-                            with spack.modules.disable_modules():
-                                with spack_python_interpreter():
-                                    yield
+                            with spack_python_interpreter():
+                                yield
 
 
 def _read_and_sanitize_configuration():

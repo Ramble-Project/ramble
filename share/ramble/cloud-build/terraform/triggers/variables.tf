@@ -12,7 +12,7 @@ variable "region" {
 variable "github_owner" {
   type        = string
   description = "The GitHub organization or user hosting the repository"
-  default     = "GoogleCloudPlatform"
+  default     = "Ramble-Project"
 }
 
 variable "github_repo" {

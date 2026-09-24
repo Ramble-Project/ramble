@@ -169,7 +169,11 @@ master_doc = "index"
 
 # General information about the project.
 project = "Ramble"
-copyright = "2022-2026, Google LLC"
+copyright = (
+    "2022-2026, Ramble a Series of LF projects, LLC."
+    "For website terms of use, trademark policy and other "
+    "project policies please see https://lfprojects.org"
+)
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -355,7 +359,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ("index", "Ramble.tex", "Ramble Documentation", "Google LLC", "manual"),
+    ("index", "Ramble.tex", "Ramble Documentation", "Ramble a Series of LF projects, LLC", "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -383,7 +387,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [("index", "Ramble", "Ramble Documentation", ["Google LLC"], 1)]
+man_pages = [("index", "Ramble", "Ramble Documentation", ["Ramble a Series of LF projects, LLC"], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
