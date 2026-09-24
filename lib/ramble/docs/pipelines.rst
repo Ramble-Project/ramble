@@ -49,7 +49,7 @@ An example of a Ramble workspace workflow might look like the following:
             color="#495057"
         ];
         step3 [
-            label=<<b>3. Workspace Concretization</b><br/>(ramble workspace concretize)>,
+            label=<<b>3. Workspace Concretization</b><br/>(ramble workspace concretize)<br/>Optional / One-time>,
             fillcolor="#e2e3e5",
             color="#495057"
         ];
@@ -79,7 +79,13 @@ An example of a Ramble workspace workflow might look like the following:
             color="#862e9c"
         ];
 
-        step1 -> step2 -> step3 -> step4 -> step5 -> step6 -> step7 -> step8;
+        step1 -> step2 -> step4 -> step5 -> step6 -> step7 -> step8;
+        step2:w -> step3:n [style=dashed];
+        step3:s -> step4:w;
+        step6:e -> step2:e [
+            label="Further explorations?",
+            style=dashed
+        ];
     }
 
 1. **Creation**: Initialize a workspace using :ref:`ramble workspace create
@@ -88,14 +94,16 @@ An example of a Ramble workspace workflow might look like the following:
    ``$workspace/configs/ramble.yaml`` or custom execution templates like ``execute_experiment.tpl``
    using :ref:`ramble workspace edit <ramble-workspace-edit>` (see :doc:`workspace_config`).
 3. **Concretization**: Resolve software specs and experiment matrix combinations using :ref:`ramble
-   workspace concretize <ramble-workspace-concretize>`.
+   workspace concretize <ramble-workspace-concretize>`. This is an optional step and usually only
+   done once when first creating a workspace.
 4. **Setup Pipeline**: Run :ref:`ramble workspace setup <ramble-workspace-setup>` to build
    software environments, download datasets, and render execution scripts.
 5. **Execution Pipeline**: Launch experiments via :ref:`ramble on <ramble-on>`. :doc:`Workflow
    Managers <workflow_managers>` (e.g., Slurm, PBS, Google Batch) expand ``{batch_submit}`` to
    submit jobs to batch schedulers or execute scripts directly on compute nodes.
 6. **Analysis Pipeline**: Extract Figures of Merit (FOMs) and evaluate success criteria using
-   :ref:`ramble workspace analyze <ramble-workspace-analyze>`.
+   :ref:`ramble workspace analyze <ramble-workspace-analyze>`. This may lead to identifying
+   new areas to explore resulting in a cycle back through the configuration step.
 7. **Reporting**: View summary statistics and result tables using :ref:`ramble results
    <ramble-results>` (see :doc:`results`).
 8. **Archiving Pipeline**: Package logs, rendered templates, and inventory files into an archive

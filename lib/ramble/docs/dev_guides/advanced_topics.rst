@@ -76,8 +76,9 @@ Phase Registration
 ==================
 
 Phases can be defined in a variety of locations. Some base classes define phases for specific
-pipelines. Additionally, Applications, Modifiers, and Package Managers can all define and
-register their own phases to build more complex pipelines for specific use cases.
+pipelines. Additionally, object types (applications, modifiers, etc.) can all define and
+register their own phases to build more complex pipelines for specific use cases. Some
+example include:
 
    * :doc:`Applications <../application_list>` define core command generation, input downloading,
      license inclusion, and analysis hooks.
@@ -146,7 +147,7 @@ classes register specific phases via ``register_phase()`` into the pipeline's
             margin=20;
 
             mod [
-                label="Modifier\n(e.g., Profilers)",
+                label="Modifier\n(e.g., Docker)",
                 fillcolor="#eef6ff",
                 color="#0056b3",
                 width=2.5
@@ -179,7 +180,7 @@ classes register specific phases via ``register_phase()`` into the pipeline's
             margin=20;
 
             p1 [
-                label="Phase 1: bootstrap_utilities",
+                label="Phase 1: pull_container",
                 fillcolor="#e6f4ea",
                 color="#28a745",
                 width=2.5
@@ -219,7 +220,7 @@ classes register specific phases via ``register_phase()`` into the pipeline's
 
         // Classes --> Phases
         mod -> p1 [
-            label=<<i>register_phase('bootstrap_utilities')</i>>,
+            label=<<i>register_phase('pull_container')</i>>,
             color="#0056b3"
         ];
         pm  -> p2 [
@@ -272,7 +273,7 @@ The setup pipeline prepares everything required to execute experiments:
         ];
         edge [fontsize=10, color="#28a745", penwidth=1.3];
 
-        s1 [label="bootstrap_utilities\n(Fetch tool dependencies)"];
+        s1 [label="pull_container\n(Pull the Docker container)"];
         s2 [label="software_create_env / software_install\n(Concretize & install via Package Manager)"];
         s3 [label="get_inputs\n(Download workload datasets)"];
         s4 [label="license_includes\n(Inject license variables)"];
