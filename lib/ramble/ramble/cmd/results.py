@@ -141,6 +141,14 @@ def setup_parser(subparser):
         help=("Ramble Variable to split out into different plots"),
         required=False,
     )
+    report_parser.add_argument(
+        "--format-lines-by",
+        dest="format_lines_by",
+        action="store",
+        default=None,
+        help="Variable or FOM to determine line styling (e.g. solid, dashed) for line charts",
+        required=False,
+    )
     report_parser.add_argument("-f", "--file", help="path of results file")
 
 
