@@ -36,10 +36,6 @@ includes the sbang tool directly in bin/sbang. These packages are covered
 by various permissive licenses. A summary listing follows. See the
 license included with each package for full details.
 
-PackageName: jsonschema
-PackageHomePage: https://pypi.python.org/pypi/jsonschema
-PackageLicenseDeclared: MIT
-
 PackageName: ruamel.yaml
 PackageHomePage: https://yaml.readthedocs.io/
 PackageLicenseDeclared: MIT

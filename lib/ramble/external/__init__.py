@@ -9,17 +9,6 @@
 """This module contains the following external, potentially separately
 licensed, packages that are included in Spack:
 
-jsonschema
-----------
-
-* Homepage: https://pypi.python.org/pypi/jsonschema
-* Usage: An implementation of JSON Schema for Python.
-* Version: 2.4.0 (last version before functools32 dependency was added)
-* Note: functools32 doesn't support Python 2.6 or 3.0, so jsonschema
-  cannot be upgraded any further until we drop 2.6.
-  Also, jsonschema/validators.py has been modified NOT to try to import
-  requests (see 7a1dd517b8).
-
 ruamel.yaml
 ------
 
