@@ -18,7 +18,7 @@ import string
 import sys
 from contextlib import contextmanager
 from enum import Enum
-from typing import Dict, FrozenSet, List, Optional, Union
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Union
 
 import ramble.config
 import ramble.error
@@ -230,9 +230,132 @@ supported_scalar_function_with_self_arg_pointers = {
 }
 
 
+def pow2_range(start, stop=None, inclusive=True):
+    """Generate a sequence of numbers by doubling from start up to stop.
+
+    Args:
+        start (int): Starting value (if stop is provided), or stop value (if stop is None).
+        stop (int): Optional ending value. If None, start is treated as stop,
+            and sequence starts at 1.
+        inclusive (bool): Whether stop is inclusive. Defaults to True.
+
+    Returns:
+        list[int]: Sequence of doubling values / powers of 2.
+    """
+    if stop is None:
+        start, stop = 1, start
+
+    start = int(start)
+    stop = int(stop)
+    if isinstance(inclusive, str):
+        inclusive = inclusive.lower() in ("true", "1", "yes")
+
+    if start <= 0 or stop < start:
+        return []
+
+    values = []
+    current = start
+    if inclusive:
+        while current <= stop:
+            values.append(current)
+            current *= 2
+    else:
+        while current < stop:
+            values.append(current)
+            current *= 2
+
+    return values
+
+
 supported_list_function_pointers = {
     "range": range,
+    "pow2_range": pow2_range,
+    "power2_range": pow2_range,
 }
+
+
+def is_dynamic_list_expression(val) -> bool:
+    """Check if a variable value is an unexpanded call to a supported list function.
+
+    Returns True if val is a string matching a call to any function registered in
+    `supported_list_function_pointers`.
+    """
+    if not isinstance(val, str):
+        return False
+    if not supported_list_function_pointers:
+        return False
+    func_names = "|".join(re.escape(fn) for fn in supported_list_function_pointers)
+    return bool(re.search(rf"\b(?:{func_names})\s*\(", val))
+
+
+def extract_var_refs(expr) -> Set[str]:
+    """Extract variable references enclosed in braces from an expression string."""
+    if not isinstance(expr, str):
+        return set()
+    refs = set(re.findall(r"\{\s*([a-zA-Z_][a-zA-Z0-9_]*)", expr))
+    in_brace = 0
+    cur_ident: List[str] = []
+    for ch in expr:
+        if ch == "{":
+            in_brace += 1
+        elif ch == "}":
+            if cur_ident:
+                refs.add("".join(cur_ident))
+                cur_ident = []
+            in_brace = max(0, in_brace - 1)
+        elif in_brace > 0:
+            if ch.isalnum() or ch == "_":
+                cur_ident.append(ch)
+            else:
+                if cur_ident:
+                    refs.add("".join(cur_ident))
+                    cur_ident = []
+    if cur_ident and in_brace > 0:
+        refs.add("".join(cur_ident))
+    return {r for r in refs if r and not r[0].isdigit()}
+
+
+def find_dependent_vector_vars(
+    dynamic_list_vars: Dict[str, Any],
+    variables: Dict[str, Any],
+    expander: Optional["Expander"] = None,
+) -> Set[str]:
+    """Find all vector variables in `variables` that `dynamic_list_vars` transitively depend on."""
+    dependent_vector_vars = set()
+    visited = set()
+    queue = list(dynamic_list_vars.values())
+
+    if expander is not None:
+        for val in dynamic_list_vars.values():
+            saved_used = expander._used_variables.copy()
+            expander._used_variables = set()
+            try:
+                expander.expand_var(val)
+            except Exception:
+                pass
+            used = expander._used_variables
+            expander._used_variables = saved_used
+            for var_ref in used:
+                if var_ref in variables and var_ref not in dynamic_list_vars:
+                    if isinstance(variables[var_ref], list):
+                        dependent_vector_vars.add(var_ref)
+                    elif var_ref not in visited:
+                        visited.add(var_ref)
+                        queue.append(str(variables[var_ref]))
+
+    while queue:
+        expr = queue.pop(0)
+        if not isinstance(expr, str):
+            continue
+        for var_ref in extract_var_refs(expr):
+            if var_ref in variables and var_ref not in dynamic_list_vars:
+                if isinstance(variables[var_ref], list):
+                    dependent_vector_vars.add(var_ref)
+                elif var_ref not in visited:
+                    visited.add(var_ref)
+                    queue.append(str(variables[var_ref]))
+
+    return dependent_vector_vars
 
 
 supported_modules = {
