@@ -70,6 +70,17 @@ CONTENT_TYPE_MISMATCH_WARNING_TEMPLATE = (
 )
 
 
+VCS_CHECKOUT_ATTRIBUTES = [
+    "commit",
+    "hash",
+    "sha",
+    "revision",
+    "version",
+    "tag",
+    "branch",
+]
+
+
 def warn_content_type_mismatch(subject, content_type="HTML"):
     logger.warn(
         CONTENT_TYPE_MISMATCH_WARNING_TEMPLATE.format(subject=subject, content_type=content_type)

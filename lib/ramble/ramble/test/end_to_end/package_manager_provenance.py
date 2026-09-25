@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import glob
 import os
 from unittest.mock import patch
 
@@ -59,8 +60,16 @@ def test_spack_package_manager_provenance_zlib(mock_applications, workspace_name
 
         workspace("setup", global_args=global_args)
 
-        spack_yaml = os.path.join(ws.software_dir, pm, "zlib", "spack.yaml")
-        spack_lock = os.path.join(ws.software_dir, pm, "zlib", "spack.lock")
+        spack_yaml = os.path.join(
+            glob.glob(os.path.join(ws.software_dir, f"{pm}*"))[0],
+            "zlib",
+            "spack.yaml",
+        )
+        spack_lock = os.path.join(
+            glob.glob(os.path.join(ws.software_dir, f"{pm}*"))[0],
+            "zlib",
+            "spack.lock",
+        )
 
         assert os.path.isfile(spack_yaml)
 

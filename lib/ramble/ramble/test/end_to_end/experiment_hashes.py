@@ -88,7 +88,11 @@ def test_experiment_hashes(mutable_config, mutable_mock_workspace_path, workspac
     assert not expected_templates
 
     # Test software environments
-    expected_envs = {"software/spack/gromacs"}
+    import glob
+
+    spack_dir = glob.glob(os.path.join(ws1.software_dir, "spack*"))[0]
+    spack_dir_name = os.path.basename(spack_dir)
+    expected_envs = {f"software/{spack_dir_name}/gromacs"}
     assert "software" in data
     for env in data["software"]:
         if env["name"] in expected_envs:

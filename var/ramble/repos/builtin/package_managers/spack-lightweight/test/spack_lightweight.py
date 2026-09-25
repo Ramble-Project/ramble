@@ -4,6 +4,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import glob
 import os
 import sys
 from unittest.mock import patch
@@ -115,7 +116,9 @@ def test_spack_auxiliary_files(request):
 
     workspace("setup", "--dry-run", global_args=["-w", ws_name])
     spack_config = os.path.join(
-        ws.software_dir, "spack-lightweight", "gromacs", "spack.yaml"
+        glob.glob(os.path.join(ws.software_dir, "spack-lightweight*"))[0],
+        "gromacs",
+        "spack.yaml",
     )
 
     with open(spack_config, encoding="utf-8") as f:

@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import glob
 import os
 
 import pytest
@@ -77,7 +78,11 @@ ramble:
         setup_pipeline = setup_cls(ws, filters)
         setup_pipeline.run()
 
-        env_file = os.path.join(ws.software_dir, "spack", "wrfv4", "spack.yaml")
+        env_file = os.path.join(
+            glob.glob(os.path.join(ws.software_dir, "spack*"))[0],
+            "wrfv4",
+            "spack.yaml",
+        )
 
         assert os.path.exists(env_file)
 

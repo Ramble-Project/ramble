@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import glob
 import os
 
 import pytest
@@ -75,7 +76,11 @@ ramble:
 
         workspace("setup", "--dry-run", global_args=["-w", workspace_name])
 
-        software_path = os.path.join(ws1.software_dir, "spack", "wrfv4", "spack.yaml")
+        software_path = os.path.join(
+            glob.glob(os.path.join(ws1.software_dir, "spack*"))[0],
+            "wrfv4",
+            "spack.yaml",
+        )
         with open(software_path, encoding="utf-8") as f:
             assert "intel-oneapi-vtune" in f.read()
 

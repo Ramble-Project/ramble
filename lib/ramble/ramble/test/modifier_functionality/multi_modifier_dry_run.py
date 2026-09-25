@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import glob
 import os
 
 import pytest
@@ -77,7 +78,7 @@ def test_gromacs_multi_modifier_dry_run(
         workspace("setup", "--dry-run", global_args=["-D", ws1.root])
 
         # Test software directories
-        software_base_dir = os.path.join(ws1.software_dir, "spack")
+        software_base_dir = glob.glob(os.path.join(ws1.software_dir, "spack*"))[0]
 
         modifier_helpers.check_software_env(software_base_dir, software_tests)
 
