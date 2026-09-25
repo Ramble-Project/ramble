@@ -45,11 +45,6 @@ class SoftwareSpec:
                 output[f"{prefix_str}{attr}"] = val
         return output
 
-    def config_opts(self):
-        self_dict = self.to_dict()
-        for key, val in self_dict.items():
-            yield f"software:packages:{self.name}:{key}:{val}"
-
     def as_str(self, n_indent: int = 0, verbose: bool = False):
         base_indent = " " * n_indent
         indentation = " " * (n_indent + 4)
