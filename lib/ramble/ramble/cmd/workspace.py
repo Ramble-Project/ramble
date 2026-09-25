@@ -471,6 +471,13 @@ def workspace_concretize_setup_parser(subparser):
         help="Silently ignore conflicting package definitions",
         required=False,
     )
+    subparser.add_argument(
+        "--include-injected-packages",
+        dest="include_injected_packages",
+        action="store_true",
+        help="Write inject_if_missing packages and compilers to workspace config",
+        required=False,
+    )
 
 
 def workspace_concretize(args):
@@ -481,7 +488,11 @@ def workspace_concretize(args):
         ws.simplify_software()
     else:
         logger.debug("Concretizing workspace")
-        ws.concretize(force=args.force_concretize, quiet=args.quiet)
+        ws.concretize(
+            force=args.force_concretize,
+            quiet=args.quiet,
+            include_injected=args.include_injected_packages,
+        )
 
 
 def workspace_bootstrap_setup_parser(subparser):
