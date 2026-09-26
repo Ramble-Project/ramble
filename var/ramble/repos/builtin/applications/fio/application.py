@@ -207,128 +207,26 @@ class Fio(ExecutableApplication):
             default=None,
         )
 
-    log_str = os.path.join("{experiment_run_dir}", "metrics.out")
-
     # Job-level FOMs
-    figure_of_merit(
-        "Job Name",
-        log_file=log_str,
-        fom_regex=r"jobname: (?P<jobname>\S+)",
-        group_name="jobname",
-        units="",
-    )
-    figure_of_merit(
-        "Job Runtime",
-        log_file=log_str,
-        fom_regex=r"job_runtime: (?P<job_runtime>[0-9]+)",
-        group_name="job_runtime",
-        units="msec",
-    )
-    figure_of_merit(
-        "CPU Usage (User)",
-        log_file=log_str,
-        fom_regex=r"usr_cpu: (?P<usr_cpu>[0-9\.]+)",
-        group_name="usr_cpu",
-        units="",
-    )
-    figure_of_merit(
-        "CPU Usage (System)",
-        log_file=log_str,
-        fom_regex=r"sys_cpu: (?P<sys_cpu>[0-9\.]+)",
-        group_name="sys_cpu",
-        units="",
-    )
-    figure_of_merit(
-        "Context Switches",
-        log_file=log_str,
-        fom_regex=r"ctx: (?P<ctx>[0-9]+)",
-        group_name="ctx",
-        units="",
-    )
-    figure_of_merit(
-        "Major Faults",
-        log_file=log_str,
-        fom_regex=r"majf: (?P<majf>[0-9]+)",
-        group_name="majf",
-        units="",
-    )
-    figure_of_merit(
-        "Minor Faults",
-        log_file=log_str,
-        fom_regex=r"minf: (?P<minf>[0-9]+)",
-        group_name="minf",
-        units="",
-    )
-    figure_of_merit(
-        "FIO Version",
-        log_file=log_str,
-        fom_regex=r"fio version: (?P<fio_version>\S+)",
-        group_name="fio_version",
-        units="",
-    )
-
-    # Shared FOMs for read, write, trim contexts
-    shared_fom_parts_1 = [
-        ("io_bytes", r"[0-9]+"),
-        ("io_kbytes", r"[0-9]+"),
-        ("bw_bytes", r"[0-9]+"),
-        ("bw", r"[0-9]+"),
-        ("iops", r"[0-9\.]+"),
-        ("runtime", r"[0-9]+"),
-        ("total_ios", r"[0-9]+"),
-        ("short_ios", r"[0-9]+"),
-        ("drop_ios", r"[0-9]+"),
+    job_fom_defs = [
+        ("Job Name", "jobname", ""),
+        ("Job Runtime", "job_runtime", "msec"),
+        ("CPU Usage (User)", "usr_cpu", ""),
+        ("CPU Usage (System)", "sys_cpu", ""),
+        ("Context Switches", "ctx", ""),
+        ("Major Faults", "majf", ""),
+        ("Minor Faults", "minf", ""),
+        ("FIO Version", "fio version", ""),
     ]
 
-    shared_fom_parts_2 = [
-        ("slat_min", r"[0-9]+", "slat_min_unit", r"[mnus]+"),
-        ("slat_max", r"[0-9]+", "slat_max_unit", r"[mnus]+"),
-        ("slat_mean", r"[0-9\.]+", "slat_mean_unit", r"[mnus]+"),
-        ("slat_stddev", r"[0-9\.]+", "slat_stddev_unit", r"[mnus]+"),
-        ("slat_N", r"[0-9]+", "slat_N_unit", ""),
-        ("clat_min", r"[0-9]+", "clat_min_unit", r"[mnus]+"),
-        ("clat_max", r"[0-9]+", "clat_max_unit", r"[mnus]+"),
-        ("clat_mean", r"[0-9\.]+", "clat_mean_unit", r"[mnus]+"),
-        ("clat_stddev", r"[0-9\.]+", "clat_stddev_unit", r"[mnus]+"),
-        ("clat_N", r"[0-9]+", "clat_N_unit", ""),
-        ("lat_min", r"[0-9]+", "lat_min_unit", r"[mnus]+"),
-        ("lat_max", r"[0-9]+", "lat_max_unit", r"[mnus]+"),
-        ("lat_mean", r"[0-9\.]+", "lat_mean_unit", r"[mnus]+"),
-        ("lat_stddev", r"[0-9\.]+", "lat_stddev_unit", r"[mnus]+"),
-        ("lat_N", r"[0-9]+", "lat_N_unit", ""),
-    ]
-
-    shared_fom_parts_3 = [
-        ("bw_min", r"[0-9]+"),
-        ("bw_max", r"[0-9]+"),
-        ("bw_agg", r"[0-9\.]+"),
-        ("bw_mean", r"[0-9\.]+"),
-        ("bw_dev", r"[0-9\.]+"),
-        ("bw_samples", r"[0-9]+"),
-        ("iops_min", r"[0-9]+"),
-        ("iops_max", r"[0-9]+"),
-        ("iops_mean", r"[0-9\.]+"),
-        ("iops_stddev", r"[0-9\.]+"),
-        ("iops_samples", r"[0-9]+"),
-    ]
-
-    shared_fom_regex = ""
-    for fom_name, fom_part_regex in shared_fom_parts_1:
-        shared_fom_regex += (
-            rf"\s*{fom_name}:\s+(?P<{fom_name}>{fom_part_regex}),*"
-        )
-    for fom_name, fom_part_regex, unit_name, unit_regex in shared_fom_parts_2:
-        shared_fom_regex += (
-            rf"\s*{fom_name}:\s+(?P<{fom_name}>{fom_part_regex})"
-        )
-        if unit_regex:
-            shared_fom_regex += rf"(?P<{unit_name}>{unit_regex})?"
-        shared_fom_regex += r",*"
-    for fom_name, fom_part_regex in shared_fom_parts_3:
-        shared_fom_regex += (
-            rf"\s*{fom_name}:\s+(?P<{fom_name}>{fom_part_regex}),*"
+    for fom_title, fom_key, fom_unit in job_fom_defs:
+        figure_of_merit(
+            fom_title,
+            fom_map_key=fom_key,
+            units=fom_unit,
         )
 
+    # Shared FOMs for read, write, trim I/O modes
     shared_fom_defs = [
         ("Total I/O (Bytes)", "io_bytes", "B"),
         ("Total I/O", "io_kbytes", "KiB"),
@@ -339,20 +237,20 @@ class Fio(ExecutableApplication):
         ("Total I/Os", "total_ios", ""),
         ("Short I/Os", "short_ios", ""),
         ("Dropped I/Os", "drop_ios", ""),
-        ("Submission Latency (Min)", "slat_min", "{slat_min_unit}"),
-        ("Submission Latency (Max)", "slat_max", "{slat_max_unit}"),
-        ("Submission Latency (Mean)", "slat_mean", "{slat_mean_unit}"),
-        ("Submission Latency (StdDev)", "slat_stddev", "{slat_stddev_unit}"),
+        ("Submission Latency (Min)", "slat_min", "ns"),
+        ("Submission Latency (Max)", "slat_max", "ns"),
+        ("Submission Latency (Mean)", "slat_mean", "ns"),
+        ("Submission Latency (StdDev)", "slat_stddev", "ns"),
         ("Submission Latency (N)", "slat_N", ""),
-        ("Completion Latency (Min)", "clat_min", "{clat_min_unit}"),
-        ("Completion Latency (Max)", "clat_max", "{clat_max_unit}"),
-        ("Completion Latency (Mean)", "clat_mean", "{clat_mean_unit}"),
-        ("Completion Latency (StdDev)", "clat_stddev", "{clat_stddev_unit}"),
+        ("Completion Latency (Min)", "clat_min", "ns"),
+        ("Completion Latency (Max)", "clat_max", "ns"),
+        ("Completion Latency (Mean)", "clat_mean", "ns"),
+        ("Completion Latency (StdDev)", "clat_stddev", "ns"),
         ("Completion Latency (N)", "clat_N", ""),
-        ("Total Latency (Min)", "lat_min", "{lat_min_unit}"),
-        ("Total Latency (Max)", "lat_max", "{lat_max_unit}"),
-        ("Total Latency (Mean)", "lat_mean", "{lat_mean_unit}"),
-        ("Total Latency (StdDev)", "lat_stddev", "{lat_stddev_unit}"),
+        ("Total Latency (Min)", "lat_min", "ns"),
+        ("Total Latency (Max)", "lat_max", "ns"),
+        ("Total Latency (Mean)", "lat_mean", "ns"),
+        ("Total Latency (StdDev)", "lat_stddev", "ns"),
         ("Total Latency (N)", "lat_N", ""),
         ("Bandwidth (Min)", "bw_min", ""),
         ("Bandwidth (Max)", "bw_max", ""),
@@ -367,19 +265,12 @@ class Fio(ExecutableApplication):
         ("IOPS (N Samples)", "iops_samples", ""),
     ]
 
-    for ctx in ["read", "write", "trim"]:
-        context_regex = rf"{ctx}:" + shared_fom_regex
-        figure_of_merit_context(
-            f"{ctx}", regex=context_regex, output_format=f"{ctx}"
-        )
-        for fom_def in shared_fom_defs:
+    for io_mode in ["read", "write", "trim"]:
+        for fom_title, fom_key, fom_unit in shared_fom_defs:
             figure_of_merit(
-                fom_def[0],
-                log_file=log_str,
-                fom_regex=context_regex,
-                group_name=f"{fom_def[1]}",
-                units=f"{fom_def[2]}",
-                contexts=[f"{ctx}"],
+                f"{io_mode} {fom_title}",
+                fom_map_key=f"{io_mode}:{fom_key}",
+                units=fom_unit,
             )
 
     register_template(
@@ -449,8 +340,7 @@ class Fio(ExecutableApplication):
                     f.write(f"{set_var}\n")
 
     def _prepare_analysis(self, workspace, app_inst):
-        """Reads JSON metrics from fio.out and formats them in a new file
-        to be processed by Ramble.
+        """Reads JSON metrics from fio.out and records in-memory FOMs.
 
         FIO outputs a single JSON with a list of all jobs in the job file. Each
         job has nested dicts up to 4 levels deep. Since Ramble only supports a
@@ -458,7 +348,7 @@ class Fio(ExecutableApplication):
         generates one job per experiment/job file.
 
         For standard workloads, a single job output is generated. For
-        clint/server multinode workloads, Ramble uses the summary of all
+        client/server multinode workloads, Ramble uses the summary of all
         clients.
         """
         import json
@@ -482,8 +372,6 @@ class Fio(ExecutableApplication):
 
         if not os.path.exists(fio_outfile):
             return
-
-        formatted_metrics = []
 
         with open(fio_outfile, encoding="utf-8") as f:
             file = ""
@@ -525,12 +413,13 @@ class Fio(ExecutableApplication):
                 # first level: job-level data, read/write dicts, depth/latency dicts, etc
                 for key, val in job.items():
                     if isinstance(val, dict):
-                        context_metrics = []
-
-                        # second level: read/write data, depth/latencty stats, statistical dicts
+                        # second level: read/write data, depth/latency stats, statistical dicts
                         for key2, val2 in val.items():
                             if isinstance(val2, dict):
                                 key2, unit = _split_unit(key2)
+                                scale = {"us": 1000, "ms": 1000000}.get(
+                                    unit, 1
+                                )
 
                                 # third level: contains values and percentile dict, flatten with l2
                                 for key3, val3 in val2.items():
@@ -538,34 +427,20 @@ class Fio(ExecutableApplication):
                                     if key3 == "percentile":
                                         continue
 
-                                    if key3 == "N":
-                                        unit = ""
+                                    if key3 != "N":
+                                        val3 = val3 * scale
 
-                                    # slat, clat, and lat will be one of 3 units (_ns, _us, or _ms)
-                                    context_metrics.append(
-                                        f"{key2}_{key3}: {val3}{unit}"
+                                    self.add_inmem_fom_value(
+                                        f"{key}:{key2}_{key3}", val3
                                     )
                             else:
-                                context_metrics.append(f"{key2}: {val2}")
-
-                        context_out = f"{key}: " + ", ".join(context_metrics)
-                        formatted_metrics.append(context_out)
+                                self.add_inmem_fom_value(f"{key}:{key2}", val2)
                     else:
-                        formatted_metrics.append(f"{key}: {val}")
+                        self.add_inmem_fom_value(key, val)
 
-                formatted_metrics.append(
-                    f"fio version: {metrics_dict['fio version']}"
+                self.add_inmem_fom_value(
+                    "fio version", metrics_dict["fio version"]
                 )
 
             except Exception as e:
                 logger.warn(f"Error reading metrics data: {e}")
-
-            metrics_outfile_path = os.path.join(
-                app_inst.expander.experiment_run_dir, "metrics.out"
-            )
-
-            with open(
-                metrics_outfile_path, "w", encoding="utf-8"
-            ) as metrics_out:
-                for line in formatted_metrics:
-                    metrics_out.write(line + "\n")
