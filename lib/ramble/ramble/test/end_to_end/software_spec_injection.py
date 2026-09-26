@@ -28,8 +28,10 @@ def test_software_spec_injection_works(mock_modifiers, workspace_name, ensure_sp
         ws.write()
 
         with open(os.path.join(ws.config_dir, "variants.yaml"), "w+", encoding="utf-8") as f:
-            f.write("""variants:
-  implicit_compiler: True""")
+            f.write(
+                """variants:
+  implicit_compiler: True"""
+            )
 
         workspace(
             "manage",
@@ -87,8 +89,10 @@ def test_existing_software_spec_does_not_inject(
         ws.write()
 
         with open(os.path.join(ws.config_dir, "variants.yaml"), "w+", encoding="utf-8") as f:
-            f.write("""variants:
-  implicit_compiler: True""")
+            f.write(
+                """variants:
+  implicit_compiler: True"""
+            )
 
         workspace(
             "manage",
@@ -128,7 +132,7 @@ def test_existing_software_spec_does_not_inject(
             global_args=global_args,
         )
 
-        workspace("concretize", "-f", global_args=global_args)
+        workspace("concretize", "-f", "--include-injected-packages", global_args=global_args)
         info_output = workspace("info", "--software", global_args=global_args)
 
         assert "missing_mod_package" in info_output
@@ -147,8 +151,10 @@ def test_software_spec_injection_missing_compiler_errors(
         ws.write()
 
         with open(os.path.join(ws.config_dir, "variants.yaml"), "w+", encoding="utf-8") as f:
-            f.write("""variants:
-  missing_compiler: True""")
+            f.write(
+                """variants:
+  missing_compiler: True"""
+            )
 
         workspace(
             "manage",
@@ -200,8 +206,10 @@ def test_software_spec_compiler_injection_works(
         ws.write()
 
         with open(os.path.join(ws.config_dir, "variants.yaml"), "w+", encoding="utf-8") as f:
-            f.write("""variants:
-  injected_compiler: True""")
+            f.write(
+                """variants:
+  injected_compiler: True"""
+            )
 
         workspace(
             "manage",

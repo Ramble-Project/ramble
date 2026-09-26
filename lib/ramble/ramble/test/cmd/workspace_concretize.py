@@ -62,8 +62,10 @@ def test_workspace_concretize_additive(workspace_name):
     modifiers_path = os.path.join(ws.config_dir, "modifiers.yaml")
 
     with open(modifiers_path, "w+", encoding="utf-8") as f:
-        f.write("""modifiers:
-- name: intel-aps""")
+        f.write(
+            """modifiers:
+- name: intel-aps"""
+        )
 
     workspace("concretize", "-q", global_args=global_args)
 
@@ -136,3 +138,62 @@ def test_workspace_concretize_populated_env_no_warning(workspace_name, capsys):
     workspace("concretize", global_args=global_args)
     captured = capsys.readouterr()
     assert "was auto-constructed" not in captured.err
+
+
+def test_workspace_concretize_include_injected_packages(mock_modifiers, workspace_name):
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    global_args = ["-w", workspace_name]
+
+    # Set variants to enable implicit compiler spec and injected compiler
+    with open(os.path.join(ws.config_dir, "variants.yaml"), "w+", encoding="utf-8") as f:
+        f.write(
+            """variants:
+  implicit_compiler: True
+  injected_compiler: True"""
+        )
+
+    # Add experiment and modifier with inject_if_missing packages/compilers
+    workspace(
+        "manage",
+        "experiments",
+        "gromacs",
+        "-V",
+        "package_manager=spack",
+        "--wf",
+        "water_bare",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "n_ranks=1",
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "--name",
+        "spack-mod",
+        "--scope",
+        "workspace",
+        global_args=global_args,
+    )
+
+    # Default concretize should not write injected package and compiler to configuration
+    workspace("concretize", global_args=global_args)
+    with open(ws.config_file_path, encoding="utf-8") as f:
+        content = f.read()
+        assert "missing_mod_package" not in content
+        assert "injected_compiler" not in content
+
+    # Concretize with --include-injected-packages should write them to configuration
+    workspace(
+        "concretize",
+        "-f",
+        "--include-injected-packages",
+        global_args=global_args,
+    )
+    with open(ws.config_file_path, encoding="utf-8") as f:
+        content = f.read()
+        assert "missing_mod_package" in content
+        assert "injected_compiler" in content
