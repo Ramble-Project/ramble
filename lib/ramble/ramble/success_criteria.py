@@ -215,10 +215,29 @@ class SuccessCriteria:
             for context_key in matching_keys:
                 fom_names = fnmatch.filter(fom_values[context_key].keys(), fom_name_glob)
 
+                # Extract context variables from context_key[2] (frozenset),
+                # safely defaulting to {} if context_key is a string or shorter tuple.
+                context_vars = {}
+                if isinstance(context_key, tuple) and len(context_key) > 2:
+                    for k, v in context_key[2]:
+                        try:
+                            # Cast numeric strings so formulas can evaluate numbers naturally
+                            context_vars[k] = int(v) if v.isdigit() else float(v)
+                        except (ValueError, AttributeError):
+                            context_vars[k] = v
+
+                # Warn if a context variable collides with the reserved 'value' keyword,
+                # which must strictly represent the extracted figure of merit.
+                if "value" in context_vars:
+                    logger.warn(
+                        f"Context variable 'value' conflicts with reserved "
+                        f"formula variable 'value' in success criteria '{self.name}'. "
+                        "Overwriting with FOM value."
+                    )
+
                 for fom_name in fom_names:
-                    comparison_vars = {
-                        "value": fom_values[context_key][fom_name]["value"],
-                    }
+                    comparison_vars = dict(context_vars)
+                    comparison_vars["value"] = fom_values[context_key][fom_name]["value"]
 
                     comparison_tested = True
                     result = result and app_inst.expander.evaluate_predicate(

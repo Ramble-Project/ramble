@@ -174,3 +174,100 @@ def test_success_criteria_globbing():
         formula="{value} > 0",
     )
     assert not crit4.passed(app_inst=app_inst, fom_values=fom_values)
+
+
+def test_success_criteria_context_variables():
+    from unittest.mock import MagicMock
+
+    app_inst = MagicMock()
+
+    def evaluate_predicate(expr, extra_vars=None):
+        res = expr
+        if extra_vars:
+            for k, v in extra_vars.items():
+                res = res.replace(f"{{{k}}}", str(v))
+        # Simple evaluation of predicate expression for testing
+        return bool(eval(res, {"__builtins__": {}}, {}))
+
+    app_inst.expander.expand_var.side_effect = lambda x, **kwargs: x
+    app_inst.expander.evaluate_predicate.side_effect = evaluate_predicate
+
+    # Mock standard context_key (tuple of length 3 with frozenset of vars)
+    context_vars = frozenset([("N", 276480), ("NB", 384), ("P", 12), ("Q", 16)])
+    context_key = ("N-NB-P-Q = 276480-384-12-16", "problem-name", context_vars)
+
+    fom_values = {
+        context_key: {
+            "GFlops": {"value": 15400.0},
+        }
+    }
+
+    # 1. Test formula using both context variable {N} and FOM {value}
+    crit = ramble.success_criteria.SuccessCriteria(
+        name="test_context_var_pass",
+        mode="fom_comparison",
+        fom_context="N-NB-P-Q =*",
+        fom_name="GFlops",
+        formula="{N} == 276480 and {value} > 12000",
+    )
+    assert crit.passed(app_inst=app_inst, fom_values=fom_values)
+
+    # 2. Test unsatisfied condition ({N} != 1000) should fail
+    crit_fail = ramble.success_criteria.SuccessCriteria(
+        name="test_context_var_fail",
+        mode="fom_comparison",
+        fom_context="N-NB-P-Q =*",
+        fom_name="GFlops",
+        formula="{N} == 1000 and {value} > 12000",
+    )
+    assert not crit_fail.passed(app_inst=app_inst, fom_values=fom_values)
+
+    # 3. Test string-to-numeric casting for regex captured groups
+    str_context_vars = frozenset([("N", "276480"), ("ratio", "1.5"), ("tag", "fast")])
+    str_context_key = ("str-ctx", "def", str_context_vars)
+    str_fom_values = {
+        str_context_key: {
+            "GFlops": {"value": 15400.0},
+        }
+    }
+    crit_str_cast = ramble.success_criteria.SuccessCriteria(
+        name="test_str_cast",
+        mode="fom_comparison",
+        fom_context="str-ctx",
+        fom_name="GFlops",
+        formula="{N} > 200000 and {ratio} > 1.0 and '{tag}' == 'fast' and {value} > 12000",
+    )
+    assert crit_str_cast.passed(app_inst=app_inst, fom_values=str_fom_values)
+
+    # 4. Test edge case: ensure context variable named 'value' does not overwrite FOM value
+    colliding_vars = frozenset([("value", 999), ("N", 276480)])
+    colliding_context_key = ("colliding-ctx", "def", colliding_vars)
+    colliding_fom_values = {
+        colliding_context_key: {
+            "GFlops": {"value": 15400.0},
+        }
+    }
+    crit_collision = ramble.success_criteria.SuccessCriteria(
+        name="test_collision",
+        mode="fom_comparison",
+        fom_context="colliding-ctx",
+        fom_name="GFlops",
+        formula="{value} == 15400.0 and {N} == 276480",
+    )
+    assert crit_collision.passed(app_inst=app_inst, fom_values=colliding_fom_values)
+
+    # 5. Test short/malformed context_key (length < 3 or non-tuple) handles safely
+    short_context_key = ("short-ctx", "def")
+    short_fom_values = {
+        short_context_key: {
+            "GFlops": {"value": 15400.0},
+        }
+    }
+    crit_short = ramble.success_criteria.SuccessCriteria(
+        name="test_short_ctx",
+        mode="fom_comparison",
+        fom_context="short-ctx",
+        fom_name="GFlops",
+        formula="{value} > 12000",
+    )
+    assert crit_short.passed(app_inst=app_inst, fom_values=short_fom_values)
