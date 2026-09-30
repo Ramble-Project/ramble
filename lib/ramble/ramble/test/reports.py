@@ -536,7 +536,7 @@ def test_multiline_format_lines_by_invalid(capsys, fast_plot_write):
     assert "non_existent_var_or_fom was not found in the results data" in captured
 
 
-def test_multiline_format_lines_by_fom(fast_plot_write):
+def test_multiline_format_lines_by_fom(capsys, fast_plot_write):
     test_exps = [
         create_test_exp_result(
             ramble_status="SUCCESS",
@@ -563,8 +563,10 @@ def test_multiline_format_lines_by_fom(fast_plot_write):
         format_lines_by="fom_2",
     )
     with PdfPages(io.BytesIO()) as pdf_report:
-        with pytest.raises(KeyError):
+        with pytest.raises(SystemExit):
             plot.generate_plot_data(pdf_report)
+    captured = capsys.readouterr().err
+    assert "'fom_2' is a Figure of Merit (FOM)" in captured
 
 
 def test_multiline_format_lines_by_mixed_values(fast_plot_write):

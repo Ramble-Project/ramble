@@ -146,7 +146,7 @@ def setup_parser(subparser):
         dest="format_lines_by",
         action="store",
         default=None,
-        help="Variable or FOM to determine line styling (e.g. solid, dashed) for line charts",
+        help="Variable to determine line styling (e.g. solid, dashed) for line charts",
         required=False,
     )
     report_parser.add_argument("-f", "--file", help="path of results file")

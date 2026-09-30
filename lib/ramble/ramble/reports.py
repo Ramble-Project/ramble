@@ -812,10 +812,16 @@ class ScalingPlotGenerator(PlotGenerator):
         all_vars = get_all_vars(self.result_index)
 
         if self.format_lines_by:
-            if self.format_lines_by not in all_foms and self.format_lines_by not in all_vars:
+            if self.format_lines_by in all_foms and self.format_lines_by not in all_vars:
+                logger.die(
+                    f"'{self.format_lines_by}' is a Figure of Merit (FOM). "
+                    "--format-lines-by only supports experiment variables, not FOMs. "
+                    "Use `ramble results index -v` to see available variables."
+                )
+            if self.format_lines_by not in all_vars:
                 logger.die(
                     f"{self.format_lines_by} was not found in the results data. "
-                    "Use `ramble results index -v` to see available FOMs and variables."
+                    "Use `ramble results index -v` to see available variables."
                 )
 
         foms = [perf_measure]
@@ -831,10 +837,7 @@ class ScalingPlotGenerator(PlotGenerator):
                 variables.append(var)
 
         if self.format_lines_by:
-            if self.format_lines_by in all_foms:
-                if self.format_lines_by not in foms:
-                    foms.append(self.format_lines_by)
-            elif self.format_lines_by not in variables:
+            if self.format_lines_by not in variables:
                 variables.append(self.format_lines_by)
 
             if (
