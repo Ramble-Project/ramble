@@ -67,11 +67,7 @@ from ramble.success_criteria import (
 )
 from ramble.util import cleaner, conversions, json_util
 from ramble.util.foms import NULL_CONTEXT as _NULL_CONTEXT
-from ramble.util.foms import (
-    FomType,
-    SummaryFoms,
-    get_literal_from_regex,
-)
+from ramble.util.foms import FomType, SummaryFoms, get_literal_from_regex
 from ramble.util.format import when_order
 from ramble.util.logger import logger
 from ramble.util.naming import NS_SEPARATOR
@@ -661,12 +657,92 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             for conf in success_criteria:
                 crit_conf = conf.copy()
                 if "match" in crit_conf and crit_conf["match"] is not None:
-                    crit_conf["match"] = self.expander.expand_var(crit_conf["match"])
-                if "anti_match" in crit_conf and crit_conf["anti_match"] is not None:
-                    crit_conf["anti_match"] = self.expander.expand_var(crit_conf["anti_match"])
+                    crit_conf["match"] = self.expander.expand_var(
+                        crit_conf["match"]
+                    )
+                if (
+                    "anti_match" in crit_conf
+                    and crit_conf["anti_match"] is not None
+                ):
+                    crit_conf["anti_match"] = self.expander.expand_var(
+                        crit_conf["anti_match"]
+                    )
                 self.success_list.add_criteria(
                     SuccessCriteriaScope.EXPERIMENT, **crit_conf
                 )
+
+        self.build_modifier_instances()
+        resolved_criteria = {
+            crit.name for crit, _ in self.success_list.all_criteria()
+        }
+
+        for _, obj_inst in self.objects():
+            if obj_inst.success_criteria:
+                obj_satisfied_criteria = {}
+                for (
+                    when_set,
+                    criteria_dict,
+                ) in obj_inst.success_criteria.items():
+                    if not self.expander.satisfies(
+                        when_set,
+                        variant_set=obj_inst.experiment_variants(),
+                    ):
+                        continue
+
+                    for name, conf in criteria_dict.items():
+                        if name in obj_satisfied_criteria:
+                            existing_when_set = obj_satisfied_criteria[name][0]
+                            logger.die(
+                                f"Success criteria '{name}' in object '{obj_inst.name}' is defined multiple times "
+                                f"under conflicting satisfied 'when' conditions:\n"
+                                f"  1) {sorted(existing_when_set)}\n"
+                                f"  2) {sorted(when_set)}"
+                            )
+                        obj_satisfied_criteria[name] = (when_set, conf)
+
+                for criteria, (_, conf) in obj_satisfied_criteria.items():
+                    if criteria in resolved_criteria:
+                        continue
+
+                    resolved_criteria.add(criteria)
+                    if conf["mode"] == SuccessCriteriaMode.STRING:
+                        match = (
+                            self.expander.expand_var(conf["match"])
+                            if conf["match"] is not None
+                            else None
+                        )
+                        anti_match = (
+                            self.expander.expand_var(conf["anti_match"])
+                            if conf["anti_match"] is not None
+                            else None
+                        )
+                        self.success_list.add_criteria(
+                            SuccessCriteriaScope.OBJECT_DEFINITIONS,
+                            criteria,
+                            mode=conf["mode"],
+                            match=match,
+                            file=conf["file"],
+                            anti_match=anti_match,
+                            owning_object=obj_inst,
+                        )
+                    elif conf["mode"] == SuccessCriteriaMode.FOM_COMPARISON:
+                        self.success_list.add_criteria(
+                            SuccessCriteriaScope.OBJECT_DEFINITIONS,
+                            criteria,
+                            conf["mode"],
+                            fom_name=conf["fom_name"],
+                            fom_context=conf["fom_context"],
+                            formula=conf["formula"],
+                            owning_object=obj_inst,
+                        )
+
+        if APPLICATION_FUNCTION_CRITERIA_NAME not in resolved_criteria:
+            self.success_list.add_criteria(
+                scope=SuccessCriteriaScope.OBJECT_DEFINITIONS,
+                name=APPLICATION_FUNCTION_CRITERIA_NAME,
+                mode=SuccessCriteriaMode.APPLICATION_FUNCTION,
+                owning_object=self,
+            )
 
     def build_phase_order(self):
         if self._pipeline_graphs is not None:
@@ -3973,8 +4049,6 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         Process figures_of_merit, and return the manipulated dictionaries
         to allow them to be extracted.
 
-        Additionally, ensure the success criteria list is complete.
-
         Returns:
             files (dict): All files that need to be processed
             file_fom_defs (dict): Definitions of all file-backed FOMs to be extracted
@@ -3984,81 +4058,6 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         files = {}
         file_fom_defs = {}
         inmem_fom_defs = {}
-
-        # Add the object defined criteria
-        criteria_list.flush_scope(SuccessCriteriaScope.OBJECT_DEFINITIONS)
-
-        resolved_criteria = {
-            crit.name for crit, _ in criteria_list.all_criteria()
-        }
-
-        for _, obj_inst in self.objects():
-            if obj_inst.success_criteria:
-                obj_satisfied_criteria = {}
-                for (
-                    when_set,
-                    criteria_dict,
-                ) in obj_inst.success_criteria.items():
-                    if not self.expander.satisfies(
-                        when_set,
-                        variant_set=obj_inst.experiment_variants(),
-                    ):
-                        continue
-
-                    for name, conf in criteria_dict.items():
-                        if name in obj_satisfied_criteria:
-                            existing_when_set = obj_satisfied_criteria[name][0]
-                            logger.die(
-                                f"Success criteria '{name}' in object '{obj_inst.name}' is defined multiple times "
-                                f"under conflicting satisfied 'when' conditions:\n"
-                                f"  1) {sorted(existing_when_set)}\n"
-                                f"  2) {sorted(when_set)}"
-                            )
-                        obj_satisfied_criteria[name] = (when_set, conf)
-
-                for criteria, (_, conf) in obj_satisfied_criteria.items():
-                    if criteria in resolved_criteria:
-                        continue
-
-                    resolved_criteria.add(criteria)
-                    if conf["mode"] == SuccessCriteriaMode.STRING:
-                        match = (
-                            self.expander.expand_var(conf["match"])
-                            if conf["match"] is not None
-                            else None
-                        )
-                        anti_match = (
-                            self.expander.expand_var(conf["anti_match"])
-                            if conf["anti_match"] is not None
-                            else None
-                        )
-                        criteria_list.add_criteria(
-                            SuccessCriteriaScope.OBJECT_DEFINITIONS,
-                            criteria,
-                            mode=conf["mode"],
-                            match=match,
-                            file=conf["file"],
-                            anti_match=anti_match,
-                            owning_object=obj_inst,
-                        )
-                    elif conf["mode"] == SuccessCriteriaMode.FOM_COMPARISON:
-                        criteria_list.add_criteria(
-                            SuccessCriteriaScope.OBJECT_DEFINITIONS,
-                            criteria,
-                            conf["mode"],
-                            fom_name=conf["fom_name"],
-                            fom_context=conf["fom_context"],
-                            formula=conf["formula"],
-                            owning_object=obj_inst,
-                        )
-
-        if APPLICATION_FUNCTION_CRITERIA_NAME not in resolved_criteria:
-            criteria_list.add_criteria(
-                scope=SuccessCriteriaScope.OBJECT_DEFINITIONS,
-                name=APPLICATION_FUNCTION_CRITERIA_NAME,
-                mode=SuccessCriteriaMode.APPLICATION_FUNCTION,
-                owning_object=self,
-            )
 
         # Extract file paths for all criteria
         for criteria, _ in criteria_list.all_criteria():
