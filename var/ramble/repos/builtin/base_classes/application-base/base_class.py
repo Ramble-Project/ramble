@@ -659,8 +659,13 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
 
         if success_criteria:
             for conf in success_criteria:
+                crit_conf = conf.copy()
+                if "match" in crit_conf and crit_conf["match"] is not None:
+                    crit_conf["match"] = self.expander.expand_var(crit_conf["match"])
+                if "anti_match" in crit_conf and crit_conf["anti_match"] is not None:
+                    crit_conf["anti_match"] = self.expander.expand_var(crit_conf["anti_match"])
                 self.success_list.add_criteria(
-                    SuccessCriteriaScope.EXPERIMENT, **conf
+                    SuccessCriteriaScope.EXPERIMENT, **crit_conf
                 )
 
     def build_phase_order(self):
