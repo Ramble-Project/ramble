@@ -60,10 +60,6 @@ class ScopedCriteriaList:
         SuccessCriteriaScope.OBJECT_DEFINITIONS,
         SuccessCriteriaScope.EXPERIMENT,
     ]
-    _flush_scopes = {
-        SuccessCriteriaScope.EXPERIMENT: [SuccessCriteriaScope.EXPERIMENT],
-        SuccessCriteriaScope.OBJECT_DEFINITIONS: [SuccessCriteriaScope.OBJECT_DEFINITIONS],
-    }
 
     def __init__(self):
         self.criteria = {}
@@ -91,21 +87,6 @@ class ScopedCriteriaList:
         self.criteria[scope].append(
             SuccessCriteria(name, mode, *args, owning_object=owning_object, **kwargs)
         )
-
-    def flush_scope(self, scope):
-        """Remove criteria within a scope, and lower level scopes
-
-        Scope to be purged are defined in self._flush_scopes.
-        """
-        self.validate_scope(scope)
-
-        for s in self._flush_scopes[scope]:
-            logger.debug(f" Flushing scope: {s}")
-            logger.debug("    It contained:")
-            for crit in self.criteria[s]:
-                logger.debug(f"      {crit.name}")
-            del self.criteria[s]
-            self.criteria[s] = []
 
     def passed(self):
         succeed = True
