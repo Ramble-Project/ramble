@@ -30,6 +30,23 @@ class BetterDirection(Enum):
 
 
 class FomType(Enum):
+    """Classification of a Figure of Merit (FOM).
+
+    - ``TIME``: Duration or latency metric where lower values are better.
+    - ``THROUGHPUT``: Rate or bandwidth metric where higher values are better.
+    - ``MEASURE``: Quantitative measurement with no inherent 'better' direction
+      (e.g., power draw, frequency, problem size, error). Eligible for summary
+      statistics across repeats.
+    - ``CATEGORY``: Qualitative or discrete classification drawn from a shared
+      set of values across experiments (e.g., CPU vendor, machine type,
+      compiler/library variant, pass/fail status). Useful for grouping,
+      filtering, or splitting series; excluded from numeric repeat stats.
+    - ``INFO``: High-cardinality, run-specific, or unstructured provenance
+      metadata expected to be unique per run or resource (e.g., hostnames,
+      job IDs, UUIDs, timestamps). Excluded from numeric repeat stats.
+    - ``UNDEFINED``: Default when no FOM type is specified.
+    """
+
     TIME = 1
     THROUGHPUT = 2
     MEASURE = 3

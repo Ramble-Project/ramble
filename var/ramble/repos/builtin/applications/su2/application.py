@@ -117,7 +117,7 @@ class Su2(ExecutableApplication):
         fom_regex=r".*?Release\s+(?P<version>[0-9\.]+)",
         group_name="version",
         units="",
-        fom_type=FomType.INFO,
+        fom_type=FomType.CATEGORY,
     )
 
     figure_of_merit(

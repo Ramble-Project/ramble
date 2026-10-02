@@ -111,7 +111,7 @@ class NvidiaDcgm(ExecutableApplication):
         fom_regex=r"^\|\s*(?P<diag_test>[\w\s\/]+?)\s*\|\s*(?P<result>Pass|Fail)\b.*",
         group_name="result",
         units="",
-        fom_type=FomType.INFO,
+        fom_type=FomType.CATEGORY,
     )
 
     # Success Criteria

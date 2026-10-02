@@ -249,7 +249,10 @@ class Slurm(WorkflowManagerBase):
         else:
             fom_key = "slurm-job-termination-overhead"
             self.figure_of_merit(
-                "job-termination-overhead", units="s", fom_map_key=fom_key
+                "job-termination-overhead",
+                units="s",
+                fom_map_key=fom_key,
+                fom_type=FomType.TIME,
             )
             self.add_inmem_fom_value(fom_key, duration)
 
@@ -294,20 +297,20 @@ class Slurm(WorkflowManagerBase):
         return status
 
     # Extract some job-related FOMs
-    for fom in [
-        "id",
-        "status",
-        "nodes",
-        "start",
-        "end",
-        "exit_code",
+    for fom, fom_type in [
+        ("id", FomType.INFO),
+        ("status", FomType.CATEGORY),
+        ("nodes", FomType.INFO),
+        ("start", FomType.INFO),
+        ("end", FomType.INFO),
+        ("exit_code", FomType.CATEGORY),
     ]:
         figure_of_merit(
             f"job-{fom}",
             fom_regex=rf"\s*job_{fom}:\s*(?P<val>.*)",
             group_name="val",
             log_file="{experiment_run_dir}/.slurm_job_info",
-            fom_type=FomType.INFO,
+            fom_type=fom_type,
         )
 
     figure_of_merit(
@@ -344,7 +347,7 @@ class Slurm(WorkflowManagerBase):
             fom_regex=rf"\s*{fom}\s*=\s*(?P<val>\S+)",
             group_name="val",
             log_file="{experiment_run_dir}/.slurm_config",
-            fom_type=FomType.INFO,
+            fom_type=FomType.CATEGORY,
         )
 
     success_criteria(

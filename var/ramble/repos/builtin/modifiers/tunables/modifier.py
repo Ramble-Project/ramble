@@ -45,30 +45,37 @@ class Tunables(BasicModifier):
         {
             "name": "address-space-randomization",
             "cmd": "cat /proc/sys/kernel/randomize_va_space",
+            "fom_type": FomType.CATEGORY,
         },
         {
             "name": "numa-balancing",
             "cmd": "cat /proc/sys/kernel/numa_balancing",
+            "fom_type": FomType.CATEGORY,
         },
         {
             "name": "smt-active",
             "cmd": "cat /sys/devices/system/cpu/smt/active",
+            "fom_type": FomType.CATEGORY,
         },
         {
             "name": "thp-enabled",
             "cmd": "cat /sys/kernel/mm/transparent_hugepage/enabled | awk -F'[][]' '{print $2}'",
+            "fom_type": FomType.CATEGORY,
         },
         {
             "name": "thp-defrag",
             "cmd": "cat /sys/kernel/mm/transparent_hugepage/defrag | awk -F'[][]' '{print $2}'",
+            "fom_type": FomType.CATEGORY,
         },
         {
             "name": "hugepage-size",
             "cmd": "grep -i Hugepagesize /proc/meminfo | cut -d ':' -f 2",
+            "fom_type": FomType.CATEGORY,
         },
         {
             "name": "hugepage-count",
             "cmd": "grep -i HugePages_Total /proc/meminfo | cut -d ':' -f 2",
+            "fom_type": FomType.MEASURE,
         },
     ]
 
@@ -114,5 +121,5 @@ class Tunables(BasicModifier):
             conf["name"],
             units="",
             fom_map_key=conf["name"],
-            fom_type=FomType.INFO,
+            fom_type=conf["fom_type"],
         )

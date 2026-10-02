@@ -445,11 +445,11 @@ class Gromacs(ExecutableApplication):
         + r"(?P<hours_per_ns>[0-9]+\.[0-9]+)",
         group_name="hours_per_ns",
         units="hours/ns",
-        fom_type=FomType.INFO,
+        fom_type=FomType.TIME,
     )
 
     # FOMs around the binary information
-    info_foms = (
+    category_foms = (
         "Precision",
         "MPI library",
         "OpenMP support",
@@ -462,11 +462,11 @@ class Gromacs(ExecutableApplication):
         "BLAS library",
         "LAPACK library",
     )
-    for fom in info_foms:
+    for fom in category_foms:
         figure_of_merit(
             name=fom,
             fom_regex=rf"\s*{fom}:\s*(?P<fom_value>.*)",
             group_name="fom_value",
             units="",
-            fom_type=FomType.INFO,
+            fom_type=FomType.CATEGORY,
         )

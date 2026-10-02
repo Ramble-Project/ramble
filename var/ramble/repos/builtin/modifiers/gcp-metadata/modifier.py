@@ -236,14 +236,14 @@ class GcpMetadata(BasicModifier):
         fom_regex=r".*?machineTypes/(?P<machine>.*)",
         group_name="machine",
         log_file="{experiment_run_dir}/gcp-metadata.machine-type.log",
-        fom_type=FomType.INFO,
+        fom_type=FomType.CATEGORY,
     )
     figure_of_merit(
         "image",
         fom_regex=r"(?P<image>.*?global/images.*)",
         group_name="image",
         log_file="{experiment_run_dir}/gcp-metadata.image.log",
-        fom_type=FomType.INFO,
+        fom_type=FomType.CATEGORY,
     )
 
     # This is intentionally left singular, to get the hostname of the "parent" or "root" process
@@ -292,7 +292,7 @@ class GcpMetadata(BasicModifier):
         figure_of_merit(
             f"Level {lv_num} Groups ({lv_name})",
             fom_map_key=f"gcp_metadata_level_{lv_num}",
-            fom_type=FomType.INFO,
+            fom_type=FomType.MEASURE,
             units="",
         )
 

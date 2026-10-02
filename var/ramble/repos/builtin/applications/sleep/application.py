@@ -69,7 +69,11 @@ class Sleep(ExecutableApplication):
 
     echo_regex = r"Sleep for (?P<time>[0-9]+) seconds"
     figure_of_merit(
-        "Sleep time", fom_regex=echo_regex, group_name="time", units="s"
+        "Sleep time",
+        fom_regex=echo_regex,
+        group_name="time",
+        units="s",
+        fom_type=FomType.TIME,
     )
 
     figure_of_merit(
@@ -77,6 +81,7 @@ class Sleep(ExecutableApplication):
         fom_regex=r"(?P<user_time>[0-9]+\.[0-9]+)user",
         group_name="user_time",
         units="s",
+        fom_type=FomType.TIME,
     )
 
     figure_of_merit(
@@ -84,6 +89,7 @@ class Sleep(ExecutableApplication):
         fom_regex=r".*?(?P<mins>[0-9]+):(?P<secs>[0-9]+)\.(?P<millisecs>[0-9]+)elapsed",
         group_name="mins",
         units="minutes",
+        fom_type=FomType.TIME,
     )
 
     figure_of_merit(
@@ -91,6 +97,7 @@ class Sleep(ExecutableApplication):
         fom_regex=r".*?(?P<mins>[0-9]+):(?P<secs>[0-9]+)\.(?P<millisecs>[0-9]+)elapsed",
         group_name="secs",
         units="s",
+        fom_type=FomType.TIME,
     )
 
     figure_of_merit(
@@ -98,6 +105,7 @@ class Sleep(ExecutableApplication):
         fom_regex=r".*?(?P<mins>[0-9]+):(?P<secs>[0-9]+)\.(?P<millisecs>[0-9]+)elapsed",
         group_name="millisecs",
         units="ms",
+        fom_type=FomType.TIME,
     )
 
     figure_of_merit(
@@ -105,7 +113,7 @@ class Sleep(ExecutableApplication):
         fom_regex=r"\s*(?P<mode>(Sleep|Wake)) for.*",
         group_name="mode",
         units="",
-        fom_type=FomType.INFO,
+        fom_type=FomType.CATEGORY,
     )
 
     success_criteria("printed_sleep_time", mode="string", match=echo_regex)

@@ -42,32 +42,21 @@ class Lscpu(BasicModifier):
         output_format="{arch}",
     )
 
-    section_list = [
+    category_sections = [
         "CPU op-mode(s)",
         "Address sizes",
         "Byte Order",
-        "CPU(s)",
-        "On-line CPU(s) list",
         "Vendor ID",
         "Model name",
         "CPU family",
         "Model",
-        "Thread(s) per core",
-        "Core(s) per socket",
-        "Socket(s)",
         "Stepping",
-        "CPU(s) scaling MHz",
-        "CPU max MHz",
-        "CPU min MHz",
-        "BogoMIPS",
         "Virtualization",
         "L1d cache",
         "L1i cache",
         "L2 cache",
         "L3 cache",
         "NUMA",
-        "NUMA node(s)",
-        "NUMA node0 CPU(s)",
         "Vulnerability Itlb multihit",
         "Vulnerability L1tf",
         "Vulnerability Mds",
@@ -81,18 +70,40 @@ class Lscpu(BasicModifier):
         "Vulnerability Tsx async abort",
     ]
 
-    for section in section_list:
-        figure_of_merit(
-            section,
-            fom_regex=r"\s*"
-            + f"{section}".replace("(", r"\(").replace(")", r"\)")
-            + r":\s+(?P<fom>.*)",
-            group_name="fom",
-            units="",
-            log_file="{lscpu_log}",
-            contexts=["architecture"],
-            fom_type=FomType.INFO,
-        )
+    measure_sections = [
+        "CPU(s)",
+        "Thread(s) per core",
+        "Core(s) per socket",
+        "Socket(s)",
+        "CPU(s) scaling MHz",
+        "CPU max MHz",
+        "CPU min MHz",
+        "BogoMIPS",
+        "NUMA node(s)",
+    ]
+
+    info_sections = [
+        "On-line CPU(s) list",
+        "NUMA node0 CPU(s)",
+    ]
+
+    for sections, fom_type in [
+        (category_sections, FomType.CATEGORY),
+        (measure_sections, FomType.MEASURE),
+        (info_sections, FomType.INFO),
+    ]:
+        for section in sections:
+            figure_of_merit(
+                section,
+                fom_regex=r"\s*"
+                + f"{section}".replace("(", r"\(").replace(")", r"\)")
+                + r":\s+(?P<fom>.*)",
+                group_name="fom",
+                units="",
+                log_file="{lscpu_log}",
+                contexts=["architecture"],
+                fom_type=fom_type,
+            )
 
     register_builtin("lscpu_exec")
 
@@ -125,6 +136,7 @@ fi\n"""]
         fom_regex=r"^\s*Spack detected arch=\s*(?P<spack_arch>.*)",
         group_name="spack_arch",
         log_file="{lscpu_log}",
+        fom_type=FomType.CATEGORY,
     )
 
     figure_of_merit(
@@ -132,4 +144,5 @@ fi\n"""]
         fom_regex=r"^\s*GCC detected arch=\s*(?P<gcc_arch>.*)",
         group_name="gcc_arch",
         log_file="{lscpu_log}",
+        fom_type=FomType.CATEGORY,
     )

@@ -59,7 +59,7 @@ class NvidiaSmi(BasicModifier):
         fom_regex=r"^\d+, (?P<gpu_name>[^,]+),",
         group_name="gpu_name",
         units="",
-        fom_type=FomType.INFO,
+        fom_type=FomType.CATEGORY,
         contexts=["gpu"],
         log_file="{nvidia_smi_log}",
     )
@@ -69,7 +69,7 @@ class NvidiaSmi(BasicModifier):
         fom_regex=r"^\d+, [^,]+, (?P<driver_version>[^,]+),",
         group_name="driver_version",
         units="",
-        fom_type=FomType.INFO,
+        fom_type=FomType.CATEGORY,
         contexts=["gpu"],
         log_file="{nvidia_smi_log}",
     )
@@ -79,7 +79,7 @@ class NvidiaSmi(BasicModifier):
         fom_regex=r"^\d+, [^,]+, [^,]+, (?P<pstate>[^,]+),",
         group_name="pstate",
         units="",
-        fom_type=FomType.INFO,
+        fom_type=FomType.CATEGORY,
         contexts=["gpu"],
         log_file="{nvidia_smi_log}",
     )
@@ -129,7 +129,7 @@ class NvidiaSmi(BasicModifier):
         fom_regex=r"^\d+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, (?P<power_limit>[^,]+),",
         group_name="power_limit",
         units="W",
-        fom_type=FomType.INFO,
+        fom_type=FomType.MEASURE,
         contexts=["gpu"],
         log_file="{nvidia_smi_log}",
     )
@@ -139,7 +139,7 @@ class NvidiaSmi(BasicModifier):
         fom_regex=r"^\d+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, (?P<graphics_clock>[^,]+),",
         group_name="graphics_clock",
         units="MHz",
-        fom_type=FomType.INFO,
+        fom_type=FomType.MEASURE,
         contexts=["gpu"],
         log_file="{nvidia_smi_log}",
     )
@@ -149,7 +149,7 @@ class NvidiaSmi(BasicModifier):
         fom_regex=r"^\d+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, [^,]+, (?P<mem_clock>[^,]+)",
         group_name="mem_clock",
         units="MHz",
-        fom_type=FomType.INFO,
+        fom_type=FomType.MEASURE,
         contexts=["gpu"],
         log_file="{nvidia_smi_log}",
     )
@@ -159,6 +159,7 @@ class NvidiaSmi(BasicModifier):
         fom_regex=r"GPU Count: (?P<gpu_count>\d+)",
         group_name="gpu_count",
         units="",
+        fom_type=FomType.MEASURE,
         log_file="{nvidia_smi_log}",
     )
 
