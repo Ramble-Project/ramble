@@ -50,18 +50,10 @@ def _add_specs(
     pkg_spec,
     compiler=None,
     compiler_spec=None,
-    package_manager=None,
     inject_if_missing=False,
     when=None,
 ):
     when_list = ramble.language.language_helpers.build_when_list(when, obj, name, directive_name)
-
-    if package_manager is not None:
-        logger.warn(
-            f"The `package_manager` argument of the {directive_name} "
-            f"directive in object {obj.name} is deprecated. Please "
-            "transition this to use the `when` argument instead."
-        )
 
     target_dict = getattr(obj, target_dict_name)
     if name not in target_dict:
@@ -405,7 +397,6 @@ def define_compiler(
     pkg_spec,
     compiler_spec=None,
     compiler=None,
-    package_manager=None,
     inject_if_missing=False,
     when=None,
     **kwargs,
@@ -420,8 +411,6 @@ def define_compiler(
         pkg_spec (str): Package spec to install compiler
         compiler_spec (str): Compiler spec (if different from pkg_spec)
         compiler (str): Package name to use for compilation
-        package_manager (str): Glob supported pattern to match package managers
-                               this compiler applies to
         inject_if_missing (bool): Whether the package should be defined if a
                                   matching package is not already defined
         when (list | None): List of when conditions to apply to directive
@@ -436,7 +425,6 @@ def define_compiler(
             pkg_spec,
             compiler=compiler,
             compiler_spec=compiler_spec,
-            package_manager=package_manager,
             inject_if_missing=inject_if_missing,
             when=when,
         )
@@ -450,7 +438,6 @@ def software_spec(
     pkg_spec,
     compiler_spec=None,
     compiler=None,
-    package_manager=None,
     inject_if_missing=False,
     when=None,
     **kwargs,
@@ -470,8 +457,6 @@ def software_spec(
         compiler_spec (str): Spec to use if this package will be used as a
                              compiler for another package
         compiler (str): Package name to use as compiler for compiling this package
-        package_manager (str): Glob supported pattern to match package managers
-                               this package applies to
         inject_if_missing (bool): Whether the package should be added to experiment
                                   environments automatically or not.
         when (list | None): List of when conditions to apply to directive
@@ -486,7 +471,6 @@ def software_spec(
             pkg_spec,
             compiler=compiler,
             compiler_spec=compiler_spec,
-            package_manager=package_manager,
             inject_if_missing=inject_if_missing,
             when=when,
         )
@@ -495,7 +479,7 @@ def software_spec(
 
 
 @shared_directive("package_manager_configs")
-def package_manager_config(name, config, package_manager=None, when=None, **kwargs):
+def package_manager_config(name, config, when=None, **kwargs):
     """Defines a config option to set within a package manager
 
     Define a new config which will be passed to a package manager. The
@@ -505,7 +489,6 @@ def package_manager_config(name, config, package_manager=None, when=None, **kwar
     Args:
         name (str): Name of this configuration
         config (str): Configuration option to set
-        package_manager (str): Name of the package manager this config should be used with
         when (list | None): List of when conditions to apply to directive
     """
 
@@ -513,13 +496,6 @@ def package_manager_config(name, config, package_manager=None, when=None, **kwar
         when_list = ramble.language.language_helpers.build_when_list(
             when, obj, name, "package_manager_config"
         )
-
-        if package_manager is not None:
-            logger.warn(
-                "The `package_manager` argument of the package_manager_config "
-                f"directive in object {obj.name} is deprecated. Please "
-                "transition this to use the `when` argument instead."
-            )
 
         obj.package_manager_configs[name] = {
             "config": config,
@@ -530,27 +506,19 @@ def package_manager_config(name, config, package_manager=None, when=None, **kwar
 
 
 @shared_directive("required_packages")
-def required_package(name, package_manager=None, when=None, **kwargs):
+def required_package(name, when=None, **kwargs):
     """Defines a new spack package that is required for this object
     to function properly.
 
     Args:
         name (str): Name of required package
-        package_manager (str): Glob package manager name to apply this required package to
         when (list | None): List of when conditions to apply to directive
     """
 
     def _execute_required_package(obj):
         when_list = ramble.language.language_helpers.build_when_list(
-            when, obj, name, "package_manager_config"
+            when, obj, name, "required_package"
         )
-
-        if package_manager is not None:
-            logger.warn(
-                "The `package_manager` argument of the required_package "
-                f"directive in object {obj.name} is deprecated. Please "
-                "transition this to use the `when` argument instead."
-            )
 
         obj.required_packages[name] = {"when": when_list}
 

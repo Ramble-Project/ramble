@@ -6,7 +6,6 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
-import deprecation
 import pytest
 
 from ramble.definitions.versions import ObjectVersion
@@ -53,29 +52,6 @@ class TestObjectVersion:
         """Test that the __str__ method works correctly."""
         obj_ver = ObjectVersion(version_number="1.2.3")
         assert str(obj_ver) == "1.2.3"
-
-    @deprecation.fail_if_not_removed
-    def test_version_properties(self, deprecated_call):
-        """Test that properties and deprecated getter methods work correctly."""
-        obj_ver = ObjectVersion(version_number="1.2.3")
-
-        # Test direct version attribute
-        assert str(obj_ver.version) == "1.2.3"
-
-        # Test new version_num property
-        assert obj_ver.version_num == "1.2.3"
-
-        # Test lazy initialization of version_num
-        obj_ver_lazy = ObjectVersion(version=obj_ver.version)
-        assert obj_ver_lazy.version_num == "1.2.3"
-
-        # Test deprecated get_version method triggers warning
-        with deprecated_call():
-            assert str(obj_ver.get_version()) == "1.2.3"
-
-        # Test deprecated get_version_num method triggers warning
-        with deprecated_call():
-            assert obj_ver.get_version_num() == "1.2.3"
 
     @pytest.mark.parametrize(
         "version,variant,expected",

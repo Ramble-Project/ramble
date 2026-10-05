@@ -1178,8 +1178,6 @@ ramble:
         variable_definitions,
         variant_definitions,
         experiment_name,
-        package_manager=None,
-        workflow_manager=None,
         zips=None,
         matrix=None,
         overwrite=False,
@@ -1204,8 +1202,6 @@ ramble:
             variant_definitions (list(str)): List of variant definitions to use
                                              within generated experiments
             experiment_name (str): The name of the experiments to add
-            package_manager (str): Name of package manager to use for the generated experiments
-            workflow_manager (str): Name of workflow manager to use for the generated experiments
             zips (list(str) | None): List of strings representing zips to define, in the
                               format zipname=[var1,var2,var3]
             matrix (str): String representing a matrix to define within the
@@ -1295,13 +1291,6 @@ ramble:
 
         exp_context.variables = process_definitions(variable_definitions, def_type="variable")
         exp_context.variants = process_definitions(variant_definitions, def_type="variant")
-
-        # TODO: Deprecate / remove in favor of explicit variant definitions
-        if package_manager:
-            exp_context.variants[namespace.package_manager] = package_manager
-
-        if workflow_manager:
-            exp_context.variants[namespace.workflow_manager] = workflow_manager
 
         if application not in apps_dict:
             apps_dict[application] = syaml.syaml_dict()
