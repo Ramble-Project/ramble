@@ -786,7 +786,7 @@ _ramble_workspace_remove() {
 _ramble_workspace_generate_config() {
     if $list_options
     then
-        RAMBLE_COMPREPLY="-h --help --workload-filter --wf --variable-filter --vf --variable-definition -v --variant-definition -V --experiment-name -e --package-manager -p --workflow-manager --wm --dry-run --print --overwrite --include-default-variables -i --workload-name-variable -w --zip -z --matrix -m --default-variable-value"
+        RAMBLE_COMPREPLY="-h --help --workload-filter --wf --variable-filter --vf --variable-definition -v --variant-definition -V --experiment-name -e --dry-run --print --overwrite --include-default-variables -i --workload-name-variable -w --zip -z --matrix -m --default-variable-value"
     else
         _all_applications
     fi
@@ -804,7 +804,7 @@ _ramble_workspace_manage() {
 _ramble_workspace_manage_experiments() {
     if $list_options
     then
-        RAMBLE_COMPREPLY="-h --help --workload-filter --wf --variable-filter --vf --variable-definition -v --variant-definition -V --experiment-name -e --package-manager -p --workflow-manager --wm --dry-run --print --overwrite --include-default-variables -i --workload-name-variable -w --zip -z --matrix -m --default-variable-value"
+        RAMBLE_COMPREPLY="-h --help --workload-filter --wf --variable-filter --vf --variable-definition -v --variant-definition -V --experiment-name -e --dry-run --print --overwrite --include-default-variables -i --workload-name-variable -w --zip -z --matrix -m --default-variable-value"
     else
         _all_applications
     fi

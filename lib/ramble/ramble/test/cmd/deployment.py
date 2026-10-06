@@ -68,8 +68,8 @@ def test_local_deployment(mutable_config, mutable_mock_workspace_path, workspace
             "n_nodes=1",
             "--default-variable-value",
             "1",
-            "-p",
-            "spack",
+            "-V",
+            "package_manager=spack",
             global_args=["-w", workspace_name],
         )
         workspace("concretize", global_args=["-w", workspace_name])
@@ -121,8 +121,8 @@ def test_tar_deployment(mutable_config, mutable_mock_workspace_path, workspace_n
             "n_nodes=1",
             "--default-variable-value",
             "1",
-            "-p",
-            "spack",
+            "-V",
+            "package_manager=spack",
             global_args=["-w", workspace_name],
         )
         workspace("concretize", global_args=["-w", workspace_name])

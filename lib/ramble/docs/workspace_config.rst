@@ -1490,7 +1490,8 @@ Alternatively, when generating a specific set of experiments, you can assign a
 workflow manager directly using the `ramble workspace manage experiments`
 command. This will add the workflow manager configuration to the scope of the
 experiments being created within your `ramble.yaml`. Use the
-`--workflow-manager` (or `--wm`) flag to specify which manager to use.
+`--variant` (or `-V`) flag to specify which manager to use
+(i.e. `-v workflow_manager=slurm`).
 
 This approach is useful when you need different sets of experiments within the
 same workspace to use different workflow managers, rather than setting one

@@ -1,3 +1,3 @@
 setup:
   commands:
-  - manage experiments su2 --wf inv_channel -e test -p none -v n_nodes=2 -v processes_per_node=56 
+  - manage experiments su2 --wf inv_channel -e test -V package_manager=none -v n_nodes=2 -v processes_per_node=56 

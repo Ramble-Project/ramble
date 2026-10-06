@@ -25,7 +25,7 @@ workspace = RambleCommand("workspace")
     "test_args,disabled_value,enabled_value",
     [
         (
-            ["--wm", "when-workflow-manager"],
+            ["-V", "workflow_manager=when-workflow-manager"],
             "object_precedence_var from application",
             "object_precedence_var from workflow_manager",
         ),
@@ -56,8 +56,8 @@ def test_object_precedence_variables(
         "batch_submit={execute_experiment}",
         "--wf",
         "test_wl",
-        "-p",
-        "info",
+        "-V",
+        "package_manager=info",
         "--default-variable-value",
         "1",
         *test_args,

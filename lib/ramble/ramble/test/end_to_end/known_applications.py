@@ -62,8 +62,8 @@ def test_known_applications(application, package_manager, mock_file_auto_create,
                     args.append(f"{pkg}_path='/not/real/path'")
 
             else:
-                args.append("-p")
-                args.append(package_manager)
+                args.append("-V")
+                args.append(f"package_manager={package_manager}")
 
             workspace("manage", "experiments", *args, global_args=["-w", ws_name])
 
@@ -129,8 +129,8 @@ def test_known_workflow_managers(
                 args.append("-v")
                 args.append(f"{pkg}_path='/not/real/path'")
 
-            args.append("--wm")
-            args.append(workflow_manager)
+            args.append("-V")
+            args.append(f"workflow_manager={workflow_manager}")
 
             workspace("manage", "experiments", *args, global_args=["-w", workspace_name])
 

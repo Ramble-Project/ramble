@@ -8,12 +8,10 @@
 
 from typing import Callable, Optional
 
-import deprecation
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
 
 import ramble.util.colors as color
-from ramble import ramble_version
 from ramble.language.language_base import DirectiveError
 
 
@@ -103,26 +101,6 @@ class ObjectVersion:
             self.version_number = self.pep440_to_version(str(self.version))
 
         return self.version_number
-
-    @deprecation.deprecated(
-        deprecated_in="0.6.0",
-        removed_in="0.7.0",
-        current_version=ramble_version,
-        details="Access the .version attribute directly instead",
-    )
-    def get_version(self):
-        """Returns the packaging.version.Version representation of this version"""
-        return self.version
-
-    @deprecation.deprecated(
-        deprecated_in="0.6.0",
-        removed_in="0.7.0",
-        current_version=ramble_version,
-        details="Use the .version_num property instead",
-    )
-    def get_version_num(self):
-        """Returns the version number of this version"""
-        return self.version_num
 
     def evaluate_conflicts(self, variant):
         """Error if this version conflicts with a variant that is used"""
