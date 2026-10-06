@@ -16,8 +16,8 @@ ramble:
     n_ranks: '{processes_per_node}*{n_nodes}'
     batch_submit: '{execute_experiment}'
     mpi_command: mpirun -n {n_ranks}
-    platform: [platform1, platform2, platform3]
-    processes_per_node: [16, 18, 20]
+    platform: [platform1, platform2]
+    processes_per_node: [16, 20]
   zips:
     platform_config:
     - platform

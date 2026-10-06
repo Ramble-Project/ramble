@@ -182,6 +182,15 @@ This file contains a template script that will be rendered into an execution
 script for each generated experiment. You can feel free to edit it as you need
 to for your given system, but for this tutorial the default value will work.
 
+As an alternative to directly editing the configuration files, Ramble provides
+a set of commands (under the ``ramble workspace manage`` subcommand) that can
+be used to manipulate the workspace configuration. To replicate the experiments
+from this tutorial, you can run the following command (with a fresh workspace):
+
+.. code-block:: console
+
+     $ ramble workspace manage experiments hostname --wf local -v n_ranks=1 -e test
+
 Setting Up the Experiments
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

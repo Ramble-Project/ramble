@@ -71,8 +71,11 @@ Which might output the following:
 
 .. code-block:: console
 
-    ==> 4 modifiers
-    conditional-psm3  gcp-metadata  intel-aps  lscpu
+    ==> 33 modifiers
+    amd-uprof          darshan             execution-date     hpctoolkit      intel-vtune  nccl-tcpxo      pre-post-capture  sys-stat   wait-for-bg-jobs
+    apptainer          docker              exit-code          install-ramble  lscpu        nvidia-smi      pyxis-enroot      tunables
+    collection-daemon  env-var-aggregator  gcp-cloud-logging  install-spack   nccl-env     perf            run-directory     tuned-adm
+    conditional-psm3   ethtool             gcp-metadata       intel-aps       nccl-gib     pre-exec-print  status-markers    turbostat
 
 This shows there are four modifiers in this installation of Ramble. Two very
 general modifiers in this list are ``lscpu`` and ``intel-aps``. Modifiers are
@@ -83,6 +86,8 @@ about the ``lscpu`` modifier, execute:
 .. code-block:: console
 
     $ ramble info --type modifiers lscpu
+    or;
+    $ ramble info builtin.mod.lscpu
 
 This modifier adds the execution of ``lscpu`` to each experiment in a workspace
 (to capture additional platform level details, such as the CPU model), and
@@ -158,6 +163,8 @@ To get information about the ``intel-aps`` modifier, execute:
 .. code-block:: console
 
     $ ramble info --type modifiers intel-aps
+    or;
+    $ ramble info builtin.mod.intel-aps
 
 In the output from this command, you should see a ``mode`` named ``mpi``. One
 additional difference relateive to ``lscpu`` is that the ``Software Specs:``

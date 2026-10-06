@@ -134,7 +134,7 @@ example:
     - platform_config
     - n_nodes
 
-Would result in 6 experiments. Adding this to your workspace configuration, you
+Would result in 4 experiments. Adding this to your workspace configuration, you
 should have the following in your ``ramble.yaml``:
 
 .. literalinclude:: ../../../../examples/tutorial_7_matrix_config.yaml
@@ -151,12 +151,20 @@ should give the following error message:
 .. code-block:: console
 
     ==> Warning: Two experiments are defined with the name wrf@4.2.CONUS_12km.scaling_1
+    ==> Warning:   -> Collision Origin: Within the same YAML experiment block: 'scaling_{n_nodes}' (Matrix/Vector Expansion)
     ==> Warning: Variables unique to previously defined experiment:
     ==> Warning:   - experiment_index
     ==> Warning: Variable differences between experiment definitions:
-    ==> Warning:   - processes_per_node: {'previous': 16, 'new': 18}
+    ==> Warning:   - processes_per_node: {'previous': 16, 'new': 20}
     ==> Warning:   - platform: {'previous': 'platform1', 'new': 'platform2'}
+    ==> Warning: 
+    ==> Warning: ==> SUGGESTION: Your experiment name template does not distinguish between parallel expansions.
+    ==> Warning:     To make the namespaces unique, add one or more of these differing matrix variables into your 'scaling_{n_nodes}' template:
+    ==> Warning:     -> {processes_per_node}
+    ==> Warning:     -> {platform}
+    ==> Warning: 
     ==> Error: Experiment wrf@4.2.CONUS_12km.scaling_1 is not unique.
+
 
 This is because your experiment name template is not unique across the values
 of ``platform_config``. To remedy this issue, you can update the experiment

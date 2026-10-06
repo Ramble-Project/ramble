@@ -32,7 +32,7 @@ the workspace currently contains:
 
 .. code-block:: console
 
-    $ ramble workspace info
+    $ ramble workspace info --software
 
 This command provides a summary view of the workspace. It includes the
 experiment names, and the software environments. As an example, its output

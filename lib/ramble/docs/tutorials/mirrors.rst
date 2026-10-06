@@ -102,7 +102,6 @@ will look something like this:
             pkg_spec: gcc@14.2.0
           intel-mpi:
             pkg_spec: intel-oneapi-mpi@2021.17.2
-            compiler: gcc14
           wrfv4-{application::wrf::version}:
             pkg_spec: wrf@{application::wrf::version} build_type=dm+sm compile_type=em_real
               nesting=basic ~chem ~pnetcdf

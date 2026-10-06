@@ -25,10 +25,14 @@ Alternatively, the files can be edited directly with:
 Within the ``ramble.yaml`` file, write the following contents, which is the
 final configuration from a previous tutorial.
 
+**NOTE**: This workspace utilizes the ``spack`` package
+manager. As a result, it requires either that you
+manually installed ``spack`` and it is available in
+your path, or it will bootstrap a spack installation
+for you in the workspace's ``shared/`` directory.
+Modifications to the ``package_manager`` variant will
+change this behavior.
 
-**NOTE**: This workspace utilizes the ``spack`` package manager. As a result, it
-requires ``spack`` is installed and available in your path. Modifications to
-the ``package_manager`` variant will change this behavior.
 
 .. literalinclude:: /../../../examples/wrf_scaling_config.yaml
    :language: YAML

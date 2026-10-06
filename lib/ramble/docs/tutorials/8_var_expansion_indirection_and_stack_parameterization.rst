@@ -104,6 +104,13 @@ Spack environments with ``unify: true``
 for more details). As a result, OpenMPI should be compiled with the same
 compiler used for WRF.
 
+**NOTE**: This package can also be defined using the following command, however
+you will need parameterize which MPI implementation is used manually, as follows.
+
+.. code-block::
+
+    $ ramble workspace manage software --pkg openmpi --spec openmpi@5.0.8
+
 We also need to generate additional software environments, however we will
 parameterize the generation of these using a new variable definition. Since the
 ``mpi_name`` variable will be needed for both experiment generation and
@@ -118,7 +125,7 @@ environments, you'll put it under the workspace variables.
 .. code-block:: YAML
 
     environments:
-      wrf@4.2-{mpi_name}:
+      wrf@4.2:
         packages:
         - '{mpi_name}'
         - wrfv4-{application::wrf::version}
@@ -145,13 +152,19 @@ Should result in the following error:
 
 .. code-block:: console
 
+    ==> Warning: Two experiments are defined with the name wrf@4.2.CONUS_12km.scaling_1_platform1
+    ==> Warning:   -> Collision Origin: Within the same YAML experiment block: 'scaling_{n_nodes}_{platform}' (Matrix/Vector Expansion)
+    ==> Warning: Variables unique to previously defined experiment:
+    ==> Warning:   - experiment_index
+    ==> Warning: Variable differences between experiment definitions:
+    ==> Warning:   - mpi_name: {'previous': 'intel-mpi', 'new': 'openmpi'}
     ==> Error: Experiment wrf@4.2.CONUS_12km.scaling_1_platform1 is not unique.
 
 As you have implicitly defined 8 experiments (2 from ``n_nodes``, times 2 from
 ``platform_config``, times another 2 from ``mpi_name``), but you haven't
 updated the experiment name template. To resolve this, add ``{mpi_name}`` into
-the experiment name template. Additionally, you may explicitly add ``mpi_name``
-into the matrix.
+the experiment name template, and the software environment name. Additionally,
+you may explicitly add ``mpi_name`` into the matrix.
 
 The experiments are still not completely defined. Running:
 
@@ -159,11 +172,11 @@ The experiments are still not completely defined. Running:
 
     $ ramble workspace info
 
-Should result in the following error:
+Should result in the following warning:
 
 .. code-block:: console
 
-    ==> Error: Environment wrf@4.2 is not defined.
+    ==> Warning: Software environment 'wrf@4.2' was auto-constructed for package manager 'spack' and contains no packages. If this was not intended, please define the environment or packages in your configuration.
 
 The default software environment every application uses is named the same as the
 application (in this case, both would be named ``wrf@4.2``). Now that you've

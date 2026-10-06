@@ -198,7 +198,7 @@ configuration file should look like the following:
 .. literalinclude:: ../../../../examples/tutorial_11_exec_order_config.yaml
    :language: YAML
 
-**NOTE** Omitting any executables from the ``executables`` list will
+**NOTE** Omitting any executable from the ``executables`` list will
 prevent it from being used in the generated experiments.
 
 .. include:: shared/wrf_execute.rst
