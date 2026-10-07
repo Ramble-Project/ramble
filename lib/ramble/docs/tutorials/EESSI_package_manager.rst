@@ -134,6 +134,8 @@ the following command:
 .. code-block:: console
 
   $ ramble info --type package_managers eessi
+  or;
+  $ ramble info builtin.pkg_man.eessi
 
 This should print a summary of the ``eessi`` definition, as follows:
 
@@ -185,6 +187,8 @@ this portion of the package manager definition, you can execute the following:
 .. code-block:: console
 
   $ ramble info --type package_managers --attrs object_variables -v eessi
+  or;
+  $ ramble info builtin.pkg_man.eessi --attrs object_variables -v
 
 Which should print something like the following output:
 

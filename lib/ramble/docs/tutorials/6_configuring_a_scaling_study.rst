@@ -57,7 +57,7 @@ you want to execute. To begin with, select a workload from the output of:
     $ ramble info --attrs workloads wrf
 
 For the purposes of this tutorial, the ``CONUS_12km`` workload is recommended
-because it is less computationally expensive than the ``CONUS_2p5km`` workload.
+because it is less computationally expensive than any of the other workloads.
 
 **NOTE**: To get more detailed information about the workload definitions, you
 can use ``ramble info --attrs workloads -v wrf``.
@@ -196,10 +196,26 @@ so we need to escape it to convert it to a string.
 Applying the Default Software Configuration
 -------------------------------------------
 
-At this point, you have fully describe the experiments you would like to
+At this point, you have fully described the experiments you would like to
 perform, but have not defined the software stack that should be used for these
-experiments. Every Ramble application definition file should contain a
-suggested starting place for the experiments. To apply this to your workspace, use:
+experiments.
+
+To see this, when running:
+
+.. code-block:: console
+
+    $ ramble workspace info
+
+You should see the following warning
+
+.. code-block:: console
+
+    ==> Warning: Software environment 'wrf@4.2' was auto-constructed for package manager 'spack' and contains no packages. If this was not intended, please define the environment or packages in your configuration.
+
+This warning is printed as a result of the workspace not having any software
+packages or environments defined. Every Ramble application definition file
+should contain a suggested starting place for the experiment's software stack.
+To apply this to your workspace, use:
 
 
 .. code-block:: console

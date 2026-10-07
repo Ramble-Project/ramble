@@ -49,7 +49,7 @@ ramble:
           nesting=basic ~pnetcdf
         compiler: gcc14
     environments:
-      wrf@4.2-{mpi_name}:
+      wrf@4.2:
         packages:
         - '{mpi_name}'
         - wrfv4-{application::wrf::version}
