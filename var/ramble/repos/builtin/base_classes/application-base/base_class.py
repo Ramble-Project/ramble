@@ -3196,6 +3196,8 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         config_scopes = ramble.config.scopes()
         shell = ramble.config.get("config:shell")
         var_set = set()
+        all_env_cmds = []
+        has_license = False
         for scope in config_scopes:
             license_conf = ramble.config.config.get_config(
                 "licenses", scope=scope
@@ -3208,22 +3210,22 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                         app_licenses = license_conf[lic]
 
                 for action, conf in app_licenses.items():
+                    has_license = True
                     env_cmds, var_set = action_funcs[action](
                         conf, self.expander, var_set, shell=shell
                     )
-
-                    lock = lk.Lock(
-                        os.path.join(self.license_path, ".ramble-license")
+                    all_env_cmds.extend(
+                        self.expander.expand_var(cmd) + "\n"
+                        for cmd in env_cmds
+                        if cmd
                     )
-                    with lk.WriteTransaction(lock):
-                        with open(
-                            self.license_file, "w+", encoding="utf-8"
-                        ) as f:
-                            for cmd in env_cmds:
-                                if cmd:
-                                    f.write(
-                                        self.expander.expand_var(cmd) + "\n"
-                                    )
+
+        if has_license:
+            lock = lk.Lock(os.path.join(self.license_path, ".ramble-license"))
+            with lk.WriteTransaction(lock):
+                with open(self.license_file, "w+", encoding="utf-8") as f:
+                    for cmd in all_env_cmds:
+                        f.write(cmd)
 
     register_phase(
         "make_experiments", pipeline="setup", run_after=["get_inputs"]
@@ -4518,11 +4520,9 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                 "licenses", scope=scope
             )
             if license_conf:
-                if self.name in license_conf:
-                    app_licenses = license_conf[self.name]
-                    if app_licenses:
+                for lic in self.license_names:
+                    if license_conf.get(lic):
                         # Append logic to source file which contains the exports
-                        shell = ramble.config.get("config:shell")
                         license_set.add(
                             f"{source_str(shell)} {{license_input_dir}}/{LICENSE_INC_NAME}"
                         )
