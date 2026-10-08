@@ -6,14 +6,19 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
-
-from ramble.{kit_name} import *
+from ramble.wmkit import *
 
 
 class {class_name}({base_class}):
-    """Starter template for {name}.
+    """Starter template for {name} workflow manager.
+
+    TODO: Add description of the workflow manager and its purpose.
     """
 
     name = "{name}"
     maintainers({maintainers})
     tags({tags})
+
+    def get_status(self, workspace):
+        """Return status of a given job"""
+        return None

@@ -6,14 +6,27 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
-
-from ramble.{kit_name} import *
+from ramble.pkgmankit import *
 
 
 class {class_name}({base_class}):
-    """Starter template for {name}.
+    """Starter template for {name} package manager.
+
+    TODO: Add description of the package manager and its purpose.
     """
 
     name = "{name}"
     maintainers({maintainers})
     tags({tags})
+
+    def package_name_from_spec(self, spec: str) -> str:
+        return spec
+
+    def get_package_list(self, workspace):
+        return []
+
+    def environment_load_commands(self):
+        return []
+
+    def environment_unload_commands(self):
+        return []
