@@ -179,6 +179,7 @@ module = [
     "ramble.paths",
     "ramble.filters",
     "ramble.graphs",
+    "ramble.pipeline",
     "_ramble_cleaner",
     "_ramble_file_editor",
 ]

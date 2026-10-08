@@ -12,6 +12,7 @@ import os
 import shlex
 import shutil
 import stat
+from typing import Dict, List, Optional
 
 import llnl.util.filesystem as fs
 from llnl.util import tty
@@ -25,6 +26,7 @@ import ramble.filters
 import ramble.software_environments
 import ramble.stage
 import ramble.uploader
+import ramble.util.file_editor
 import ramble.util.hashing
 import ramble.util.path
 import ramble.workspace
@@ -97,10 +99,11 @@ class Pipeline:
         """
         changed = False
         for _, app_inst, _ in self._experiment_set.all_experiments():
-            changed = app_inst.populate_inventory(
+            exp_changed = app_inst.populate_inventory(
                 self.workspace,
                 force_compute=self.force_inventory,
             )
+            changed = changed or exp_changed
         return changed
 
     def _construct_workspace_hash(self):
@@ -266,10 +269,8 @@ class Pipeline:
 
     def _copy_workspace_root_files(self, workspace, dest_dir):
         root_files = [
-            ramble.workspace.Workspace.inventory_file_name,
-            ramble.workspace.Workspace.hash_file_name,
-            self.workspace.inventory_file_name,
-            self.workspace.hash_file_name,
+            workspace.inventory_file_name,
+            workspace.hash_file_name,
             ramble.workspace.METADATA_FILE_NAME,
         ]
         for filename in root_files:
@@ -305,7 +306,7 @@ class AnalyzePipeline(Pipeline):
     def _prepare(self):
 
         # We only want to let the user run analyze if one of the following is true:
-        # - At least one expeirment is set up
+        # - At least one experiment is set up
         # - `--dry-run` is enabled
         found_valid_experiment = False
         # Record how many non-analyzable experiments are encountered
@@ -378,7 +379,7 @@ class ArchivePipeline(Pipeline):
         self.upload_url = upload_url
         self.include_secrets = include_secrets
         self.archive_prefix = archive_prefix
-        self.archive_name = None
+        self.archive_name: Optional[str] = None
         self.archive_patterns = archive_patterns.copy() if archive_patterns else []
 
     def _prepare(self):
@@ -476,7 +477,7 @@ class ArchivePipeline(Pipeline):
         )
         archive_url = archive_url.rstrip("/") if archive_url else None
 
-        if self.create_tar:
+        if self.create_tar and self.archive_name:
             tar_extension = ".tar.gz"
             tar = which("tar", required=True)
             tar_path = self.archive_name + tar_extension
@@ -584,10 +585,6 @@ class SetupPipeline(Pipeline):
             self.workspace.write_utilities()
 
         # Write custom edit functions to each experiment's run directory
-        import llnl.util.filesystem as fs
-
-        import ramble.util.file_editor
-
         for _, app_inst, _ in self._experiment_set.filtered_experiments(self.filters):
             custom_functions = []
             if hasattr(app_inst, "custom_edit_functions"):
@@ -855,7 +852,7 @@ class PushDeploymentPipeline(Pipeline):
         self._copy_workspace_root_files(self.workspace, self.workspace.named_deployment)
 
         # Create an index.json of the deployment
-        deployment_index = {self.index_namespace: []}
+        deployment_index: Dict[str, List[str]] = {self.index_namespace: []}
         for file in self._deployment_files():
             deployment_index[self.index_namespace].append(
                 file.replace(self.workspace.named_deployment + os.path.sep, "")
