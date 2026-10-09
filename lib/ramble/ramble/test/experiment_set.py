@@ -3019,3 +3019,55 @@ ramble:
         "basic.test_wl.sweep_3_2_11",
         "basic.test_wl.sweep_3_3_12",
     }
+
+
+def test_excluded_experiments_do_not_pollute_software_environments(make_workspace_from_config):
+    test_config = """
+ramble:
+  variants:
+    package_manager: spack
+  variables:
+    processes_per_node: 1
+    mpi_command: ''
+    batch_submit: '{execute_experiment}'
+    n_ranks: 'range(1, 4)'
+    env_name: 'env_{tag}'
+  software:
+    packages:
+      zlib_1:
+        pkg_spec: zlib@1.2
+      zlib_2:
+        pkg_spec: zlib@1.3
+      zlib_3:
+        pkg_spec: zlib@1.4
+    environments:
+      env_keep:
+        packages:
+        - zlib_1
+      env_drop_explicit:
+        packages:
+        - zlib_2
+      env_drop_where:
+        packages:
+        - zlib_3
+  applications:
+    zlib:
+      workloads:
+        ensure_installed:
+          experiments:
+            exp_{tag}_{n_ranks}:
+              variables:
+                tag: [drop_explicit, keep, drop_where]
+              exclude:
+                variables:
+                  tag: [drop_explicit]
+                  n_ranks: [1]
+                where:
+                - "'{tag}' == 'drop_where'"
+"""
+    ws, _ = make_workspace_from_config(test_config, activate=True)
+    exp_set = ws.build_experiment_set()
+
+    assert list(exp_set.experiments.keys()) == ["zlib.ensure_installed.exp_keep_2"]
+    rendered_envs = ws.software_environments._rendered_environments["spack"]
+    assert list(rendered_envs.keys()) == ["env_keep"]

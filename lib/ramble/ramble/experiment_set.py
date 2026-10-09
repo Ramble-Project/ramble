@@ -238,7 +238,6 @@ class ExperimentSet:
         app_inst.set_tags(context.tags)
         app_inst.set_formatted_executables(context.formatted_executables)
         if app_inst.package_manager is not None:
-            app_inst.package_manager.define_missing_packages(self._workspace)
             app_inst.define_variable(
                 self.keywords.env_path,
                 os.path.join(
@@ -344,6 +343,8 @@ class ExperimentSet:
         context,
     ):
         app_inst = self._setup_experiment_minimal(workload_template_name, variables, context)
+        if app_inst.package_manager is not None:
+            app_inst.package_manager.define_missing_packages(self._workspace)
 
         # The `_get_used_variables` is only called for the base experiment,
         # so no need to consider repeat suffix.
@@ -606,8 +607,15 @@ class ExperimentSet:
         tracking_gen = renderer.render_objects(
             tracking_group, exclude_where=exclude_where, ignore_used=False, fatal=False
         )
-        try:
-            tracking_vars, _ = next(tracking_gen)
+        for candidate_vars, _ in tracking_gen:
+            if excluded_experiments:
+                candidate_expander = ramble.expander.Expander(candidate_vars, self)
+                candidate_name = candidate_expander.expand_var(
+                    experiment_template_name, allow_passthrough=False
+                )
+                if candidate_name in excluded_experiments:
+                    continue
+            tracking_vars = candidate_vars
             exp_used_variables = self._get_used_variables(
                 workload_template_name,
                 experiment_template_name,
@@ -615,8 +623,7 @@ class ExperimentSet:
                 final_context,
             )
             used_variables = used_variables.union(exp_used_variables)
-        except StopIteration:
-            pass
+            break
 
         if exclude_where:
             temp_vars = final_context.variables.copy()
@@ -790,6 +797,9 @@ class ExperimentSet:
                     logger.warn("")
 
                 logger.die(f"Experiment {final_exp_namespace} is not unique.")
+
+            if app_inst.package_manager is not None:
+                app_inst.package_manager.define_missing_packages(self._workspace)
 
             # Only need to validate the base experiment
             if is_base_experiment:
