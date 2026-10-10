@@ -109,18 +109,27 @@ class GcpMetadata(BasicModifier):
             prefix = ""
             suffix = ""
             if per_node:
-                prefix = self.expander.expand_var("{metadata_parallel_prefix}")
+                prefix = self.expander.expand_var(
+                    "{metadata_parallel_prefix}"
+                ).strip()
                 # Handle hostname inclusion for psdh specifically.
                 if include_hostname and "pdsh" in prefix:
                     prefix = prefix.replace(" -N ", " ")
 
-                if prefix and not prefix.endswith(" '"):
-                    prefix += " '"
+                suffix = self.expander.expand_var(
+                    "{metadata_parallel_suffix}"
+                ).strip()
 
-                suffix = self.expander.expand_var("{metadata_parallel_suffix}")
+                if prefix:
+                    if prefix.endswith("'") and not prefix.endswith(" '"):
+                        prefix = prefix[:-1].rstrip() + " '"
+                    elif not prefix.endswith(" '"):
+                        prefix += " '"
 
-                if suffix and not suffix.startswith("'"):
-                    suffix = "' " + suffix
+                    if not suffix.startswith("'"):
+                        suffix = f"' {suffix}".strip()
+                elif suffix.startswith("'"):
+                    suffix = suffix[1:].lstrip()
 
             log_name = (
                 log_name if log_name is not None else end_point.split("/")[-1]
