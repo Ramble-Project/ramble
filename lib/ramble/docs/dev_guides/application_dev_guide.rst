@@ -287,9 +287,59 @@ a physical quantity (such as total mass or energy), or a performance quantity
 (such as wallclock time), or some other application output.
 
 Each figure of merit is defined by
-:py:meth:`ramble.language.shared_language.figure_of_merit` and contains
-information about where the metric can be found, what the units of the metric
-are, and how to extract it from a given output file.
+:py:meth:`ramble.language.shared_language.figure_of_merit` and can be extracted
+in one of three ways:
+
+1. **File-based Figures of Merit** (``fom_regex`` and ``group_name``): Extracted
+   by matching a regular expression with named capture groups against an output
+   log file (``log_file``, which defaults to ``"{log_file}"``).
+2. **In-Memory Figures of Merit** (``fom_map_key``): Populated programmatically
+   during the ``prepare_analysis`` phase by calling
+   ``self.add_inmem_fom_value(fom_map_key, value)``.
+3. **Derived Figures of Merit** (``formula``): Computed automatically during
+   analysis from other resolved figures of merit (across the application,
+   modifiers, or other objects) and experiment variables, and recorded in the
+   default ``"null"`` context. ``formula`` accepts either a string expression or
+   a Python callable:
+
+   * **String Expression**: Uses Ramble's variable expansion and math evaluation
+     syntax. Referenced ``{FOM Name}`` or ``{variable_name}`` tokens are
+     substituted before evaluating the mathematical expression. ``"null"``-context
+     FOM names take precedence over experiment variables of the same name.
+
+     .. code-block:: python
+
+         figure_of_merit(
+             "Benchmark days per nanosecond",
+             fom_regex=r"Info: Benchmark time: .* (?P<days_per_ns>[0-9.]+) days/ns",
+             group_name="days_per_ns",
+             units="days/ns",
+         )
+
+         figure_of_merit(
+             "Nanoseconds per day",
+             units="ns/day",
+             formula="1.0 / {Benchmark days per nanosecond}",
+         )
+
+   * **Callable**: A function ``formula(app)`` receiving the application
+     instance. Inside the callable, use ``app.get_fom_value(fom_name,
+     context="null")`` to look up a single resolved FOM value or
+     ``app.get_fom_values(fom_name, context="null")`` to retrieve all resolved
+     values for a FOM across instances of a context. Returning ``None`` (or
+     raising an exception when a dependency is missing) omits the derived FOM.
+     Using a callable is also useful when an experiment variable is shadowed by
+     an identically named FOM (via ``app.expander.expand_var_name("var_name")``).
+
+     .. code-block:: python
+
+         figure_of_merit(
+             "GPU Count",
+             units="",
+             formula=lambda app: len(
+                 app.get_fom_values("GPU Name", context="gpu")
+             ),
+         )
 
 ^^^^^^^^^^^^^^^^^^^^^^^^
 Figure Of Merit Contexts
