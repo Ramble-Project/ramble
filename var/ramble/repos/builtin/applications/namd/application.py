@@ -6,9 +6,6 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
-import os
-import re
-
 from ramble.appkit import *
 from ramble.expander import Expander
 from ramble.keywords import keywords
@@ -382,41 +379,9 @@ class Namd(ExecutableApplication):
         units="MB",
     )
 
-    namd_nspd_stat_file = os.path.join(
-        Expander.expansion_str("experiment_run_dir"), "namd_nspd_stat.out"
-    )
     figure_of_merit(
         "Nanoseconds per day",
-        log_file=namd_nspd_stat_file,
-        fom_regex=r"(?P<ns_per_day>[0-9]+\.*[0-9]*) ns/day",
-        group_name="ns_per_day",
         units="ns/day",
+        formula="1.0 / {Benchmark days per nanosecond}",
+        fom_type=FomType.THROUGHPUT,
     )
-
-    def _analyze_experiments(self, workspace, app_inst=None):
-        """Generate ns/day metric for the experiment"""
-
-        log_path = self.expander.expand_var(self.log_file_str)
-        ns_regex = re.compile(self.benchmark_regex)
-
-        dpns = None
-
-        if os.path.isfile(log_path):
-            with open(log_path, encoding="utf-8") as f:
-                for line in f:
-                    match = ns_regex.match(line)
-                    if match:
-                        dpns = float(match.group("days_per_ns"))
-
-        if dpns:
-            nspd = 1.0 / dpns
-            nspd_file_path = os.path.join(
-                self.expander.expand_var(
-                    self.expander.expansion_str(keywords.experiment_run_dir)
-                ),
-                "namd_nspd_stat.out",
-            )
-            with open(nspd_file_path, "w+", encoding="utf-8") as f:
-                f.write(f"{nspd} ns/day\n")
-
-        super()._analyze_experiments(workspace)
