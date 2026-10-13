@@ -1,0 +1,82 @@
+# Copyright 2022-2026 The Ramble Authors
+#
+# Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+# https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+# <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+# option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
+ramble:
+  variants:
+    package_manager: spack
+  env_vars:
+    set:
+      OMP_NUM_THREADS: '{n_threads}'
+  variables:
+    batch_submit: sbatch -N {n_nodes} -n {n_ranks} --ntasks-per-node={processes_per_node} --cpus-per-task={n_threads} {execute_experiment}
+    mpi_command: srun -N {n_nodes} --ntasks-per-node={processes_per_node} -n {n_ranks}
+    processes_per_node: 64
+    n_threads: 1
+    n_nodes: 1
+    n_ranks: 64
+    compile_dir: /scratch/$USER/verilator_models
+    # Directory for simulation execution runs (or use node-local /tmp or /mnt/lssd if available)
+    execute_dir: /scratch/$USER/sim_workspace/{experiment_name}
+  applications:
+    verilator:
+      workloads:
+        # ----------------------------------------------------------------------
+        # Step 1 (Compile Run): 1 node, multi-core build (verilate + make -j)
+        # Run first: ramble on --where '{workload_name} == "compile_mixed"'
+        # ----------------------------------------------------------------------
+        compile_mixed:
+          experiments:
+            build_models_64c:
+              variables:
+                n_nodes: 1
+                processes_per_node: 1
+                n_ranks: 1
+                n_threads: 64
+                batch_submit: sbatch -N 1 -n 1 --cpus-per-task={n_threads} --mem=64G {execute_experiment}
+
+        # ----------------------------------------------------------------------
+        # Step 2A (Option 1 - Weak Scaling): N concurrent ranks running suite
+        # ----------------------------------------------------------------------
+        mixed_all:
+          experiments:
+            single_node_packed:
+              variables:
+                n_nodes: 1
+                processes_per_node: 64
+                n_ranks: 64
+                n_execute: 1
+            distributed_scale:
+              variables:
+                n_nodes: 8
+                processes_per_node: 64
+                n_ranks: 512
+                n_execute: 1
+
+        # ----------------------------------------------------------------------
+        # Step 2B (Option 2 Lite - Logic Regression): mixed suite across ranks
+        # ----------------------------------------------------------------------
+        regression_mixed:
+          experiments:
+            regression_64c_r4:
+              variables:
+                n_nodes: 1
+                processes_per_node: 64
+                n_ranks: 64
+                regression_repeat: 4
+  software:
+    packages:
+      gcc14:
+        pkg_spec: gcc@14.2.0
+        compiler_spec: gcc@14.2.0
+      verilator:
+        pkg_spec: verilator@5.052
+        compiler: gcc14
+    environments:
+      verilator:
+        packages:
+        - verilator
