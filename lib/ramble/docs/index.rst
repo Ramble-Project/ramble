@@ -40,6 +40,7 @@ If you're new to Ramble and want to start using it, see :doc:`getting_started`.
    success_criteria
    results
    mirror_config
+   pipelines
 
 .. toctree::
    :maxdepth: 2
