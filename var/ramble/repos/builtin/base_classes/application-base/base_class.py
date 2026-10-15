@@ -258,6 +258,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         self._software_lock = None
         # A dict storing fom values, currently it only stores inmem FOMs
         self._fom_map = {}
+        self._fom_values = {}
         self._template_paths_defined = False
 
         # Ensure we always have the application name, and this is never empty
@@ -3649,36 +3650,44 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
     def extract_inmem_foms(
         self, inmem_fom_defs, fom_values, context_metadata=None
     ):
-        """Extract in-memory FOMs"""
-        for context, foms in inmem_fom_defs.items():
-            context_key = context
-            if context_metadata is not None:
-                if isinstance(context, str):
-                    context_key = (context, context, frozenset())
-                    if context_key not in context_metadata:
-                        context_metadata[context_key] = {
-                            "name": context,
-                            "def_name": context,
-                            "vars": {},
-                        }
+        """Extract in-memory and derived FOMs"""
+        self._fom_values = fom_values
 
+        def _get_context_key(context_name):
+            if context_metadata is not None and isinstance(context_name, str):
+                return (context_name, context_name, frozenset())
+            return context_name
+
+        def _init_context(context_name):
+            context_key = _get_context_key(context_name)
+            if (
+                context_metadata is not None
+                and isinstance(context_key, tuple)
+                and context_key not in context_metadata
+            ):
+                context_metadata[context_key] = {
+                    "name": context_name,
+                    "def_name": context_name,
+                    "vars": {},
+                }
             if context_key not in fom_values:
                 fom_values[context_key] = {}
-            foms = inmem_fom_defs[context]["foms"]
-            for fom in foms:
-                fom_conf = inmem_fom_defs[context]["foms"][fom]
-                # Currently inmem FOM does not have semantics for expanded vars,
-                # so use the already expanded name and unit
-                fom_name = fom_conf["fom_name_expanded"]
-                # TODO: this can be extended to support derived FOMs,
-                # since the `fom_values` contains resolved file-based FOMs
-                fom_map_key = fom_conf["fom_map_key"]
-                if fom_map_key not in self._fom_map:
+            return context_key
+
+        # Resolve in-memory map FOMs (fom_map_key)
+        for context, ctx_def in inmem_fom_defs.items():
+            for fom_conf in ctx_def["foms"].values():
+                fom_map_key = fom_conf.get("fom_map_key")
+                if fom_map_key is None or fom_map_key not in self._fom_map:
                     continue
                 fom_value = self._fom_map.get(fom_map_key)
                 if fom_value is None:
                     continue
-                expanded_fom_value = self.expander.expand_var(fom_value)
+                fom_name = fom_conf["fom_name_expanded"]
+                expanded_fom_value = self.expander.expand_var(
+                    fom_value, extra_vars=fom_conf.get("extra_vars")
+                )
+                context_key = _init_context(context)
                 fom_values[context_key][fom_name] = {
                     "value": expanded_fom_value,
                     "units": fom_conf["units_expanded"],
@@ -3686,6 +3695,78 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                     "origin_type": fom_conf["origin_type"],
                     "fom_type": fom_conf["fom_type"],
                 }
+
+        # Resolve derived FOMs (formula) iteratively.
+        # This is needed since derived FOMs can depend on each other.
+        null_ctx_key = _get_context_key(_NULL_CONTEXT)
+        pending_formulas = [
+            fom_conf
+            for fom_conf in inmem_fom_defs.get(_NULL_CONTEXT, {})
+            .get("foms", {})
+            .values()
+            if fom_conf.get("formula") is not None
+        ]
+
+        while pending_formulas:
+            next_pending = []
+            progressed = False
+            for fom_conf in pending_formulas:
+                fom_name = fom_conf["fom_name_expanded"]
+                formula = fom_conf["formula"]
+                conf_extra_vars = fom_conf.get("extra_vars")
+                extra_vars = dict(conf_extra_vars) if conf_extra_vars else {}
+                extra_vars.update(self._fom_map)
+                if null_ctx_key in fom_values:
+                    for k, v in fom_values[null_ctx_key].items():
+                        extra_vars[k] = v["value"]
+
+                if callable(formula):
+                    try:
+                        raw_value = formula(self)
+                    except Exception as e:
+                        logger.debug(
+                            f"Failed to evaluate callable formula for FOM '{fom_name}': {e}"
+                        )
+                        next_pending.append(fom_conf)
+                        continue
+                    if raw_value is None:
+                        next_pending.append(fom_conf)
+                        continue
+                    expanded_fom_value = self.expander.expand_var(
+                        raw_value, extra_vars=extra_vars
+                    )
+                else:
+                    try:
+                        expanded_fom_value = self.expander.expand_var(
+                            formula,
+                            extra_vars=extra_vars,
+                            allow_passthrough=False,
+                        )
+                    except (
+                        ramble.expander.ExpanderError,
+                        ZeroDivisionError,
+                        ValueError,
+                        TypeError,
+                    ) as e:
+                        logger.debug(
+                            f"Failed to evaluate formula '{formula}' for FOM '{fom_name}': {e}"
+                        )
+                        next_pending.append(fom_conf)
+                        continue
+
+                _init_context(_NULL_CONTEXT)
+                fom_values[null_ctx_key][fom_name] = {
+                    "value": expanded_fom_value,
+                    "units": fom_conf["units_expanded"],
+                    "origin": fom_conf["origin"],
+                    "origin_type": fom_conf["origin_type"],
+                    "fom_type": fom_conf["fom_type"],
+                }
+                progressed = True
+
+            if not progressed:
+                break
+            pending_formulas = next_pending
 
     register_phase(
         "analyze_experiments",
@@ -4080,20 +4161,22 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             if log_path in files:
                 files[log_path]["success_criteria"].append(criteria.name)
 
-        # Could push this into the language features in the future
-        fom_sources = [self]
-        fom_sources.extend(self._modifier_instances)
-        if self.workflow_manager is not None:
-            fom_sources.append(self.workflow_manager)
+        fom_sources = [obj for _, obj in reversed(list(self.objects()))]
 
         all_contexts = {}
         for source in fom_sources:
+            if (
+                not source.figure_of_merit_contexts
+                and not source.figures_of_merit
+            ):
+                continue
+            source_variants = source.experiment_variants()
             for (
                 when_fs,
                 source_context_defs,
             ) in source.figure_of_merit_contexts.items():
                 if self.expander.satisfies(
-                    when_fs, variant_set=self.experiment_variants()
+                    when_fs, variant_set=source_variants
                 ):
                     all_contexts.update(source_context_defs)
             extra_vars = (
@@ -4104,7 +4187,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             # figures_of_merit[frozenset(when_list)][frozenset(context_list)][fom_name]
             for when_fs, source_contexts in source.figures_of_merit.items():
                 if not self.expander.satisfies(
-                    when_fs, variant_set=self.experiment_variants()
+                    when_fs, variant_set=source_variants
                 ):
                     continue
 
@@ -4145,7 +4228,10 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                                     }
 
                         for fom, source_def in source_foms.items():
-                            is_inmem = source_def["fom_map_key"] is not None
+                            is_inmem = (
+                                source_def["fom_map_key"] is not None
+                                or source_def.get("formula") is not None
+                            )
                             dest_def_dict = (
                                 inmem_fom_defs if is_inmem else file_fom_defs
                             )
@@ -4164,10 +4250,14 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                                     var, extra_vars=extra_vars
                                 )
 
-                            def _try_expand_var_or_none(var: str, expander):
+                            def _try_expand_var_or_none(
+                                var: str, expander, extra_vars=extra_vars
+                            ):
                                 try:
                                     return expander.expand_var(
-                                        var, allow_passthrough=False
+                                        var,
+                                        extra_vars=extra_vars,
+                                        allow_passthrough=False,
                                     )
                                 except ramble.expander.RambleSyntaxError:
                                     return None
@@ -4199,6 +4289,8 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                                 ),
                                 "fom_type": source_def["fom_type"].to_dict(),
                                 "fom_map_key": source_def["fom_map_key"],
+                                "formula": source_def.get("formula"),
+                                "extra_vars": extra_vars,
                                 # If expansion works (i.e., it doesn't rely on the matched fom
                                 # groups), then cache it here to avoid repeated expansion later.
                                 "units_expanded": _try_expand_var_or_none(
@@ -4239,6 +4331,32 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
     def add_inmem_fom_value(self, fom_map_key, value):
         """Add value to an in-memory FOM"""
         self._fom_map[fom_map_key] = value
+
+    def get_fom_values(self, fom_name, context=_NULL_CONTEXT):
+        """Get a list of all resolved FOM values matching fom_name and context"""
+        values = []
+        for ctx_key, ctx_foms in self._fom_values.items():
+            if isinstance(ctx_key, tuple):
+                ctx_match = context in (ctx_key[0], ctx_key[1])
+            else:
+                ctx_match = ctx_key == context
+            if ctx_match and fom_name in ctx_foms:
+                values.append(ctx_foms[fom_name]["value"])
+        return values
+
+    def get_fom_value(self, fom_name, context=_NULL_CONTEXT):
+        """Get a resolved FOM value by name and optional context"""
+        if context == _NULL_CONTEXT:
+            for null_k in (
+                (_NULL_CONTEXT, _NULL_CONTEXT, frozenset()),
+                _NULL_CONTEXT,
+            ):
+                ctx_foms = self._fom_values.get(null_k)
+                if ctx_foms and fom_name in ctx_foms:
+                    return ctx_foms[fom_name]["value"]
+            return None
+        vals = self.get_fom_values(fom_name, context=context)
+        return vals[0] if vals else None
 
     def get_repeat_child_namespaces(self):
         """Return a list of namespaces for all repeat children of this experiment"""

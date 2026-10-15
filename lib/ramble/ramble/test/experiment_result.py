@@ -324,3 +324,82 @@ def test_analyze_experiments_skips_none_fom(mutable_mock_apps_repo, monkeypatch,
 
     assert not fom_found
     assert valid_fom_found
+
+
+def test_derived_foms_extraction(mutable_mock_apps_repo):
+    """Test string and callable formula FOMs and get_fom_value in extract_inmem_foms"""
+    from ramble.expander import Expander
+
+    app_inst = mutable_mock_apps_repo.get("basic")
+    app_inst.expander = Expander({}, None)
+
+    null_key = ("null", "null", frozenset())
+    iter_key = ("Iteration 1", "iteration", frozenset({("itr", "1")}))
+    fom_values = {
+        null_key: {
+            "Days per ns": {
+                "value": "2.0",
+                "units": "days/ns",
+                "origin": "test",
+                "origin_type": "application",
+                "fom_type": "test",
+            }
+        },
+        iter_key: {
+            "Step time": {
+                "value": "0.25",
+                "units": "s",
+                "origin": "test",
+                "origin_type": "application",
+                "fom_type": "test",
+            }
+        },
+    }
+    context_metadata = {
+        null_key: {"name": "null", "def_name": "null", "vars": {}},
+        iter_key: {
+            "name": "Iteration 1",
+            "def_name": "iteration",
+            "vars": {"itr": "1"},
+        },
+    }
+
+    def _make_def(name, formula, extra_vars=None):
+        return {
+            "fom_name_expanded": name,
+            "fom_map_key": None,
+            "formula": formula,
+            "extra_vars": extra_vars,
+            "units_expanded": "1/s",
+            "origin": "test",
+            "origin_type": "application",
+            "fom_type": "test",
+        }
+
+    inmem_defs = {
+        "null": {
+            "foms": {
+                "Scaled throughput": _make_def(
+                    "Scaled throughput",
+                    lambda app: float(app.get_fom_value("Ns per day")) * 4.0,
+                ),
+                "Ns per day": _make_def(
+                    "Ns per day",
+                    "1.0 / {Days per ns} * {mod_factor}",
+                    extra_vars={"mod_factor": 2.0},
+                ),
+                "Missing dependency FOM": _make_def(
+                    "Missing dependency FOM", "1.0 / {Missing FOM}"
+                ),
+            }
+        },
+    }
+
+    app_inst.extract_inmem_foms(inmem_defs, fom_values, context_metadata)
+
+    assert float(fom_values[null_key]["Ns per day"]["value"]) == pytest.approx(1.0)
+    assert float(fom_values[null_key]["Scaled throughput"]["value"]) == pytest.approx(4.0)
+    assert "Missing dependency FOM" not in fom_values[null_key]
+    assert app_inst.get_fom_value("Step time", context="Iteration 1") == "0.25"
+    assert app_inst.get_fom_values("Step time", context="iteration") == ["0.25"]
+    assert app_inst.get_fom_value("Missing dependency FOM") is None

@@ -16,6 +16,7 @@ from ramble.error import ObjectValidationError
 from ramble.language.shared_language import SharedMeta
 from ramble.repository import ObjectTypes
 from ramble.util import format
+from ramble.util.foms import NULL_CONTEXT
 from ramble.util.logger import logger
 
 
@@ -321,6 +322,16 @@ class ObjectMixin(metaclass=SharedMeta):
         """Add an in-memory FOM value"""
         app_inst = self._get_app_inst()
         app_inst.add_inmem_fom_value(fom_map_key, value)
+
+    def get_fom_value(self, fom_name, context=NULL_CONTEXT):
+        """Get a resolved FOM value by name and optional context"""
+        app_inst = self._get_app_inst()
+        return app_inst.get_fom_value(fom_name, context=context)
+
+    def get_fom_values(self, fom_name, context=NULL_CONTEXT):
+        """Get a list of all resolved FOM values matching fom_name and context"""
+        app_inst = self._get_app_inst()
+        return app_inst.get_fom_values(fom_name, context=context)
 
     def _github_url(self, obj_def):
         """Link to an object file on github."""

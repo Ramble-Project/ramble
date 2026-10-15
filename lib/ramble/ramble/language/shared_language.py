@@ -337,6 +337,7 @@ def figure_of_merit(
     fom_type: FomType = FomType.UNDEFINED,
     when=None,
     fom_map_key=None,
+    formula: Optional[Union[str, Callable[[Any], Any]]] = None,
     **kwargs,
 ):
     """Adds a figure of merit to track for this object
@@ -356,14 +357,29 @@ def figure_of_merit(
       when (list | None): List of when conditions to apply to directive
       fom_map_key: If supplied, this is treated as an in-memory (as opposed to file-based)
                    figure of merit, and its value is extracted using this key
+      formula (str | Callable | None): If supplied, defines a derived figure of merit
+                   evaluated from resolved FOMs/variables via a string expression or
+                   callable receiving the application instance.
     """
 
     def _execute_figure_of_merit(obj):
-        if fom_map_key is None:
+        if fom_map_key is not None and formula is not None:
+            raise ramble.language.language_base.DirectiveError(
+                "`fom_map_key` and `formula` cannot both be specified for figure_of_merit"
+            )
+        if fom_map_key is None and formula is None:
             if fom_regex is None or group_name is None:
                 raise ramble.language.language_base.DirectiveError(
                     "`fom_regex` and `group_name` are required for defining file-based FOM"
                 )
+        elif fom_regex is not None or group_name is not None:
+            raise ramble.language.language_base.DirectiveError(
+                "`fom_regex` and `group_name` cannot be combined with `fom_map_key` or `formula`"
+            )
+        if formula is not None and contexts is not None:
+            raise ramble.language.language_base.DirectiveError(
+                "`contexts` cannot be specified with `formula` for figure_of_merit"
+            )
         when_list = ramble.language.language_helpers.build_when_list(
             when, obj, name, "figure_of_merit"
         )
@@ -385,6 +401,7 @@ def figure_of_merit(
             "fom_type": fom_type,
             "origin_type": obj.origin_type if hasattr(obj, "origin_type") else "",
             "fom_map_key": fom_map_key,
+            "formula": formula,
             "when": when_list,
         }
 
