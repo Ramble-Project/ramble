@@ -5,14 +5,16 @@ permissions:
 
 on:
   pull_request:
-   types:
-   - 'opened'
-   - 'reopened'
-   - 'synchronize'
+    branches:
+      - main
+      - develop
   push:
-    branches-ignore:
-    - main
-    - gh-pages
+    branches:
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   formatting:

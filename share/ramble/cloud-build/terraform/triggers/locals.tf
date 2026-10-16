@@ -16,6 +16,8 @@ locals {
     "rocky9-py3-7-17-spack-v1-2-2"      = { python = "3.7.17", spack = "v1.2.2", base = "rockylinux", base_ver = "9" },
   }
 
+  codecov_image_key = "debian12-5-py3-12-1-spack-v0-23-1"
+
   pm_map = {
     "debian"     = "apt"
     "rockylinux" = "yum"

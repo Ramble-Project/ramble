@@ -10,7 +10,10 @@ resource "google_cloudbuild_worker_pool" "unit_test_pool" {
 }
 
 resource "google_cloudbuild_trigger" "pr_unit_tests" {
-  for_each = local.image_map
+  for_each = {
+    for k, v in local.image_map : k => v
+    if k != local.codecov_image_key
+  }
 
   location    = google_cloudbuild_worker_pool.unit_test_pool.location
   name        = "PR-Unit-Tests-${each.value.base}${replace(each.value.base_ver, ".", "-")}-${replace(each.value.spack, ".", "-")}spack-${replace(each.value.python, ".", "-")}python"

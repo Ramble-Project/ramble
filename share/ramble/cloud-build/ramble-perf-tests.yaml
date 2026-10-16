@@ -6,6 +6,9 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+tags:
+  # This is used for filtering builds related to a specific PR
+  - '$TRIGGER_NAME-$_PR_NUMBER'
 steps:
   # Cancel older builds (only for PR builds)
   - name: 'gcr.io/cloud-builders/gcloud'

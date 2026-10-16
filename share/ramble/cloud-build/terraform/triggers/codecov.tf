@@ -4,7 +4,7 @@ data "google_secret_manager_secret_version" "codecov_token" {
 }
 
 locals {
-  codecov_image = local.image_map["debian12-5-py3-12-1-spack-v0-23-1"]
+  codecov_image = local.image_map[local.codecov_image_key]
 }
 
 resource "google_cloudbuild_trigger" "codecov_pr" {

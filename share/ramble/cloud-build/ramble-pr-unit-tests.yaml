@@ -33,15 +33,22 @@ steps:
       - |
         . /workspace/share/ramble/cloud-build/setup-ci-env.sh
 
-        UNIT_TEST_COVERAGE=true LONG=true /workspace/share/ramble/qa/run-unit-tests
+        if [ -n "$$PUSH_CODECOV" ]; then
+          export UNIT_TEST_COVERAGE=true
+        fi
+
+        LONG=true /workspace/share/ramble/qa/run-unit-tests
         # $$ characters are required for cloud-build:
         # https://cloud.google.com/build/docs/configuring-builds/substitute-variable-values
         unit_err=$$?
 
-        coverage report -m --fail-under=77
-        # $$ characters are required for cloud-build:
-        # https://cloud.google.com/build/docs/configuring-builds/substitute-variable-values
-        coverage_err=$$?
+        coverage_err=0
+        if [ "$$UNIT_TEST_COVERAGE" = "true" ]; then
+          coverage report -m --fail-under=77
+          # $$ characters are required for cloud-build:
+          # https://cloud.google.com/build/docs/configuring-builds/substitute-variable-values
+          coverage_err=$$?
+        fi
 
         error=0
         # $$ characters are required for cloud-build:
