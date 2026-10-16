@@ -215,6 +215,11 @@ def test_use_repositories_exception_cleanup(extra_repo):
     orig_meta_path = list(sys.meta_path)
     with pytest.raises(RuntimeError):
         with ramble.repository.use_repositories(extra_repo[0].root):
+            assert sys.meta_path == orig_meta_path
+            assert not any(
+                isinstance(f, (ramble.repository.Repo, ramble.repository.RepoPath))
+                for f in sys.meta_path
+            )
             raise RuntimeError("test error inside context")
     assert ramble.repository.paths[ramble.repository.ObjectTypes.applications] is orig_path
     assert sys.meta_path == orig_meta_path

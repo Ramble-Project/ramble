@@ -119,7 +119,7 @@ get_object_type = simplify_object_type
 
 
 def _gen_path(repo_dirs=None, obj_type=default_type):
-    """Create a RepoPath for a specific object, add it to sys.meta_path, and return it."""
+    """Create a RepoPath for a specific object and return it."""
     obj_type = simplify_object_type(obj_type)
     section_name = type_definitions[obj_type]["config_section"]
     singular_name = type_definitions[obj_type]["singular"]
@@ -129,9 +129,7 @@ def _gen_path(repo_dirs=None, obj_type=default_type):
             f"Ramble configuration contains no {singular_name} repositories."
         )
 
-    path = RepoPath(*repo_dirs, object_type=obj_type)
-    sys.meta_path.append(path)
-    return path
+    return RepoPath(*repo_dirs, object_type=obj_type)
 
 
 paths = {
@@ -218,19 +216,9 @@ def get_obj_class(spec, object_type=default_type):
 
 
 def set_path(repo, object_type=default_type):
-    """Set the path singleton to a specific value.
-
-    Overwrite ``path`` and register it as an importer in
-    ``sys.meta_path`` if it is a ``Repo`` or ``RepoPath``.
-    """
+    """Set the path singleton to a specific value."""
     object_type = simplify_object_type(object_type)
     paths[object_type] = repo
-
-    # make the new repo_path an importer if needed
-    append = isinstance(repo, (Repo, RepoPath))
-    if append:
-        sys.meta_path.append(repo)
-    return append
 
 
 @contextlib.contextmanager
@@ -251,14 +239,12 @@ def use_repositories(*paths_and_repos, object_type=default_type):
 
     # Swap the current repository out
     saved = paths[object_type]
-    remove_from_meta = set_path(temporary_repositories, object_type=object_type)
+    set_path(temporary_repositories, object_type=object_type)
 
     try:
         yield temporary_repositories
     finally:
-        # Restore _path and sys.meta_path
-        if remove_from_meta and temporary_repositories in sys.meta_path:
-            sys.meta_path.remove(temporary_repositories)
+        # Restore _path
         paths[object_type] = saved
 
 
@@ -284,7 +270,6 @@ class RambleNamespace(types.ModuleType):
         self.__file__ = "(ramble namespace)"
         self.__path__ = []
         self.__name__ = namespace
-        self.__modules = {}
 
     def __getattr__(self, name):
         """Getattr lazily loads modules if they're not already loaded."""
@@ -698,48 +683,6 @@ class RepoPath:
         for name in self.all_object_names():
             yield self.get(name)
 
-    def find_module(self, fullname, path=None):
-        """Implements precedence for overlaid namespaces.
-
-        Loop checks each namespace in self.repos for objects, and
-        also handles loading empty containing namespaces.
-
-        """
-        # namespaces are added to repo, and object modules are leaves.
-        namespace, _, module_name = fullname.rpartition(".")
-
-        # If it's a module in some repo, or if it is the repo's
-        # namespace, let the repo handle it.
-        for repo in self.repos:
-            if namespace == repo.full_namespace:
-                if repo.real_name(module_name):
-                    return repo
-            elif fullname == repo.full_namespace:
-                return repo
-
-        # No repo provides the namespace, but it is a valid prefix of
-        # something in the RepoPath.
-        if self.by_namespace.is_prefix(fullname):
-            return self
-
-        return None
-
-    def load_module(self, fullname):
-        """Handles loading container namespaces when necessary.
-
-        See ``Repo`` for how actual object modules are loaded.
-        """
-        if fullname in sys.modules:
-            return sys.modules[fullname]
-
-        if not self.by_namespace.is_prefix(fullname):
-            raise ImportError(f"No such ramble repo: {fullname}")
-
-        module = RambleNamespace(fullname)
-        module.__loader__ = self
-        sys.modules[fullname] = module
-        return module
-
     def last_mtime(self):
         """Time a object file in this repo was last updated."""
         # Filter out repos that don't have any mtime values before calling max
@@ -905,8 +848,6 @@ class Repo:
 
         # These are internal cache variables.
         self._modules = {}
-        self._classes = {}
-        self._instances = {}
 
         # Maps that goes from object name to corresponding file stat
         self._fast_object_checker = None
@@ -973,57 +914,6 @@ class Repo:
             if name in self:
                 return name
         return None
-
-    def is_prefix(self, fullname):
-        """True if fullname is a prefix of this Repo's namespace."""
-        parts = fullname.split(".")
-        return self._names[: len(parts)] == parts
-
-    def find_module(self, fullname, path=None):
-        """Python find_module import hook.
-
-        Returns this Repo if it can load the module; None if not.
-        """
-        if self.is_prefix(fullname):
-            return self
-
-        namespace, _, module_name = fullname.rpartition(".")
-        if namespace == self.full_namespace:
-            if self.real_name(module_name):
-                return self
-
-        return None
-
-    def load_module(self, fullname):
-        """Python importer load hook.
-
-        Tries to load the module; raises an ImportError if it can't.
-        """
-        if fullname in sys.modules:
-            return sys.modules[fullname]
-
-        namespace, _, module_name = fullname.rpartition(".")
-
-        if self.is_prefix(fullname):
-            module = RambleNamespace(fullname)
-
-        elif namespace == self.full_namespace:
-            real_name = self.real_name(module_name)
-            if not real_name:
-                raise ImportError(f"No module {module_name} in {self}")
-            module = self._get_obj_module(real_name)
-
-        else:
-            raise ImportError(f"No module {fullname} in {self}")
-
-        module.__loader__ = self
-        sys.modules[fullname] = module
-        if namespace != fullname:
-            parent = sys.modules[namespace]
-            if not hasattr(parent, module_name):
-                setattr(parent, module_name, module)
-
-        return module
 
     def _read_config(self):
         """Check for a YAML config file in this db's root directory."""
