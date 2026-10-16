@@ -1360,6 +1360,8 @@ def ensure_latest_format_fn(section):
         section (str): section of the configuration e.g. "applications",
             "config", etc.
     """
+    if section in ramble.schema.repo_schema.REPO_SECTIONS:
+        return lambda x: False
     # The line below is based on the fact that every module we need
     # is already imported at the top level
     section_module = getattr(ramble.schema, section)

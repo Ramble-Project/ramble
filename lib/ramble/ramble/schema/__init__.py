@@ -7,8 +7,6 @@
 # except according to those terms.
 """This module contains jsonschema files for all of Ramble's YAML formats."""
 
-import sys
-
 import llnl.util.lang
 import llnl.util.tty
 
@@ -39,8 +37,6 @@ def _make_validator():
         if not is_error:
             llnl.util.tty.warn(msg)
         else:
-            import jsonschema
-
             yield jsonschema.ValidationError(msg)
 
     import spack.util.spack_yaml as syaml
@@ -63,24 +59,3 @@ def _make_validator():
 
 
 Validator = llnl.util.lang.Singleton(_make_validator)
-
-
-def __getattr__(name: str):
-    import importlib
-
-    try:
-        return importlib.import_module(f"ramble.schema.{name}")
-    except (ImportError, ModuleNotFoundError) as err:
-        if getattr(err, "name", None) == f"ramble.schema.{name}":
-            raise AttributeError(f"module 'ramble.schema' has no attribute '{name}'") from err
-        raise
-
-
-if sys.version_info < (3, 7):  # pragma: no cover
-    import types
-
-    class _SchemaModule(types.ModuleType):
-        def __getattr__(self, name: str):
-            return __getattr__(name)
-
-    sys.modules[__name__].__class__ = _SchemaModule

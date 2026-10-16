@@ -40,16 +40,11 @@ def test_merged_properties_contain_all_repo_sections():
 
 
 @pytest.mark.parametrize("section_name", ramble.schema.repo_schema.REPO_SECTIONS)
-def test_individual_repo_schema_modules(section_name):
-    import importlib
-
-    mod = importlib.import_module(f"ramble.schema.{section_name}")
-    assert hasattr(mod, "properties")
-    assert hasattr(mod, "schema")
-    assert section_name in mod.properties
-    assert mod.schema["properties"] == mod.properties
-
-
-def test_schema_attribute_error():
-    with pytest.raises(AttributeError, match="has no attribute 'nonexistent'"):
-        _ = ramble.schema.nonexistent
+def test_repo_schema_definitions(section_name):
+    assert section_name in ramble.schema.repo_schema.properties
+    assert section_name in ramble.schema.repo_schema.schemas
+    schema = ramble.schema.repo_schema.schemas[section_name]
+    assert section_name in schema["properties"]
+    assert schema["properties"][section_name] == ramble.schema.repo_schema.properties[section_name]
+    update_fn = ramble.config.ensure_latest_format_fn(section_name)
+    assert update_fn({}) is False
