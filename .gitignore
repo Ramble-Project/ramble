@@ -8,3 +8,7 @@ share/ramble/custom-ramble-completion.bash
 
 # artifacts from tests
 perf_test_metrics.json
+
+# generated documentation snippets
+lib/ramble/docs/_generated/
+

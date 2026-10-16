@@ -7,32 +7,38 @@
    except according to those terms.
 
 .. _tutorials:
+.. _dev_tutorials:
 
-==============
-User Tutorials
-==============
+=========
+Tutorials
+=========
 
-Below is a list of available tutorials for getting started with Ramble and its
-various features.
+.. raw:: html
+
+   <div id="tutorial-navigator-app"></div>
 
 .. toctree::
-    :maxdepth: 1
-    :caption: User Tutorials
+   :hidden:
 
-    tutorials/1_hello_world
-    tutorials/2_running_a_simple_gromacs_experiment
-    tutorials/3_modifying_a_gromacs_experiment
-    tutorials/4_using_vectors_and_matrices
-    tutorials/5_changing_your_software_stack
-    tutorials/6_configuring_a_scaling_study
-    tutorials/7_using_zips_and_matrices
-    tutorials/8_var_expansion_indirection_and_stack_parameterization
-    tutorials/9_success_criteria
-    tutorials/10_using_modifiers
-    tutorials/11_using_internals
-    tutorials/mirrors
-    tutorials/EESSI_package_manager
-    tutorials/Workspace_config_command
-    tutorials/Workspace_manage_experiments_command
+   tutorials/beginner_ramble_basics
+   tutorials/beginner_hello_world
 
+   tutorials/beginner_workspace_manage_experiments_command
+   tutorials/beginner_creating_a_single_experiment_workspace
+   tutorials/beginner_modifying_an_experiment
+   tutorials/beginner_using_vectors_and_matrices
+   tutorials/intermediate_changing_your_software_stack
+   tutorials/intermediate_configuring_a_scaling_study
+   tutorials/intermediate_success_criteria
+   tutorials/intermediate_using_modifiers
+   tutorials/intermediate_mirrors
+   tutorials/intermediate_eessi_package_manager
+   tutorials/advanced_using_zips_and_matrices
+   tutorials/advanced_var_expansion_indirection_and_stack_parameterization
+   tutorials/advanced_using_internals
+   tutorials/advanced_workspace_config_command
+   tutorials/developer_basic_application_definition_tutorial
+   tutorials/developer_hpl_application_definition_tutorial
+   tutorials/developer_system_and_platform_definition_tutorial
+   tutorials/developer_utility_definition_tutorial
 

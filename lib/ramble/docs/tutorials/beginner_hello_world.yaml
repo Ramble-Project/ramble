@@ -1,0 +1,56 @@
+# Copyright 2022-2026 The Ramble Authors
+#
+# Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+# https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+# <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+# option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
+recipes:
+  hello_world:
+    title: "Getting Started Running A 'Hello World' Experiment"
+    mode: "static"
+    default_app: "hostname"
+    apps:
+      hostname:
+        name: "Hostname"
+        workload: "local"
+        description: "Standard Linux hostname utility for basic experiment testing"
+        commands:
+          - cmd: ["workspace", "create", "-d", "{ws}"]
+            display: "$ ramble workspace create -d hello_world"
+            in_commands_sh: false
+
+          - cmd: ["workspace", "info"]
+            display: "$ ramble workspace info"
+            output_file: "workspace_info_initial.out"
+            in_commands_sh: false
+
+          - cmd: ["workspace", "manage", "experiments", "hostname", "--workload-filter", "local", "-e", "test", "-v", "n_ranks=1"]
+            display: "$ ramble workspace manage experiments hostname --workload-filter local -e test -v n_ranks=1"
+
+          - cmd: ["workspace", "info"]
+            display: "$ ramble workspace info"
+            output_file: "workspace_info.out"
+            in_commands_sh: false
+
+          - cmd: ["workspace", "setup"]
+            display: "$ ramble workspace setup"
+            global_args: ["--disable-progress-bar"]
+            output_file: "setup.out"
+            in_commands_sh: false
+
+          - cmd: ["on"]
+            display: "$ ramble on"
+            output_file: "on.out"
+            in_commands_sh: false
+
+          - cmd: ["workspace", "analyze"]
+            display: "$ ramble workspace analyze"
+            global_args: ["--disable-progress-bar"]
+            output_file: "analyze.out"
+            in_commands_sh: false
+
+          - read_file: "{ws}/results/results.latest.txt"
+            output_file: "results.txt"
+            in_commands_sh: false

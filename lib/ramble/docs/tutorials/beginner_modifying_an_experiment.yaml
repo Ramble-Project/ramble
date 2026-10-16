@@ -1,0 +1,114 @@
+# Copyright 2022-2026 The Ramble Authors
+#
+# Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+# https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+# <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+# option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
+recipes:
+  modify_experiment:
+    title: "Modifying an Experiment"
+    mode: "selectable"
+    default_app: "wrf"
+    apps:
+      wrf:
+        name: "WRF"
+        workload: "CONUS_12km"
+        workspace_name: "basic_wrf"
+        description: "Weather Research and Forecasting atmospheric model"
+        commands:
+          - cmd: ["info", "--attrs", "workloads", "-v", "-p", "CONUS_12km", "wrf"]
+            display: "$ ramble info --attrs workloads -v -p \"CONUS_12km\" wrf"
+            use_workspace: false
+            use_pty: true
+            command_file: "info_workload_cmd.sh"
+            output_file: "info_workload.out"
+            in_commands_sh: false
+          - cmd: ["workspace", "create", "-d", "{ws}"]
+          - cmd: ["workspace", "manage", "experiments", "wrf", "--workload-filter", "CONUS_12km", "-e", "single_rank", "-V", "package_manager=spack", "-v", "n_ranks=1", "-v", "n_threads=1"]
+          - cmd: ["workspace", "concretize"]
+          - cmd: ["workspace", "info"]
+            display: "$ ramble workspace info"
+            use_pty: true
+            output_file: "workspace_info.out"
+            in_commands_sh: false
+          - cmd: ["workspace", "info", "--expansions"]
+            display: "$ ramble workspace info --expansions"
+            use_pty: true
+            output_file: "workspace_info_expansions_initial.out"
+            in_commands_sh: false
+          - cmd: ["workspace", "manage", "experiments", "wrf", "--workload-filter", "CONUS_12km", "-e", "single_rank", "--overwrite", "-V", "package_manager=spack", "-V", "wrf_tiles=true", "-v", "n_ranks=1", "-v", "n_threads=1", "-v", "num_tiles=2"]
+            display: "$ ramble workspace manage experiments wrf --workload-filter CONUS_12km -e single_rank --overwrite -V package_manager=spack -V wrf_tiles=true -v n_ranks=1 -v n_threads=1 -v num_tiles=2"
+          - cmd: ["workspace", "info", "--expansions"]
+            display: "$ ramble workspace info --expansions"
+            use_pty: true
+            output_file: "workspace_info_expansions_modified.out"
+            in_commands_sh: false
+      gromacs:
+        name: "GROMACS"
+        workload: "water_bare"
+        workspace_name: "basic_gromacs"
+        description: "Molecular dynamics simulation package"
+        commands:
+          - cmd: ["info", "--attrs", "workloads", "-v", "-p", "water_bare", "gromacs"]
+            display: "$ ramble info --attrs workloads -v -p \"water_bare\" gromacs"
+            use_workspace: false
+            use_pty: true
+            command_file: "info_workload_cmd.sh"
+            output_file: "info_workload.out"
+            in_commands_sh: false
+          - cmd: ["workspace", "create", "-d", "{ws}"]
+          - cmd: ["workspace", "manage", "experiments", "gromacs", "--workload-filter", "water_bare", "-e", "single_rank", "-V", "package_manager=spack", "-v", "n_ranks=1", "-v", "n_threads=1", "-v", "size=0003", "-v", "type=pme"]
+          - cmd: ["workspace", "concretize"]
+          - cmd: ["workspace", "info"]
+            display: "$ ramble workspace info"
+            use_pty: true
+            output_file: "workspace_info.out"
+            in_commands_sh: false
+          - cmd: ["workspace", "info", "--expansions"]
+            display: "$ ramble workspace info --expansions"
+            use_pty: true
+            output_file: "workspace_info_expansions_initial.out"
+            in_commands_sh: false
+          - cmd: ["workspace", "manage", "experiments", "gromacs", "--workload-filter", "water_bare", "-e", "single_rank", "--overwrite", "-V", "package_manager=spack", "-v", "n_ranks=1", "-v", "n_threads=1", "-v", "size=0006", "-v", "type=pme"]
+            display: "$ ramble workspace manage experiments gromacs --workload-filter water_bare -e single_rank --overwrite -V package_manager=spack -v n_ranks=1 -v n_threads=1 -v size=0006 -v type=pme"
+          - cmd: ["workspace", "info", "--expansions"]
+            display: "$ ramble workspace info --expansions"
+            use_pty: true
+            output_file: "workspace_info_expansions_modified.out"
+            in_commands_sh: false
+      hpl:
+        name: "HPL"
+        workload: "calculator"
+        workspace_name: "basic_hpl"
+        description: "High-Performance Linpack benchmark"
+        commands:
+          - cmd: ["info", "--attrs", "workloads", "-v", "-p", "calculator", "hpl"]
+            display: "$ ramble info --attrs workloads -v -p \"calculator\" hpl"
+            use_workspace: false
+            use_pty: true
+            command_file: "info_workload_cmd.sh"
+            output_file: "info_workload.out"
+            in_commands_sh: false
+          - cmd: ["workspace", "create", "-d", "{ws}"]
+          - cmd: ["workspace", "manage", "experiments", "hpl", "--workload-filter", "calculator", "-e", "single_rank", "-V", "package_manager=spack", "-v", "n_ranks=1", "-v", "n_threads=1", "-v", "memory_per_node=8"]
+          - cmd: ["workspace", "concretize"]
+          - cmd: ["workspace", "info"]
+            display: "$ ramble workspace info"
+            use_pty: true
+            output_file: "workspace_info.out"
+            in_commands_sh: false
+          - cmd: ["workspace", "info", "--expansions"]
+            display: "$ ramble workspace info --expansions"
+            use_pty: true
+            output_file: "workspace_info_expansions_initial.out"
+            in_commands_sh: false
+          - cmd: ["workspace", "manage", "experiments", "hpl", "--workload-filter", "calculator", "-e", "single_rank", "--overwrite", "-V", "package_manager=spack", "-v", "n_ranks=1", "-v", "n_threads=1", "-v", "memory_per_node=8", "-v", "percent_mem=80"]
+            display: "$ ramble workspace manage experiments hpl --workload-filter calculator -e single_rank --overwrite -V package_manager=spack -v n_ranks=1 -v n_threads=1 -v memory_per_node=8 -v percent_mem=80"
+          - cmd: ["workspace", "info", "--expansions"]
+            display: "$ ramble workspace info --expansions"
+            use_pty: true
+            output_file: "workspace_info_expansions_modified.out"
+            in_commands_sh: false
+

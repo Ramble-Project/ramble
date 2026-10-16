@@ -118,9 +118,14 @@ class NoTabExpansionRSTParser(RSTParser):
         super().parse(inputstring, document)
 
 
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+from tutorial_generator import generate_all_tutorial_artifacts  # noqa: E402
+
+
 def setup(sphinx):
     sphinx.add_domain(PatchedPythonDomain, override=True)
     sphinx.add_source_parser(NoTabExpansionRSTParser, override=True)
+    sphinx.connect("builder-inited", generate_all_tutorial_artifacts)
 
 
 # -- General configuration -----------------------------------------------------
@@ -298,7 +303,9 @@ html_theme_options = {"logo_only": True}
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = ["_static"]
+html_static_path = ["_static"]
+html_css_files = ["tutorial_navigator.css"]
+html_js_files = ["tutorial_data.js", "tutorial_navigator.js"]
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.

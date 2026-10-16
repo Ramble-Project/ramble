@@ -13,16 +13,10 @@ Ramble
 If you're new to Ramble and want to start using it, see :doc:`getting_started`.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: User Tutorials
+   :maxdepth: 1
+   :caption: Tutorials
 
    tutorials
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Developer Tutorials
-
-   developer_tutorials
 
 .. toctree::
    :maxdepth: 2

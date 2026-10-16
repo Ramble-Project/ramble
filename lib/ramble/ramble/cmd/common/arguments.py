@@ -265,7 +265,7 @@ def setup_subcommands_from_prefix(
     Args:
         subparser: Parent ArgumentParser or subparser
         dest (str): Destination attribute name for selected subcommand
-        subcommands (list): List of subcommand names or (name, *aliases) tuples
+        subcommands (list): List of subcommand names or ``(name, *aliases)`` tuples
         prefix (str): Prefix used in function names (e.g. 'workspace', 'data', 'deployment')
         globals_dict (dict): The globals() dictionary of the calling module
         subcommand_functions (dict): Dictionary mapping command/alias name -> function

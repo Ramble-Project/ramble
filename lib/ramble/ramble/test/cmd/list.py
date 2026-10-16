@@ -126,6 +126,15 @@ def test_list_update(tmpdir):
         assert f.read() == "empty\n"
 
 
+def test_list_update_empty_results(tmpdir):
+    update_file = tmpdir.join("empty_output.html")
+    list("--type", "base_package_managers", "--format", "html", "--update", str(update_file))
+    assert update_file.exists()
+    with update_file.open() as f:
+        content = f.read()
+        assert "0 mainline base_package_managers" in content
+
+
 def test_list_no_results_warning():
     out = list("nonexistent_app_name_xyz")
     assert list.returncode == 0

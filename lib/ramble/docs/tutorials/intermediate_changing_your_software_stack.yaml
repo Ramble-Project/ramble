@@ -1,0 +1,148 @@
+# Copyright 2022-2026 The Ramble Authors
+#
+# Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+# https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+# <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+# option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
+recipes:
+  software_stack:
+    title: "Changing a Software Stack"
+    mode: "selectable"
+    default_app: "wrf"
+    apps:
+      wrf:
+        name: "WRF"
+        workload: "CONUS_12km"
+        description: "Weather Research and Forecasting atmospheric model"
+        commands:
+          - cmd: ["workspace", "create", "-d", "{ws}"]
+            display: "$ ramble workspace create software_wrf"
+            in_commands_sh: false
+          - cmd: ["config", "add", "variables:processes_per_node:16"]
+          - cmd: ["config", "add", "variables:mpi_command:mpirun -n {n_ranks} -ppn {processes_per_node}"]
+          - cmd: ["config", "add", 'variables:batch_submit:"{execute_experiment}"']
+          - cmd: ["workspace", "manage", "software", "--package-name", "gcc14", "--package-spec", "gcc@14.2.0", "--compiler-spec", "gcc@14.2.0"]
+            display: "$ ramble workspace manage software --package-name gcc14 --package-spec gcc@14.2.0 --compiler-spec gcc@14.2.0"
+          - cmd: ["workspace", "manage", "software", "--package-name", "intel-mpi", "--package-spec", "intel-oneapi-mpi@2021.17.2", "--compiler", "gcc14"]
+            display: "$ ramble workspace manage software --package-name intel-mpi --package-spec intel-oneapi-mpi@2021.17.2 --compiler gcc14"
+          - cmd:
+              [
+                "workspace", "manage", "software",
+                "--package-name", "wrf-{wrf_version}",
+                "--package-spec", "wrf@{wrf_version} build_type=dm+sm compile_type=em_real nesting=basic ~pnetcdf",
+                "--compiler", "gcc14",
+                "--environment-name", "wrf-{wrf_version}",
+                "--environment-packages", "intel-mpi,wrf-{wrf_version}",
+              ]
+            display: "$ ramble workspace manage software --package-name 'wrf-{wrf_version}' --package-spec 'wrf@{wrf_version} build_type=dm+sm compile_type=em_real nesting=basic ~pnetcdf' --compiler gcc14 --environment-name 'wrf-{wrf_version}' --environment-packages 'intel-mpi,wrf-{wrf_version}'"
+          - cmd:
+              [
+                "workspace", "manage", "experiments", "wrf",
+                "--workload-filter", "CONUS_12km",
+                "--workload-filter", "CONUS_2p5km",
+                "-w", "app_workload",
+                "-e", "tile_{num_tiles}_{n_ranks}ranks-{wrf_version}",
+                "-V", "package_manager=spack",
+                "-V", "wrf_tiles=true",
+                "-v", "n_ranks=[1, 2]",
+                "-v", "n_threads=1",
+                "-v", "num_tiles=[1, 2]",
+                "-v", "wrf_version=[4.2, 3.9.1.1]",
+                "-v", "env_name=wrf-{wrf_version}",
+                "-m", "app_workload,num_tiles,n_ranks,wrf_version",
+              ]
+            display: "$ ramble workspace manage experiments wrf --workload-filter CONUS_12km --workload-filter CONUS_2p5km -w app_workload -e 'tile_{num_tiles}_{n_ranks}ranks-{wrf_version}' -V package_manager=spack -V wrf_tiles=true -v 'n_ranks=[1, 2]' -v n_threads=1 -v 'num_tiles=[1, 2]' -v 'wrf_version=[4.2, 3.9.1.1]' -v 'env_name=wrf-{wrf_version}' -m app_workload,num_tiles,n_ranks,wrf_version"
+          - cmd: ["workspace", "concretize"]
+            display: "$ ramble workspace concretize"
+      gromacs:
+        name: "GROMACS"
+        workload: "water_bare"
+        description: "Molecular dynamics simulation package"
+        commands:
+          - cmd: ["workspace", "create", "-d", "{ws}"]
+            display: "$ ramble workspace create software_gromacs"
+            in_commands_sh: false
+          - cmd: ["config", "add", "variables:processes_per_node:16"]
+          - cmd: ["config", "add", "variables:mpi_command:mpirun -n {n_ranks} -ppn {processes_per_node}"]
+          - cmd: ["config", "add", 'variables:batch_submit:"{execute_experiment}"']
+          - cmd: ["workspace", "manage", "software", "--package-name", "gcc14", "--package-spec", "gcc@14.2.0", "--compiler-spec", "gcc@14.2.0"]
+            display: "$ ramble workspace manage software --package-name gcc14 --package-spec gcc@14.2.0 --compiler-spec gcc@14.2.0"
+          - cmd: ["workspace", "manage", "software", "--package-name", "intel-mpi", "--package-spec", "intel-oneapi-mpi@2021.17.2", "--compiler", "gcc14"]
+            display: "$ ramble workspace manage software --package-name intel-mpi --package-spec intel-oneapi-mpi@2021.17.2 --compiler gcc14"
+          - cmd:
+              [
+                "workspace", "manage", "software",
+                "--package-name", "gromacs-{gromacs_version}",
+                "--package-spec", "gromacs@{gromacs_version}",
+                "--compiler", "gcc14",
+                "--environment-name", "gromacs-{gromacs_version}",
+                "--environment-packages", "intel-mpi,gromacs-{gromacs_version}",
+              ]
+            display: "$ ramble workspace manage software --package-name 'gromacs-{gromacs_version}' --package-spec 'gromacs@{gromacs_version}' --compiler gcc14 --environment-name 'gromacs-{gromacs_version}' --environment-packages 'intel-mpi,gromacs-{gromacs_version}'"
+          - cmd:
+              [
+                "workspace", "manage", "experiments", "gromacs",
+                "--workload-filter", "water_bare",
+                "--workload-filter", "water_gmx50",
+                "-w", "app_workload",
+                "-e", "{type}_{n_ranks}ranks-{gromacs_version}",
+                "-V", "package_manager=spack",
+                "-v", "n_ranks=[1, 2]",
+                "-v", "n_threads=1",
+                "-v", "size=0003",
+                "-v", "type=[pme, rf]",
+                "-v", "gromacs_version=[2025.3, 2025.4]",
+                "-v", "env_name=gromacs-{gromacs_version}",
+                "-m", "app_workload,type,n_ranks,gromacs_version",
+              ]
+            display: "$ ramble workspace manage experiments gromacs --workload-filter water_bare --workload-filter water_gmx50 -w app_workload -e '{type}_{n_ranks}ranks-{gromacs_version}' -V package_manager=spack -v 'n_ranks=[1, 2]' -v n_threads=1 -v size=0003 -v 'type=[pme, rf]' -v 'gromacs_version=[2025.3, 2025.4]' -v 'env_name=gromacs-{gromacs_version}' -m app_workload,type,n_ranks,gromacs_version"
+          - cmd: ["workspace", "concretize"]
+            display: "$ ramble workspace concretize"
+      hpl:
+        name: "HPL"
+        workload: "calculator"
+        description: "High-Performance Linpack benchmark"
+        commands:
+          - cmd: ["workspace", "create", "-d", "{ws}"]
+            display: "$ ramble workspace create software_hpl"
+            in_commands_sh: false
+          - cmd: ["config", "add", "variables:processes_per_node:16"]
+          - cmd: ["config", "add", "variables:mpi_command:mpirun -n {n_ranks} -ppn {processes_per_node}"]
+          - cmd: ["config", "add", 'variables:batch_submit:"{execute_experiment}"']
+          - cmd: ["workspace", "manage", "software", "--package-name", "gcc14", "--package-spec", "gcc@14.2.0", "--compiler-spec", "gcc@14.2.0"]
+            display: "$ ramble workspace manage software --package-name gcc14 --package-spec gcc@14.2.0 --compiler-spec gcc@14.2.0"
+          - cmd: ["workspace", "manage", "software", "--package-name", "intel-mpi", "--package-spec", "intel-oneapi-mpi@2021.17.2", "--compiler", "gcc14"]
+            display: "$ ramble workspace manage software --package-name intel-mpi --package-spec intel-oneapi-mpi@2021.17.2 --compiler gcc14"
+          - cmd:
+              [
+                "workspace", "manage", "software",
+                "--package-name", "hpl-{hpl_version}",
+                "--package-spec", "hpl@{hpl_version} +openmp",
+                "--compiler", "gcc14",
+                "--environment-name", "hpl-{hpl_version}",
+                "--environment-packages", "intel-mpi,hpl-{hpl_version}",
+              ]
+            display: "$ ramble workspace manage software --package-name 'hpl-{hpl_version}' --package-spec 'hpl@{hpl_version} +openmp' --compiler gcc14 --environment-name 'hpl-{hpl_version}' --environment-packages 'intel-mpi,hpl-{hpl_version}'"
+          - cmd:
+              [
+                "workspace", "manage", "experiments", "hpl",
+                "--workload-filter", "calculator",
+                "--workload-filter", "standard",
+                "-w", "app_workload",
+                "-e", "pfact_{PFACTs}_{n_ranks}ranks-{hpl_version}",
+                "-V", "package_manager=spack",
+                "-v", "n_ranks=[1, 2]",
+                "-v", "n_threads=1",
+                "-v", "memory_per_node=8",
+                "-v", "PFACTs=[0, 1]",
+                "-v", "hpl_version=[2.3, 2.2]",
+                "-v", "env_name=hpl-{hpl_version}",
+                "-m", "app_workload,PFACTs,n_ranks,hpl_version",
+              ]
+            display: "$ ramble workspace manage experiments hpl --workload-filter calculator --workload-filter standard -w app_workload -e 'pfact_{PFACTs}_{n_ranks}ranks-{hpl_version}' -V package_manager=spack -v 'n_ranks=[1, 2]' -v n_threads=1 -v memory_per_node=8 -v 'PFACTs=[0, 1]' -v 'hpl_version=[2.3, 2.2]' -v 'env_name=hpl-{hpl_version}' -m app_workload,PFACTs,n_ranks,hpl_version"
+          - cmd: ["workspace", "concretize"]
+            display: "$ ramble workspace concretize"
+
+

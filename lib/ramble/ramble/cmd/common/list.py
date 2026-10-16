@@ -182,7 +182,8 @@ def perform_list(args):
             logger.warn(f"No {object_type.name} found matching {' and '.join(filter_strs)}.")
         else:
             logger.warn(f"No {object_type.name} found.")
-        return 0
+        if not args.update:
+            return 0
 
     if args.update:
         # change output stream if user asked for update

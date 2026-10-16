@@ -57,10 +57,6 @@ steps:
 
         ramble workspace info
 
-        cp /workspace/examples/tutorial_6_config.yaml /workspace/scaling_wrf/configs/ramble.yaml
-
-        ramble workspace info
-
         ramble workspace setup
 
         ramble on --where '{n_nodes} == 1'

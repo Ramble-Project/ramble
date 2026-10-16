@@ -1,0 +1,347 @@
+# Copyright 2022-2026 The Ramble Authors
+#
+# Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+# https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+# <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+# option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
+# Catalog of individual modular tutorials
+# Beginner tutorials should all be between 0 and 100 in terms of rank
+# Intermediate tutorials should all be between 100 and 200 in terms of rank
+# Advanced tutorials should all be between 200 and 300 in terms of rank
+# Developer tutorials should all be greater or equal to 300 in terms of rank.
+tutorials:
+
+  # Beginner tutorials
+  ramble_basics:
+    title: "Ramble Basics"
+    url: "tutorials/beginner_ramble_basics.html"
+    level: "Beginner"
+    duration: "10 min"
+    description: "Learn Ramble's introductory CLI commands including help, listing objects, exploring attributes, inspecting object details, software definitions, and configuration."
+    order_rank: 5
+
+  hello_world:
+    title: "Hello World"
+    url: "tutorials/beginner_hello_world.html"
+    level: "Beginner"
+    duration: "5 min"
+    description: "Create a workspace, configure a simple hostname experiment, set up, execute, and analyze results."
+    order_rank: 10
+    default_workspace_name: "hello_world"
+
+  workspace_manage_cmd:
+    title: "Workspace Manage Experiments Command"
+    url: "tutorials/beginner_workspace_manage_experiments_command.html"
+    level: "Beginner"
+    duration: "10 min"
+    description: "Add, modify, and manage experiments across workloads using the CLI."
+    order_rank: 15
+    default_workspace_name: "manage-workspace"
+    workspace_dir_mode: true
+
+  single_experiment:
+    title: "Creating a Single Experiment Workspace"
+    url: "tutorials/beginner_creating_a_single_experiment_workspace.html"
+    level: "Beginner"
+    duration: "10 min"
+    dry_run_duration: "5 min"
+    description: "Execute a multi-node experiment and analyze figures of merit."
+    order_rank: 20
+    default_workspace_name: "tutorial-workspace-{app}"
+
+  modify_experiment:
+    title: "Modifying an Existing Experiment"
+    url: "tutorials/beginner_modifying_an_experiment.html"
+    level: "Beginner"
+    duration: "10 min"
+    dry_run_duration: "5 min"
+    description: "Override workload variables, customize commands, and adjust experiment configurations."
+    order_rank: 30
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
+
+  vectors_matrices:
+    title: "Using Vectors and Matrices"
+    url: "tutorials/beginner_using_vectors_and_matrices.html"
+    level: "Beginner"
+    duration: "15 min"
+    dry_run_duration: "8 min"
+    description: "Explore parameter spaces and generate combinatorial experiments with vectors and matrices."
+    order_rank: 40
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
+
+  # Intermediate tutorials
+  software_stack:
+    title: "Changing Your Software Stack"
+    url: "tutorials/intermediate_changing_your_software_stack.html"
+    level: "Intermediate"
+    duration: "20 min"
+    dry_run_duration: "10 min"
+    description: "Explore the impact of changing the software stack used in an experiment."
+    order_rank: 100
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
+
+  scaling_study:
+    title: "Configuring a Scaling Study"
+    url: "tutorials/intermediate_configuring_a_scaling_study.html"
+    level: "Intermediate"
+    duration: "25 min"
+    dry_run_duration: "10 min"
+    description: "Set up scaling experiments from an existing experiment."
+    order_rank: 110
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
+
+  success_criteria:
+    title: "Success Criteria"
+    url: "tutorials/intermediate_success_criteria.html"
+    level: "Intermediate"
+    duration: "15 min"
+    dry_run_duration: "8 min"
+    description: "Define automated pass/fail validation rules and ensure benchmark data integrity."
+    order_rank: 120
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
+
+  modifiers:
+    title: "Using Modifiers"
+    url: "tutorials/intermediate_using_modifiers.html"
+    level: "Intermediate"
+    duration: "25 min"
+    dry_run_duration: "10 min"
+    description: "Inject profilers (Intel-APS, perf, hpctoolkit, etc.), monitors, and execution hooks across experiments."
+    order_rank: 130
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
+
+  mirrors:
+    title: "Managing Mirrors"
+    url: "tutorials/intermediate_mirrors.html"
+    level: "Intermediate"
+    duration: "15 min"
+    description: "Create and manage offline mirrors for software tarballs and experiment input files."
+    order_rank: 190
+    default_workspace_name: "wrf_mirror_test"
+
+  eessi:
+    title: "EESSI Package Manager"
+    url: "tutorials/intermediate_eessi_package_manager.html"
+    level: "Intermediate"
+    duration: "15 min"
+    dry_run_duration: "8 min"
+    description: "Leverage pre-optimized scientific software from the EESSI repository in your workspaces."
+    order_rank: 199
+    default_workspace_name: "eessi_gromacs"
+
+  # Advanced tutorials
+  zips_matrices:
+    title: "Using Zips and Matrices"
+    url: "tutorials/advanced_using_zips_and_matrices.html"
+    level: "Advanced"
+    duration: "20 min"
+    dry_run_duration: "10 min"
+    description: "Learn to couple parameters across multi-dimensional grids without full Cartesian explosion."
+    order_rank: 200
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
+
+  var_expansion:
+    title: "Variable Expansion, Indirection & Software Stack Parameterization"
+    url: "tutorials/advanced_var_expansion_indirection_and_stack_parameterization.html"
+    level: "Advanced"
+    duration: "20 min"
+    dry_run_duration: "10 min"
+    description: "Leverage dynamic variable evaluation, double-indirection, and parameterization of software stacks."
+    order_rank: 210
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
+
+  internals:
+    title: "Using Internals"
+    url: "tutorials/advanced_using_internals.html"
+    level: "Advanced"
+    duration: "15 min"
+    dry_run_duration: "8 min"
+    description: "Learn to manipulate internal experiment aspects using workspace configuration files."
+    order_rank: 220
+    default_workspace_name: "internals_{app}"
+
+  workspace_config_cmd:
+    title: "Workspace Config Command"
+    url: "tutorials/advanced_workspace_config_command.html"
+    level: "Advanced"
+    duration: "10 min"
+    description: "Nesting configuration files (includes), squashing, and simplifying workspace configuration files."
+    order_rank: 290
+    default_workspace_name: "includes-workspace"
+    workspace_dir_mode: true
+
+  # Developer tutorials
+  dev_basic_app:
+    title: "Basic Application Definition"
+    url: "tutorials/developer_basic_application_definition_tutorial.html"
+    level: "Developer"
+    duration: "30 min"
+    dry_run_duration: "20 min"
+    description: "Author new Python application definitions using Ramble directives, executables, and workloads."
+    order_rank: 300
+    default_workspace_name: "tutorial-workspace"
+    workspace_dir_mode: true
+    default_repo_name: "tutorial-repo"
+
+  dev_hpl_app:
+    title: "HPL Application Definition"
+    url: "tutorials/developer_hpl_application_definition_tutorial.html"
+    level: "Developer"
+    duration: "30 min"
+    dry_run_duration: "18 min"
+    description: "Develop complex definitions featuring template generation, FOM extractors, and software specs."
+    order_rank: 310
+    default_workspace_name: "tutorial-workspace"
+    workspace_dir_mode: true
+    reuses_workspace_from: "dev_basic_app"
+    default_repo_name: "tutorial-repo"
+    reuses_repo_from: "dev_basic_app"
+
+  dev_system_platform:
+    title: "System and Platform Definitions"
+    url: "tutorials/developer_system_and_platform_definition_tutorial.html"
+    level: "Developer"
+    duration: "25 min"
+    description: "Define system topologies and platform specifications for multi-architecture deployments."
+    order_rank: 320
+    default_workspace_name: "test-sys-plat"
+    workspace_dir_mode: true
+    default_repo_name: "tutorial-repo"
+
+  dev_utility:
+    title: "Utility Definition Tutorial"
+    url: "tutorials/developer_utility_definition_tutorial.html"
+    level: "Developer"
+    duration: "20 min"
+    description: "Build reusable utility objects to share execution logic across applications."
+    order_rank: 330
+    default_repo_name: "tutorial-repo"
+    reuses_repo_from: "dev_system_platform"
+
+# End goals defining ordered learning pathways
+goals:
+  ramble_front_end:
+    title: "I want to learn Ramble's front-end commands for creating experiment definitions"
+    icon: "💻"
+    description: "Learn the basics of Ramble, and how to utilize front-end commands for creating experiments"
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - workspace_manage_cmd
+
+  scaling_study:
+    title: "I want to perform a scaling study with an existing experiment"
+    icon: "📈"
+    description: "Learn to scale applications using vectors and matrices."
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - single_experiment
+      - modify_experiment
+      - vectors_matrices
+      - scaling_study
+
+  profiling_modifiers:
+    title: "I want to analyze the performance of my experiments"
+    icon: "⏱️"
+    description: "Learn how to configure experiments, and apply modifiers to manipulate their behavior. Including injecting profilers."
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - single_experiment
+      - modify_experiment
+      - scaling_study
+      - modifiers
+
+  software_management:
+    title: "I want to explore changes to my experiment's software stack"
+    icon: "📦"
+    description: "Learn to manipulate the software stack used within a workspace's experiments"
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - single_experiment
+      - software_stack
+
+  package_manager_changes:
+    title: "I want to experiment with different package managers"
+    icon: "🧰"
+    description: "Learn to use different package managers within a workspace's experiments"
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - single_experiment
+      - software_stack
+      - eessi
+
+  metrics_validation:
+    title: "I want to validate some aspect of my system"
+    icon: "🎯"
+    description: "Learn to use success criteria to automate benchmark validation, assert exit criteria, and verify figure-of-merit thresholds."
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - single_experiment
+      - scaling_study
+      - success_criteria
+
+  parameter_sweeps:
+    title: "I want to explore a complex parameter for my workload"
+    icon: "🎛️"
+    description: "Learn how to define multi-dimensional parameter exploration, zip variables, and use indirection to create the experimental study you want."
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - single_experiment
+      - vectors_matrices
+      - zips_matrices
+      - var_expansion
+      - internals
+
+  ramble_config_indirection:
+    title: "I want to learn more advanced techniques for manipulating workspace configuration files."
+    icon: "🧩"
+    description: "Learn how workspace indirection (includes) works, how to squash indirection out, and how to simplify aspects of a workspace."
+    tutorials:
+      - workspace_config_cmd
+
+  author_applications:
+    title: "I want to create a new experiment from a workload that does not exist in Ramble already"
+    icon: "🛠️"
+    description: "Extend Ramble by writing custom application classes, defining executables, workloads, and FOMs."
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - single_experiment
+      - dev_basic_app
+      - dev_hpl_app
+
+  author_infrastructure:
+    title: "I want to add support for my system into Ramble, including defining external dependencies"
+    icon: "⚙️"
+    description: "Write reusable object definitions including system classes (clusters), platform classes (compute nodes), and utility classes (external / bootstrapped dependencies)."
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - dev_utility
+      - dev_system_platform
+
+  offline_mirrors:
+    title: "I want to create a mirror of the software and inputs used within my experiments"
+    icon: "🪞"
+    description: "Cache software source tarballs and input datasets to backup or run experiments without internet access."
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - mirrors
+

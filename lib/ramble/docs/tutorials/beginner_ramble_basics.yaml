@@ -1,0 +1,95 @@
+# Copyright 2022-2026 The Ramble Authors
+#
+# Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+# https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+# <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+# option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
+recipes:
+  ramble_basics:
+    title: "Ramble Basics: Discovering Applications and Objects"
+    mode: "static"
+    default_app: "hostname"
+    apps:
+      hostname:
+        name: "Hostname"
+        workload: "local"
+        description: "Standard Linux hostname utility for basic object inspection"
+        commands:
+          - cmd: ["list", "h"]
+            display: "$ ramble list h"
+            use_workspace: false
+            use_pty: true
+            output_file: "list_h.out"
+            in_commands_sh: false
+
+          - cmd: ["list", "h*"]
+            display: "$ ramble list \"h*\""
+            use_workspace: false
+            use_pty: true
+            output_file: "list_hstar.out"
+            in_commands_sh: false
+
+          - cmd: ["list", "-t", "test-app"]
+            display: "$ ramble list -t test-app"
+            use_workspace: false
+            use_pty: true
+            output_file: "list_tag.out"
+            in_commands_sh: false
+
+          - cmd: ["list", "--type", "modifiers"]
+            display: "$ ramble list --type modifiers"
+            use_workspace: false
+            use_pty: true
+            output_file: "list_modifiers.out"
+            in_commands_sh: false
+
+          - cmd: ["list", "--type", "package_managers"]
+            display: "$ ramble list --type package_managers"
+            use_workspace: false
+            use_pty: true
+            output_file: "list_package_managers.out"
+            in_commands_sh: false
+
+          - cmd: ["list", "--type", "workflow_managers"]
+            display: "$ ramble list --type workflow_managers"
+            use_workspace: false
+            use_pty: true
+            output_file: "list_workflow_managers.out"
+            in_commands_sh: false
+
+          - cmd: ["info", "hostname"]
+            display: "$ ramble info hostname"
+            use_workspace: false
+            use_pty: true
+            output_file: "info.out"
+            in_commands_sh: false
+
+          - cmd: ["info", "hostname", "-o"]
+            display: "$ ramble info hostname -o"
+            use_workspace: false
+            use_pty: true
+            output_file: "info_overview.out"
+            in_commands_sh: false
+
+          - cmd: ["info", "hostname", "--attrs", "workloads", "-v"]
+            display: "$ ramble info hostname --attrs workloads -v"
+            use_workspace: false
+            use_pty: true
+            output_file: "filtered_info.out"
+            in_commands_sh: false
+
+          - cmd: ["info", "--type", "modifiers", "lscpu"]
+            display: "$ ramble info --type modifiers lscpu"
+            use_workspace: false
+            use_pty: true
+            output_file: "info_modifier_lscpu.out"
+            in_commands_sh: false
+
+          - cmd: ["config", "list"]
+            display: "$ ramble config list"
+            use_workspace: false
+            use_pty: true
+            output_file: "config_list.out"
+            in_commands_sh: false

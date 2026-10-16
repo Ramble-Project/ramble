@@ -49,7 +49,8 @@ steps:
 
         ramble info hostname
 
-        ramble workspace create -d hello_world -c /workspace/examples/tutorial_1_config.yaml -a
+        ramble workspace create -d hello_world -a
+        ramble workspace manage experiments hostname --workload-filter local -e test -v n_ranks=1
 
         ramble workspace setup
 

@@ -1,0 +1,22 @@
+# Copyright 2022-2026 The Ramble Authors
+#
+# Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+# https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+# <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+# option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
+selectable_applications:
+  wrf:
+    name: "WRF"
+    workload: "CONUS_12km"
+    description: "Weather Research and Forecasting atmospheric model"
+  gromacs:
+    name: "GROMACS"
+    workload: "water_bare"
+    description: "Molecular dynamics simulation package"
+  hpl:
+    name: "HPL"
+    workload: "calculator"
+    description: "High-Performance Linpack benchmark"
+
