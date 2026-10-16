@@ -472,7 +472,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                 pkgman_type = ramble.repository.ObjectTypes.package_managers
                 self.package_manager = ramble.repository.get(
                     pkgman_name, pkgman_type
-                ).copy()
+                )
                 self.package_manager.set_application(self)
 
                 if maybe_pkgman_ver:
@@ -515,7 +515,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
 
             try:
                 sys_type = ramble.repository.ObjectTypes.systems
-                self.system = ramble.repository.get(sys_name, sys_type).copy()
+                self.system = ramble.repository.get(sys_name, sys_type)
                 self.system.set_application(self)
                 if maybe_sys_ver:
                     self.system.set_version(
@@ -581,9 +581,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
 
             try:
                 plat_type = ramble.repository.ObjectTypes.platforms
-                self.platform = ramble.repository.get(
-                    plat_name, plat_type
-                ).copy()
+                self.platform = ramble.repository.get(plat_name, plat_type)
                 self.platform.set_application(self)
                 if maybe_plat_ver:
                     self.platform.set_version(
@@ -640,7 +638,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             wfman_type = ramble.repository.ObjectTypes.workflow_managers
             self.workflow_manager = ramble.repository.get(
                 workflow_name, wfman_type
-            ).copy()
+            )
             self.workflow_manager.set_application(self)
             if maybe_workflow_ver:
                 self.workflow_manager.set_version(
@@ -1646,7 +1644,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                     )
                     continue
 
-            mod_inst = ramble.repository.get(mod_name, mod_type).copy()
+            mod_inst = ramble.repository.get(mod_name, mod_type)
 
             if "on_executable" in mod:
                 mod_inst.set_on_executables(mod["on_executable"])

@@ -906,7 +906,6 @@ class Repo:
         # These are internal cache variables.
         self._modules = {}
         self._classes = {}
-        self._instances = {}
 
         # Maps that goes from object name to corresponding file stat
         self._fast_object_checker = None
