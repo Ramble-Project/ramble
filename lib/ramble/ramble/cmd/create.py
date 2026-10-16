@@ -22,12 +22,9 @@ level = "long"
 
 # Mapping of CLI choices to repository ObjectTypes
 type_mapping = {
-    "application": ramble.repository.ObjectTypes.applications,
-    "modifier": ramble.repository.ObjectTypes.modifiers,
-    "package-manager": ramble.repository.ObjectTypes.package_managers,
-    "workflow-manager": ramble.repository.ObjectTypes.workflow_managers,
-    "system": ramble.repository.ObjectTypes.systems,
-    "platform": ramble.repository.ObjectTypes.platforms,
+    tdef["singular"]: obj_type
+    for obj_type, tdef in ramble.repository.type_definitions.items()
+    if not obj_type.name.startswith("base_")
 }
 
 
@@ -110,26 +107,14 @@ def discover_base_classes(obj_type):
     except ramble.repository.NoRepoConfiguredError:
         all_bases = []
 
-    # Define keyword filters to group base classes by object type
-    filters = {
-        ramble.repository.ObjectTypes.applications: ["app"],
-        ramble.repository.ObjectTypes.modifiers: ["mod"],
-        ramble.repository.ObjectTypes.package_managers: ["package", "pkg"],
-        ramble.repository.ObjectTypes.workflow_managers: ["workflow", "wm"],
-        ramble.repository.ObjectTypes.systems: ["system"],
-        ramble.repository.ObjectTypes.platforms: ["platform"],
-    }
+    matched_bases = []
+    for base in all_bases:
+        cls = ramble.repository.get_base_class(base)
+        origin_type = getattr(cls, "origin_type", None)
+        if origin_type and ramble.repository.simplify_object_type(origin_type) == obj_type:
+            matched_bases.append(cls.__name__)
 
-    keywords = filters.get(obj_type, [])
-    matched_bases = [
-        nm.mod_to_class(base) for base in all_bases if any(kw in base for kw in keywords)
-    ]
-
-    # Fallback to generic classes if no matches found
-    if not matched_bases:
-        matched_bases = ["object"]
-
-    return matched_bases
+    return matched_bases or ["object"]
 
 
 def run_interactive_wizard():

@@ -7,8 +7,13 @@
 # except according to those terms.
 
 
-class {class_name}:
+from ramble.{kit_name} import *
+
+
+class {class_name}({base_class}):
     """Starter template for {name}.
     """
 
     name = "{name}"
+    maintainers({maintainers})
+    tags({tags})

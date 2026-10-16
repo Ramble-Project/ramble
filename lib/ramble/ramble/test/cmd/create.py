@@ -13,6 +13,7 @@ import sys
 import pytest
 
 import ramble.repository
+import ramble.util.naming as nm
 from ramble.error import RambleCommandError
 from ramble.main import RambleCommand
 
@@ -67,7 +68,11 @@ def test_create_help():
             "system",
             "my-test-system",
             [],
-            ["class MyTestSystem:", 'name = "my-test-system"'],
+            [
+                "from ramble.syskit import *",
+                "class MyTestSystem(SystemBase):",
+                'name = "my-test-system"',
+            ],
             None,
         ),
         (
@@ -353,7 +358,7 @@ def test_create_interactive_wizard_validation_and_abort(mutable_config, tmpdir, 
             "systems",
             "spec-sys",
             "system.py",
-            "class SpecSys:",
+            "class SpecSys(SystemBase):",
         ),
     ],
 )
@@ -395,38 +400,26 @@ def test_create_namespaced_spec(
 
 
 @pytest.mark.parametrize(
-    "type_alias, obj_name, expected_dir, expected_file, expected_content",
+    "type_alias",
     [
-        (
-            "app",
-            "alias-app",
-            "applications",
-            "application.py",
-            "class AliasApp(ExecutableApplication):",
-        ),
-        (
-            "applications",
-            "plural-app",
-            "applications",
-            "application.py",
-            "class PluralApp(ExecutableApplication):",
-        ),
-        ("mod", "alias-mod", "modifiers", "modifier.py", "class AliasMod(BasicModifier):"),
-        ("sys", "alias-sys", "systems", "system.py", "class AliasSys:"),
+        "applications",
+        *[
+            tdef["abbrev"]
+            for tdef in ramble.repository.type_definitions.values()
+            if "default_base" in tdef
+        ],
     ],
 )
-def test_create_object_type_alias(
-    mutable_config,
-    tmpdir,
-    type_alias,
-    obj_name,
-    expected_dir,
-    expected_file,
-    expected_content,
-):
+def test_create_object_type_alias(mutable_config, tmpdir, type_alias):
     """Verify object creation using object type aliases and abbreviations (e.g., app, mod, sys)."""
     repo_path = str(tmpdir.join("test_repo"))
     repo_ns = "mockrepo"
+    obj_type = ramble.repository.simplify_object_type(type_alias)
+    tdef = ramble.repository.type_definitions[obj_type]
+    obj_name = f"alias-{type_alias.replace('_', '-')}"
+    expected_dir = tdef["dir_name"]
+    expected_file = tdef["file_name"]
+    expected_content = f"class {nm.mod_to_class(obj_name)}({tdef['default_base']}):"
 
     try:
         for t in ramble.repository.ObjectTypes:
@@ -446,6 +439,9 @@ def test_create_object_type_alias(
         with open(full_path, encoding="utf-8") as f:
             content = f.read()
             assert expected_content in content
+
+        obj_inst = ramble.repository.get(f"{repo_ns}.{obj_name}", object_type=obj_type)
+        assert obj_inst.name == obj_name
 
     finally:
         for t in ramble.repository.ObjectTypes:
