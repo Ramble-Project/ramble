@@ -13,7 +13,8 @@ import llnl.util.filesystem as fs
 
 from ramble.base_mod.builtin.container_base import ContainerBase
 from ramble.modkit import *
-from ramble.util.hashing import hash_string
+from ramble.util import json_util
+from ramble.util.hashing import hash_json, hash_string
 
 from spack.util.path import canonicalize_path
 
@@ -26,7 +27,22 @@ class Apptainer(ContainerBase):
     university or company clusters, a single server, in the cloud, or on a
     workstation down the hall. Your container is a single file, and you don’t
     have to worry about how to install all the software you need on each
-    different operating system."""
+    different operating system.
+
+    Building from a definition file: if ``container_uri`` ends in ``.def``, the
+    ``pull_container`` setup phase runs
+    ``apptainer build {container_path} {container_uri}`` on the host running
+    ``ramble workspace setup``, but only when ``{container_path}`` does not
+    exist yet. Otherwise the image is fetched with ``apptainer pull``.
+
+    Experiment hash: each experiment's inventory includes the SIF ID of
+    ``{container_path}``. Because pipeline ``_prepare()`` computes initial
+    experiment hashes before setup phases run, ``_pull_container`` refreshes
+    the experiment inventories once ``{container_path}`` is built or pulled
+    (before ``make_experiments`` renders ``{experiment_hash}``). If the SIF
+    file is manually rebuilt or replaced outside Ramble later, re-run
+    ``ramble -D $WS workspace setup`` (or pass ``--overwrite-inventories``) to
+    update the recorded hash."""
 
     container_extension = "sif"
     _runtime = "apptainer"
@@ -73,7 +89,8 @@ class Apptainer(ContainerBase):
     register_phase(
         "pull_container",
         pipeline="setup",
-        run_after=["make_experiments"],
+        run_after=["get_inputs"],
+        run_before=["make_experiments"],
     )
 
     def _pull_container(self, workspace, app_inst=None):
@@ -96,7 +113,10 @@ class Apptainer(ContainerBase):
             self.expander.expand_var_name("container_path")
         )
 
-        pull_args = ["pull", container_path, uri]
+        if uri.endswith(".def"):
+            pull_args = ["build", container_path, canonicalize_path(uri)]
+        else:
+            pull_args = ["pull", container_path, uri]
 
         if not os.path.exists(container_path):
             if not workspace.dry_run:
@@ -104,6 +124,43 @@ class Apptainer(ContainerBase):
             self.apptainer_runner.execute(
                 self.apptainer_runner.command, pull_args
             )
+            if (
+                app_inst
+                and not workspace.dry_run
+                and os.path.isfile(container_path)
+            ):
+                for (
+                    _,
+                    exp_inst,
+                    _,
+                ) in app_inst.experiment_set.all_experiments():
+                    for mod_inst in exp_inst._modifier_instances:
+                        if mod_inst.name == self.name:
+                            for obj_conf in exp_inst.hash_inventory.get(
+                                "object_configuration", []
+                            ):
+                                if (
+                                    obj_conf.get("name") == self.name
+                                    and obj_conf.get("type") == "modifiers"
+                                ):
+                                    obj_conf["artifacts"] = (
+                                        mod_inst.artifact_inventory(
+                                            workspace, exp_inst
+                                        )
+                                    )
+                            exp_inst.experiment_hash = hash_json(
+                                exp_inst.hash_inventory
+                            )
+                            exp_inst.variables[
+                                exp_inst.keywords.experiment_hash
+                            ] = exp_inst.experiment_hash
+                            if os.path.exists(exp_inst.inventory_file):
+                                with open(
+                                    exp_inst.inventory_file,
+                                    "w+",
+                                    encoding="utf-8",
+                                ) as f:
+                                    json_util.dump(exp_inst.hash_inventory, f)
         else:
             logger.msg(f"Container is already pulled at {container_path}")
 
