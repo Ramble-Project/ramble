@@ -1260,7 +1260,7 @@ def workspace_list(args):
 
 
 def workspace_edit_setup_parser(subparser):
-    """edit workspace config or template"""
+    """edit workspace config, template, or auxiliary files"""
     subparser.add_argument(
         "-f",
         "--file",
@@ -1272,34 +1272,90 @@ def workspace_edit_setup_parser(subparser):
 
     subparser.add_argument(
         "-c",
+        "--config",
         "--config-only",
         dest="config_only",
         action="store_true",
-        help="Only open config files",
+        help="Open workspace config file (ramble.yaml)",
         required=False,
     )
 
     subparser.add_argument(
         "-t",
+        "--templates",
         "--template-only",
         dest="template_only",
         action="store_true",
-        help="Only open template files",
+        help="Open workspace template files",
         required=False,
     )
 
     subparser.add_argument(
         "-l",
+        "--licenses",
         "--license-only",
         dest="license_only",
         action="store_true",
-        help="Only open license config files",
+        help="Open workspace license config file",
         required=False,
     )
 
     subparser.add_argument(
+        "-r",
+        "--results",
+        dest="results",
+        action="store_true",
+        help="Open latest result files",
+        required=False,
+    )
+
+    subparser.add_argument(
+        "--tables",
+        dest="tables",
+        action="store_true",
+        help="Open latest results table files",
+        required=False,
+    )
+
+    subparser.add_argument(
+        "--logs",
+        dest="logs",
+        action="store_true",
+        help="Open latest pipeline log files",
+        required=False,
+    )
+
+    subparser.add_argument(
+        "--software-files",
+        "--auxiliary-software-files",
+        dest="software_files",
+        action="store_true",
+        help="Open auxiliary software files",
+        required=False,
+    )
+
+    subparser.add_argument(
+        "-i",
+        "--includes",
+        dest="includes",
+        action="store_true",
+        help="Open included configuration files",
+        required=False,
+    )
+
+    subparser.add_argument(
+        "-e",
+        "--experiments-script",
+        dest="experiments_script",
+        action="store_true",
+        help="Open the root all_experiments execution script",
+        required=False,
+    )
+
+    subparser.add_argument(
+        "--all-configs",
         "--all",
-        dest="all_files",
+        dest="all_configs",
         action="store_true",
         help="Open all yaml and template files in workspace config directory",
         required=False,
@@ -1328,28 +1384,114 @@ def workspace_edit(args, unknown_args):
     config_file = ramble.workspace.config_file(ramble_ws)
     template_files = ramble.workspace.all_template_paths(ramble_ws)
 
-    edit_files = [config_file]
-    edit_files.extend(template_files)
-
-    if args.filename:
-        expander = ramble.expander.Expander(
-            ramble.workspace.Workspace.get_workspace_paths(ramble_ws), None
+    has_selector = any(
+        (
+            args.filename,
+            args.config_only,
+            args.template_only,
+            args.license_only,
+            args.all_configs,
+            args.results,
+            args.tables,
+            args.logs,
+            args.software_files,
+            args.includes,
+            args.experiments_script,
         )
-        # If filename contains expansion strings, edit expanded path. Else assume configs dir.
-        expanded_filename = expander.expand_var(args.filename)
-        if expanded_filename != args.filename:
-            edit_files = [expanded_filename]
+    )
+
+    edit_files = []
+    missing_categories = []
+
+    if not has_selector:
+        edit_files.append(config_file)
+        edit_files.extend(template_files)
+    else:
+        if args.filename:
+            ws_paths = ramble.workspace.Workspace.get_workspace_paths(ramble_ws)
+            expander = ramble.expander.Expander(ws_paths, None)
+            # If filename contains expansion strings, edit expanded path. Else assume configs dir.
+            expanded_filename = ramble.util.path.substitute_path_variables(
+                expander.expand_var(args.filename), local_replacements=ws_paths
+            )
+            if expanded_filename != args.filename:
+                edit_files.append(expanded_filename)
+            else:
+                edit_files.append(ramble.workspace.get_filepath(ramble_ws, expanded_filename))
+
+        if args.config_only:
+            edit_files.append(config_file)
+
+        if args.template_only:
+            if template_files:
+                edit_files.extend(template_files)
+            else:
+                missing_categories.append("template")
+
+        if args.license_only:
+            edit_files.append(ramble.workspace.licenses_file(ramble_ws))
+
+        if args.all_configs:
+            edit_files.extend(ramble.workspace.all_config_files(ramble_ws) + template_files)
+
+        if args.results:
+            result_files = ramble.workspace.latest_result_files(ramble_ws)
+            if result_files:
+                edit_files.extend(result_files)
+            else:
+                missing_categories.append("result")
+
+        if args.tables:
+            table_files = ramble.workspace.latest_table_files(ramble_ws)
+            if table_files:
+                edit_files.extend(table_files)
+            else:
+                missing_categories.append("table")
+
+        if args.logs:
+            log_files = ramble.workspace.latest_log_files(ramble_ws)
+            if log_files:
+                edit_files.extend(log_files)
+            else:
+                missing_categories.append("log")
+
+        if args.software_files:
+            software_files = ramble.workspace.all_auxiliary_software_files(ramble_ws)
+            if software_files:
+                edit_files.extend(software_files)
+            else:
+                missing_categories.append("auxiliary software")
+
+        if args.includes:
+            include_files = ramble.workspace.included_config_files(ramble_ws)
+            if include_files:
+                edit_files.extend(include_files)
+            else:
+                missing_categories.append("included config")
+
+        if args.experiments_script:
+            exp_script_files = ramble.workspace.all_experiments_file(ramble_ws)
+            if exp_script_files:
+                edit_files.extend(exp_script_files)
+            else:
+                missing_categories.append("all_experiments script")
+
+    seen = set()
+    deduped_files = []
+    for f in edit_files:
+        if f not in seen:
+            seen.add(f)
+            deduped_files.append(f)
+    edit_files = deduped_files
+
+    if missing_categories:
+        if not edit_files:
+            for category in missing_categories[:-1]:
+                logger.warn(f"No {category} files found in workspace.")
+            logger.die(f"No {missing_categories[-1]} files found in workspace.")
         else:
-            edit_files = [ramble.workspace.get_filepath(ramble_ws, expanded_filename)]
-    elif args.config_only:
-        edit_files = [config_file]
-    elif args.template_only:
-        edit_files = template_files
-    elif args.license_only:
-        licenses_file = [ramble.workspace.licenses_file(ramble_ws)]
-        edit_files = licenses_file
-    elif args.all_files:
-        edit_files = ramble.workspace.all_config_files(ramble_ws) + template_files
+            for category in missing_categories:
+                logger.warn(f"No {category} files found in workspace.")
 
     if args.print_file:
         for f in edit_files:
