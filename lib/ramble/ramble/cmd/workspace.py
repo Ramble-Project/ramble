@@ -14,6 +14,8 @@ import tempfile
 from collections import defaultdict
 from typing import Callable, Dict
 
+import deprecation
+
 from llnl.util import tty
 from llnl.util.tty.colify import colified, colify
 
@@ -30,6 +32,7 @@ import ramble.spec
 import ramble.util.colors as color
 import ramble.workspace
 import ramble.workspace.shell
+from ramble import ramble_version
 from ramble.cmd.common import arguments
 from ramble.namespace import namespace
 from ramble.util.editor import editor
@@ -42,6 +45,16 @@ from spack.util import string
 description = "manage experiment workspaces"
 section = "workspaces"
 level = "short"
+
+
+@deprecation.deprecated(
+    deprecated_in="0.7.0",
+    removed_in="0.8.0",
+    current_version=ramble_version,
+    details="Use --config, --templates, or --licenses instead",
+)
+def _deprecated_workspace_edit_arguments():
+    pass
 
 
 subcommands = [
@@ -1273,30 +1286,54 @@ def workspace_edit_setup_parser(subparser):
     subparser.add_argument(
         "-c",
         "--config",
+        dest="config",
+        action="store_true",
+        help="Open workspace config file (ramble.yaml)",
+        required=False,
+    )
+
+    # TODO: remove in 0.8.0
+    subparser.add_argument(
         "--config-only",
         dest="config_only",
         action="store_true",
-        help="Open workspace config file (ramble.yaml)",
+        help="(DEPRECATED) Only open config files. Use --config/-c, instead",
         required=False,
     )
 
     subparser.add_argument(
         "-t",
         "--templates",
+        dest="templates",
+        action="store_true",
+        help="Open workspace template files",
+        required=False,
+    )
+
+    # TODO: remove in 0.8.0
+    subparser.add_argument(
         "--template-only",
         dest="template_only",
         action="store_true",
-        help="Open workspace template files",
+        help="(DEPRECATED) Only open template files. Use --templates/-t, instead",
         required=False,
     )
 
     subparser.add_argument(
         "-l",
         "--licenses",
+        dest="licenses",
+        action="store_true",
+        help="Open workspace license config file",
+        required=False,
+    )
+
+    # TODO: remove in 0.8.0
+    subparser.add_argument(
         "--license-only",
         dest="license_only",
         action="store_true",
-        help="Open workspace license config file",
+        help="(DEPRECATED) Only open license config files. Use --licenses/-l, instead",
         required=False,
     )
 
@@ -1373,6 +1410,9 @@ def workspace_edit_setup_parser(subparser):
 
 
 def workspace_edit(args, unknown_args):
+    if args.config_only or args.template_only or args.license_only:
+        _deprecated_workspace_edit_arguments()
+
     ramble_ws = ramble.cmd.find_workspace_path(args)
 
     if not ramble_ws:
@@ -1387,8 +1427,11 @@ def workspace_edit(args, unknown_args):
     has_selector = any(
         (
             args.filename,
+            args.config,
             args.config_only,
+            args.templates,
             args.template_only,
+            args.licenses,
             args.license_only,
             args.all_configs,
             args.results,
@@ -1411,24 +1454,26 @@ def workspace_edit(args, unknown_args):
             ws_paths = ramble.workspace.Workspace.get_workspace_paths(ramble_ws)
             expander = ramble.expander.Expander(ws_paths, None)
             # If filename contains expansion strings, edit expanded path. Else assume configs dir.
-            expanded_filename = ramble.util.path.substitute_path_variables(
-                expander.expand_var(args.filename), local_replacements=ws_paths
+            expanded_filename = expander.expand_var(
+                ramble.util.path.substitute_path_variables(
+                    args.filename, local_replacements=ws_paths
+                )
             )
             if expanded_filename != args.filename:
                 edit_files.append(expanded_filename)
             else:
                 edit_files.append(ramble.workspace.get_filepath(ramble_ws, expanded_filename))
 
-        if args.config_only:
+        if args.config or args.config_only:
             edit_files.append(config_file)
 
-        if args.template_only:
+        if args.templates or args.template_only:
             if template_files:
                 edit_files.extend(template_files)
             else:
                 missing_categories.append("template")
 
-        if args.license_only:
+        if args.licenses or args.license_only:
             edit_files.append(ramble.workspace.licenses_file(ramble_ws))
 
         if args.all_configs:

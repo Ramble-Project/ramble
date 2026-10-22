@@ -1241,10 +1241,6 @@ def test_edit_edits_correct_paths():
         workspace("edit", "--config", "--print-file", global_args=ws_args).strip() == config_file
     )
     assert (
-        workspace("edit", "--config-only", "--print-file", global_args=ws_args).strip()
-        == config_file
-    )
-    assert (
         workspace("edit", "-t", "--print-file", global_args=ws_args).strip()
         == default_template_path
     )
@@ -1252,18 +1248,11 @@ def test_edit_edits_correct_paths():
         workspace("edit", "--templates", "--print-file", global_args=ws_args).strip()
         == default_template_path
     )
-    assert (
-        workspace("edit", "--template-only", "--print-file", global_args=ws_args).strip()
-        == default_template_path
-    )
     assert workspace(
         "edit", "-l", "--print-file", global_args=ws_args
     ).strip() == ramble.workspace.licenses_file(ws.root)
     assert workspace(
         "edit", "--licenses", "--print-file", global_args=ws_args
-    ).strip() == ramble.workspace.licenses_file(ws.root)
-    assert workspace(
-        "edit", "--license-only", "--print-file", global_args=ws_args
     ).strip() == ramble.workspace.licenses_file(ws.root)
     # Combining -c and -t opens both
     combined = (
@@ -1391,11 +1380,16 @@ def test_edit_auxiliary_files(workspace_name, tmpdir):
         ws.all_experiments_path,
     ]
 
-    # Test -f with $workspace_results path variable substitution
+    # Test -f with $workspace_results and ${workspace_results} path variable substitution
     file_var_out = workspace(
         "edit", "-f", "$workspace_results/results.latest.txt", "-p", global_args=ws_args
     ).strip()
     assert file_var_out == os.path.join(ws.results_dir, "results.latest.txt")
+
+    file_braced_var_out = workspace(
+        "edit", "-f", "${workspace_results}/results.latest.txt", "-p", global_args=ws_args
+    ).strip()
+    assert file_braced_var_out == os.path.join(ws.results_dir, "results.latest.txt")
 
 
 def test_edit_missing_auxiliary_files(workspace_name):

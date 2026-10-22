@@ -160,9 +160,9 @@ editor. By default, it opens ``configs/ramble.yaml`` and all template
 You can also open specific configuration or auxiliary files using flags (which
 can be combined):
 
-  * ``-c`` / ``--config`` (``--config-only``): Open ``configs/ramble.yaml``
-  * ``-t`` / ``--templates`` (``--template-only``): Open all ``configs/*.tpl`` template files
-  * ``-l`` / ``--licenses`` (``--license-only``): Open ``configs/licenses.yaml``
+  * ``-c`` / ``--config``: Open ``configs/ramble.yaml``
+  * ``-t`` / ``--templates``: Open all ``configs/*.tpl`` template files
+  * ``-l`` / ``--licenses``: Open ``configs/licenses.yaml``
   * ``--all-configs`` / ``--all``: Open all ``*.yaml`` and ``*.tpl`` files in ``configs/``
   * ``-r`` / ``--results``: Open the latest analysis result files (``results/results.latest.*``)
   * ``--tables``: Open the latest generated table files (``tables/*.latest.*``)
