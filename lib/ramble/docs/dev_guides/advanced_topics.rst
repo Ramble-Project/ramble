@@ -509,25 +509,13 @@ To understand what phases are registered for a given workspace, you can use the
 
     ramble workspace info --phases
 
-And finally, to understand the phase graph order for a given workspace's pipeline, you can
-use the ``--debug`` and ``-dry-run`` options together along with ``--disable-progress-bar``
-and ``--disable-logger`` and ``grep`` for "Executing phase". The results are returned in
-the topologically sorted order:
-
-.. code-block:: bash
-
-    ramble --debug --disable-progress-bar --disable-logger workspace setup --dry-run 2>&1 | grep "Executing phase"
-    ramble --debug --disable-progress-bar --disable-logger workspace analyze --dry-run 2>&1 | grep "Executing phase"
-
 .. _additional-pipelines:
 
 Additional Pipelines
 ====================
 
-In addition to :py:class:`ramble.pipeline.ExecutePipeline`,
-:py:class:`ramble.pipeline.SetupPipeline`,
-:py:class:`ramble.pipeline.AnalyzePipeline`, and 
-:py:class:`ramble.pipeline.ArchivePipeline`, Ramble provides several additional pipelines:
+In addition to the previously mentioned pipelines, Ramble provides several additional
+pipelines:
 
 * **Mirror Pipeline** (:py:class:`~ramble.pipeline.MirrorPipeline`):
 
