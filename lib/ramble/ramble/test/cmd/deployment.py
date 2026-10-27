@@ -25,24 +25,33 @@ pytestmark = pytest.mark.usefixtures(
 )
 
 
-def check_deployment_files(root, app_name):
+def check_deployment_files(root, app_name, pm_name="spack-lightweight", util_name="spack"):
     configs_dir = os.path.join(root, "configs")
     tpl = os.path.join(configs_dir, "execute_experiment.tpl")
     yaml = os.path.join(configs_dir, "ramble.yaml")
 
     ramble_object_dir = os.path.join(root, "object_repos", "ramble", "builtin")
-    spack_pm = os.path.join(
-        ramble_object_dir, "package_managers", "spack-lightweight", "package_manager.py"
-    )
     app = os.path.join(ramble_object_dir, "applications", app_name, "application.py")
-    spack_object_dir = os.path.join(root, "object_repos", "spack", "obj_repo")
-    pkg = os.path.join(spack_object_dir, "packages", app_name, "package.py")
 
-    dir_list = [root, configs_dir, ramble_object_dir, spack_object_dir]
+    dir_list = [root, configs_dir, ramble_object_dir]
+    file_list = [tpl, yaml, app]
+
+    if pm_name:
+        pm = os.path.join(ramble_object_dir, "package_managers", pm_name, "package_manager.py")
+        file_list.append(pm)
+        if pm_name.startswith("spack"):
+            spack_object_dir = os.path.join(root, "object_repos", "spack", "obj_repo")
+            pkg = os.path.join(spack_object_dir, "packages", app_name, "package.py")
+            dir_list.append(spack_object_dir)
+            file_list.append(pkg)
+
+    if util_name:
+        util = os.path.join(ramble_object_dir, "utilities", util_name, "utility.py")
+        file_list.append(util)
+
     for d in dir_list:
         assert os.path.isdir(d)
 
-    file_list = [tpl, yaml, spack_pm, app, pkg]
     for f in file_list:
         assert os.path.isfile(f)
 

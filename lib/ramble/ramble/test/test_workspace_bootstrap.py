@@ -8,6 +8,8 @@
 
 import os
 
+import pytest
+
 import ramble.config
 import ramble.filters
 import ramble.pipeline
@@ -15,36 +17,34 @@ import ramble.workspace
 from ramble.main import RambleCommand
 
 
-def test_workspace_bootstrap_utilities(mutable_config, mutable_mock_workspace_path, monkeypatch):
+def test_workspace_bootstrap_utilities(make_workspace_from_config, monkeypatch):
     import shutil
 
     monkeypatch.setattr(shutil, "which", lambda x, **kwargs: None)
 
-    ws_name = "test_bootstrap"
-    ws = ramble.workspace.create(ws_name)
-
-    os.makedirs(os.path.dirname(ws.config_file_path), exist_ok=True)
-    with open(ws.config_file_path, "w", encoding="utf-8") as f:
-        f.write("""ramble:
-  variables:
-    mpi_command: mpirun
-    batch_submit: '{execute_experiment}'
-    processes_per_node: '1'
-    n_threads: '1'
-  applications:
-    hostname:
-      workloads:
-        serial:
-          experiments:
-            test_exp:
-              variables:
-                n_ranks: '1'
-                n_nodes: '1'
+    test_config = """
+ramble:
   utilities:
     spack:
       git: https://github.com/my/ext_dep.git
       commit: v2.0
-""")
+"""
+    ws, ws_name = make_workspace_from_config(test_config, activate=True)
+    workspace = RambleCommand("workspace")
+    workspace(
+        "manage",
+        "experiments",
+        "hostname",
+        "--wf",
+        "serial",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=["-w", ws_name],
+    )
     ws._re_read()
 
     # In order to test bootstrap, we need an object with required_utilities
@@ -70,11 +70,6 @@ def test_workspace_bootstrap_utilities(mutable_config, mutable_mock_workspace_pa
         with ramble.config.override("config:bootstrap_utilities", True):
             setup_pipeline.run()
 
-    print(
-        "app_inst.required_utilities:",
-        getattr(app_inst, "required_utilities", "MISSING"),
-    )
-    print("ws_ext_deps:", ws._get_workspace_dict().get("ramble", {}).get("utilities", {}))
     assert hasattr(app_inst, "_bootstrapped_utility_paths")
     assert "spack" in app_inst._bootstrapped_utility_paths
     # Verify the external dependency directory is correct
@@ -128,9 +123,91 @@ def test_workspace_bootstrap_utilities_from_modifier(
             setup_pipeline.run()
 
         app_inst = next(iter(setup_pipeline.experiment_set.experiments.values()))
+        assert "spack" in app_inst.utilities
+        assert app_inst.utilities["spack"]["git"] == "https://github.com/spack/spack.git"
+        assert app_inst.utilities["spack"]["commit"] == "v1.5"
+        assert app_inst.utilities["spack"]["allow_external"] is False
+        assert len(app_inst._utility_instances) == 1
+        assert app_inst._utility_instances[0].name == "spack"
+        assert app_inst._utility_instances[0].utility_config == app_inst.utilities["spack"]
         assert hasattr(app_inst, "_bootstrapped_utility_paths")
         assert "spack" in app_inst._bootstrapped_utility_paths
         ext_dep_dir = app_inst._bootstrapped_utility_paths["spack"]
         assert ext_dep_dir.endswith(
             os.path.join("bootstrapped_utilities", "spack", "v1.5", "source")
         )
+
+
+def test_missing_utility_from_workspace_config_error(
+    make_workspace_from_config, mock_applications
+):
+    test_config = """
+ramble:
+  utilities:
+    non_existent_utility:
+      git: https://github.com/my/ext_dep.git
+"""
+    _, ws_name = make_workspace_from_config(test_config, activate=True)
+    workspace = RambleCommand("workspace")
+    out = workspace(
+        "manage",
+        "experiments",
+        "basic",
+        "--wf",
+        "test_wl",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=["-w", ws_name],
+        fail_on_error=False,
+    )
+
+    assert workspace.returncode != 0
+    assert "The following utilities were required, but do not exist." in out
+    assert "  - non_existent_utility" in out
+    assert "To view the available utilities, use `ramble list --type utilities`" in out
+
+
+def test_missing_required_utility_from_object_error(
+    make_workspace_from_config, mock_applications, capsys
+):
+    ws, ws_name = make_workspace_from_config(activate=True)
+    workspace = RambleCommand("workspace")
+    workspace(
+        "manage",
+        "experiments",
+        "basic",
+        "--wf",
+        "test_wl",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=["-w", ws_name],
+    )
+    ws._re_read()
+
+    filters = ramble.filters.Filters()
+    setup_pipeline = ramble.pipeline.SetupPipeline(ws, filters)
+    app_inst = next(iter(setup_pipeline.experiment_set.experiments.values()))
+
+    app_inst.required_utilities = {
+        frozenset([]): {
+            "missing_util_b": {},
+            "missing_util_a": {},
+        }
+    }
+    app_inst._utility_instances = []
+
+    with pytest.raises(SystemExit):
+        app_inst.build_utility_instances()
+
+    captured = capsys.readouterr()
+    assert "The following utilities were required, but do not exist." in captured.err
+    assert "  - missing_util_a\n  - missing_util_b" in captured.err
+    assert "To view the available utilities, use `ramble list --type utilities`" in captured.err
