@@ -339,3 +339,48 @@ ramble:
         content = f.read()
         assert content.count("Status = SUCCESS") == 2
         assert content.count("config::experiment::target_gflops = PASSED") == 2
+
+
+def test_analyze_hpcg_calculator_values(make_workspace_from_config):
+    """Test HPCG calculator workload computes matrix_size during analyze"""
+    test_config = """
+ramble:
+  variants:
+    package_manager: user-managed
+  variables:
+    mpi_command: ''
+    batch_submit: '{execute_experiment}'
+    n_nodes: 1
+    processes_per_node: 1
+    hpcg_path: '/usr/bin'
+  applications:
+    hpcg:
+      workloads:
+        calculator:
+          experiments:
+            calc_test:
+              variables:
+                memory_per_rank: '4.0'
+                out_file: '{experiment_run_dir}/{experiment_name}.out'
+              success_criteria:
+              - name: 'check_calculated_size'
+                mode: 'fom_comparison'
+                fom_name: 'Status'
+                formula: "'{matrix_size}' == '168 168 168' and '{value}' == 'VALID'"
+"""
+    ws, ws_name = make_workspace_from_config(test_config)
+    workspace("setup", "--dry-run", global_args=["-w", ws_name])
+
+    calc_out = os.path.join(ws.experiment_dir, "hpcg", "calculator", "calc_test", "calc_test.out")
+    with open(calc_out, "w+", encoding="utf-8") as f:
+        f.write(
+            "Final Summary::HPCG result is VALID with a GFLOP/s rating of=12.34\n"
+            "Final Summary::HPCG 2.4 rating for historical reasons is=12.00\n"
+        )
+
+    workspace("analyze", global_args=["-w", ws_name])
+    result_file = os.path.join(ws.results_dir, "results.latest.txt")
+    with open(result_file, encoding="utf-8") as f:
+        content = f.read()
+        assert "Status = SUCCESS" in content
+        assert "config::experiment::check_calculated_size = PASSED" in content
