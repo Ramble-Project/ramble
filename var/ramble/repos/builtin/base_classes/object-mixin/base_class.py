@@ -181,6 +181,8 @@ class ObjectMixin(metaclass=SharedMeta):
 
     def satisfy_when(self, when_key, variant_set=None):
         app_inst = self._get_app_inst()
+        if app_inst is None or not hasattr(app_inst, "expander"):
+            return True
         experiment_variants = self.experiment_variants()
         return app_inst.expander.satisfies(when_key, experiment_variants)
 
@@ -359,6 +361,32 @@ class ObjectMixin(metaclass=SharedMeta):
             if self.satisfy_when(when_key)
             for env_var in env_var_list
         }
+
+    @property
+    def selected_utilities(self):
+        """Extract all required utilities which would be included based
+        on the current variants.
+
+        Returns:
+            (dict) Keys are utility names, values are utility configuration
+            dictionaries
+        """
+        if (
+            not hasattr(self, "required_utilities")
+            or not self.required_utilities
+        ):
+            return {}
+
+        utilities = {}
+        for when_key, util_defs in self.required_utilities.items():
+            if self.satisfy_when(when_key):
+                for util_name, util_conf in util_defs.items():
+                    if util_name not in utilities:
+                        utilities[util_name] = {}
+                    utilities[util_name].update(
+                        {k: v for k, v in util_conf.items() if k != "when"}
+                    )
+        return utilities
 
     def add_inmem_fom_value(self, fom_map_key, value):
         """Add an in-memory FOM value"""

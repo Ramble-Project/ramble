@@ -1148,21 +1148,17 @@ def workspace_info(args):
                         continue
 
                     for _, obj in app_inst.objects():
-                        if hasattr(obj, "required_utilities"):
-                            for when_key, utilities in obj.required_utilities.items():
-                                if obj.satisfy_when(when_key):
-                                    for utility_name, utility_conf in utilities.items():
-                                        if utility_name not in all_utilities:
-                                            all_utilities[utility_name] = set()
+                        for (
+                            utility_name,
+                            utility_conf,
+                        ) in obj.selected_utilities.items():
+                            if utility_name not in all_utilities:
+                                all_utilities[utility_name] = set()
 
-                                        conf_tuple = tuple(
-                                            sorted(
-                                                (k, _hashable_val(v))
-                                                for k, v in utility_conf.items()
-                                                if k != "when"
-                                            )
-                                        )
-                                        all_utilities[utility_name].add(conf_tuple)
+                            conf_tuple = tuple(
+                                sorted((k, _hashable_val(v)) for k, v in utility_conf.items())
+                            )
+                            all_utilities[utility_name].add(conf_tuple)
 
         if not all_utilities:
             color.cprint("    None")

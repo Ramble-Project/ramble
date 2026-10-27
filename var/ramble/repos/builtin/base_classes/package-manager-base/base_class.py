@@ -130,16 +130,12 @@ class PackageManagerBase(ObjectMixin, metaclass=DirectiveMeta):
 
         merged_configs = {}
         for obj in ordered_objects:
-            if not hasattr(obj, "required_utilities"):
+            if not hasattr(obj, "selected_utilities"):
                 continue
-            for when_key, ext_deps in obj.required_utilities.items():
-                if obj.satisfy_when(when_key):
-                    for util_name, ext_dep_conf in ext_deps.items():
-                        if util_name not in merged_configs:
-                            merged_configs[util_name] = {}
-                        merged_configs[util_name].update(
-                            copy.deepcopy(ext_dep_conf)
-                        )
+            for util_name, ext_dep_conf in obj.selected_utilities.items():
+                if util_name not in merged_configs:
+                    merged_configs[util_name] = {}
+                merged_configs[util_name].update(copy.deepcopy(ext_dep_conf))
 
         for util_name, ws_conf in ws_ext_deps.items():
             if util_name not in merged_configs:
