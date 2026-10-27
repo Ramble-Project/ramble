@@ -266,3 +266,76 @@ def test_analyze_garbage_output(make_workspace_from_config):
     with open(result_file, encoding="utf-8") as f:
         content = f.read()
         assert "possible hostname = test-user.c.googlers.com" in content
+
+
+def test_analyze_hpl_fom_context_variable_expansion(make_workspace_from_config):
+    """Test HPL calculator and standard workloads expand variables in fom_context"""
+    test_config = """
+ramble:
+  variants:
+    package_manager: user-managed
+  variables:
+    mpi_command: ''
+    batch_submit: '{execute_experiment}'
+    n_nodes: 2
+    processes_per_node: 2
+    hpl_path: '/usr/bin'
+  applications:
+    hpl:
+      workloads:
+        calculator:
+          experiments:
+            calc_test:
+              variables:
+                memory_per_node: 215
+                block_size: 384
+              success_criteria:
+              - name: 'target_gflops'
+                mode: 'fom_comparison'
+                fom_name: 'GFlops'
+                fom_context: 'N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}'
+                formula: '{value} > 1000'
+        standard:
+          experiments:
+            std_multi_test:
+              variables:
+                Ns: '1000 221184'
+                Optimal-N: 221184
+                NBs: 384
+                Ps: 2
+                Qs: 2
+              success_criteria:
+              - name: 'target_gflops'
+                mode: 'fom_comparison'
+                fom_name: 'GFlops'
+                fom_context: 'N-NB-P-Q = {Optimal-N}-{NBs}-{Ps}-{Qs}'
+                formula: '{value} > 1000'
+"""
+    ws, ws_name = make_workspace_from_config(test_config)
+    workspace("setup", "--dry-run", global_args=["-w", ws_name])
+
+    calc_out = os.path.join(ws.experiment_dir, "hpl", "calculator", "calc_test", "calc_test.out")
+    with open(calc_out, "w+", encoding="utf-8") as f:
+        f.write(
+            "T/V                N    NB     P     Q               Time                 Gflops\n"
+            "--------------------------------------------------------------------------------\n"
+            "WR00L2L2      221184   384     2     2              10.00              1.500e+04\n"
+        )
+
+    std_out = os.path.join(
+        ws.experiment_dir, "hpl", "standard", "std_multi_test", "std_multi_test.out"
+    )
+    with open(std_out, "w+", encoding="utf-8") as f:
+        f.write(
+            "T/V                N    NB     P     Q               Time                 Gflops\n"
+            "--------------------------------------------------------------------------------\n"
+            "WR00L2L2        1000   384     2     2               1.00              5.000e+01\n"
+            "WR00L2L2      221184   384     2     2              10.00              1.500e+04\n"
+        )
+
+    workspace("analyze", global_args=["-w", ws_name])
+    result_file = os.path.join(ws.results_dir, "results.latest.txt")
+    with open(result_file, encoding="utf-8") as f:
+        content = f.read()
+        assert content.count("Status = SUCCESS") == 2
+        assert content.count("config::experiment::target_gflops = PASSED") == 2

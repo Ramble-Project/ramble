@@ -204,3 +204,70 @@ def test_success_criteria_constant_values():
     # Results are written to results files
     assert SuccessCriteriaResult.PASSED == "PASSED"
     assert SuccessCriteriaResult.FAILED == "FAILED"
+
+
+def test_success_criteria_fom_context_variable_expansion():
+    from unittest.mock import MagicMock
+
+    app_inst = MagicMock()
+    exp_vars = {"Ns": 2000, "NBs": 384, "Ps": 12, "Qs": 16}
+
+    def expand_var(var, extra_vars=None):
+        res = var
+        all_vars = dict(exp_vars)
+        if extra_vars:
+            all_vars.update(extra_vars)
+        for k, v in all_vars.items():
+            res = res.replace(f"{{{k}}}", str(v))
+        return res
+
+    app_inst.expander.expand_var.side_effect = expand_var
+
+    def evaluate_predicate(expr, extra_vars=None):
+        expanded = expand_var(expr, extra_vars)
+        if " > " in expanded:
+            parts = expanded.split(" > ")
+            return float(parts[0]) > float(parts[1])
+        return True
+
+    app_inst.expander.evaluate_predicate.side_effect = evaluate_predicate
+
+    fom_values = {
+        ("N-NB-P-Q = 1000-384-12-16", "problem-name"): {
+            "GFlops": {"value": 100.0},
+        },
+        ("N-NB-P-Q = 2000-384-12-16", "problem-name"): {
+            "GFlops": {"value": 250.0},
+        },
+    }
+
+    # Variable expansion in fom_context targets the matching context (Ns=2000)
+    crit_pass = ramble.success_criteria.SuccessCriteria(
+        name="hpl_target_pass",
+        mode="fom_comparison",
+        fom_context="N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}",
+        fom_name="GFlops",
+        formula="{value} > 200.0",
+    )
+    assert crit_pass.passed(app_inst=app_inst, fom_values=fom_values)
+
+    # Fails when the targeted context does not meet the formula threshold
+    crit_fail = ramble.success_criteria.SuccessCriteria(
+        name="hpl_target_fail",
+        mode="fom_comparison",
+        fom_context="N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}",
+        fom_name="GFlops",
+        formula="{value} > 300.0",
+    )
+    assert not crit_fail.passed(app_inst=app_inst, fom_values=fom_values)
+
+    # Fails when expanded fom_context does not match any recorded context
+    exp_vars["Ns"] = "1000 2000"
+    crit_no_match = ramble.success_criteria.SuccessCriteria(
+        name="hpl_no_match",
+        mode="fom_comparison",
+        fom_context="N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}",
+        fom_name="GFlops",
+        formula="{value} > 0",
+    )
+    assert not crit_no_match.passed(app_inst=app_inst, fom_values=fom_values)
