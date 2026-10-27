@@ -11,6 +11,8 @@ import sys
 
 import pytest
 
+import ramble.config
+import ramble.paths
 import ramble.workspace
 from ramble.main import RambleCommand
 
@@ -83,6 +85,11 @@ def test_local_deployment(mutable_config, mutable_mock_workspace_path, workspace
         )
         workspace("concretize", global_args=["-w", workspace_name])
 
+        ramble.config.add(
+            f"repos:[{ramble.paths.mock_builtin_path}]",
+            scope=ws.ws_file_config_scope_name(),
+        )
+
         ws._re_read()
 
         deployment(
@@ -94,6 +101,11 @@ def test_local_deployment(mutable_config, mutable_mock_workspace_path, workspace
         this_deployment_dir = os.path.join(deployment_dir, workspace_name)
 
         check_deployment_files(this_deployment_dir, app_name)
+
+        deployed_yaml = os.path.join(this_deployment_dir, "configs", "ramble.yaml")
+        with open(deployed_yaml, encoding="utf-8") as f:
+            deployed_content = f.read()
+            assert "repos:" not in deployed_content
 
     workspace_name = "test_local_pull"
     with ramble.workspace.create(workspace_name) as ws:
