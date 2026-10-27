@@ -354,6 +354,12 @@ class Hpl(ExecutableApplication):
         "calculate_values", pipeline="setup", run_before=["make_experiments"]
     )
 
+    register_phase(
+        "calculate_values",
+        pipeline="analyze",
+        run_before=["analyze_experiments"],
+    )
+
     def _calculate_values(self, workspace, app_inst):
         expander = self.expander
         calculated_settings = {}
