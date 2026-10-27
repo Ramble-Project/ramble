@@ -23,6 +23,7 @@ import ramble.expander
 import ramble.experiment_result
 import ramble.fetch_strategy
 import ramble.filters
+import ramble.schema.repo_schema
 import ramble.software_environments
 import ramble.stage
 import ramble.uploader
@@ -36,6 +37,7 @@ from ramble.util.colors import cprint
 from ramble.util.file_util import create_symlink
 from ramble.util.logger import logger
 
+import spack.util.spack_yaml as syaml
 from spack.util.executable import Executable, which
 
 if not ramble.config.get("config:disable_progress_bar", False):
@@ -817,6 +819,29 @@ class PushDeploymentPipeline(Pipeline):
         else:
             self.deployment_name = workspace.name
 
+    def _prune_deployment_repos(self, configs_dir):
+        """Remove repository configuration sections from deployed configs."""
+        repo_sections = set(ramble.schema.repo_schema.REPO_SECTIONS)
+
+        for section in repo_sections:
+            section_file = os.path.join(configs_dir, f"{section}.yaml")
+            if os.path.exists(section_file):
+                fs.force_remove(section_file)
+
+        ramble_yaml = os.path.join(configs_dir, ramble.workspace.CONFIG_FILE_NAME)
+        if os.path.exists(ramble_yaml):
+            with open(ramble_yaml, encoding="utf-8") as f:
+                data = ramble.config.load_config(f)
+
+            if data and namespace.ramble in data and isinstance(data[namespace.ramble], dict):
+                ramble_block = data[namespace.ramble]
+                keys_to_remove = [k for k in ramble_block if k in repo_sections]
+                if keys_to_remove:
+                    for k in keys_to_remove:
+                        del ramble_block[k]
+                    with open(ramble_yaml, "w", encoding="utf-8") as f:
+                        syaml.dump_config(data, stream=f, default_flow_style=False)
+
     def _execute(self):
         configs_dir = os.path.join(
             self.workspace.named_deployment, ramble.workspace.WORKSPACE_CONFIG_PATH
@@ -824,6 +849,7 @@ class PushDeploymentPipeline(Pipeline):
         fs.mkdirp(configs_dir)
 
         _copy_tree(self.workspace.config_dir, configs_dir)
+        self._prune_deployment_repos(configs_dir)
 
         aux_software_dir = os.path.join(configs_dir, ramble.workspace.AUXILIARY_SOFTWARE_DIR_NAME)
         fs.mkdirp(aux_software_dir)
