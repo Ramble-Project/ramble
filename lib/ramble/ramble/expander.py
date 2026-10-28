@@ -864,7 +864,7 @@ class Expander:
 
     def expand_var(
         self,
-        var: str,
+        var: Any,
         extra_vars: Optional[Dict] = None,
         allow_passthrough: bool = True,
         typed: bool = False,
@@ -877,7 +877,7 @@ class Expander:
         expansion variables.
 
         Args:
-            var (str): String variable to expand
+            var (Any): Variable or string to expand
             extra_vars (dict): Variable definitions to use with highest precedence
             allow_passthrough (bool): Whether the string is allowed to have keywords
                                       after expansion
@@ -897,6 +897,22 @@ class Expander:
             if merge_used_stage:
                 self.merge_used_variable_stage()
             return var if typed else str(var)
+
+        if isinstance(var, dict):
+            expanded_dict = {
+                k: self.expand_var(
+                    v,
+                    extra_vars=extra_vars,
+                    allow_passthrough=allow_passthrough,
+                    typed=not isinstance(v, str) or typed,
+                    merge_used_stage=False,
+                    replace_escaped_braces=replace_escaped_braces,
+                )
+                for k, v in var.items()
+            }
+            if merge_used_stage:
+                self.merge_used_variable_stage()
+            return expanded_dict if typed else str(expanded_dict)
 
         passthrough_setting = allow_passthrough
 
@@ -1081,6 +1097,16 @@ class Expander:
                 )
 
             return str(str_graph.root.value)
+
+        if isinstance(in_str, dict):
+            return self.expand_var(
+                in_str,
+                extra_vars=expansion_vars,
+                allow_passthrough=allow_passthrough,
+                typed=False,
+                merge_used_stage=False,
+                replace_escaped_braces=replace_escaped_braces,
+            )
 
         return str(in_str)
 
@@ -1429,6 +1455,7 @@ class Expander:
 
             active_vars = expansion_vars if expansion_vars is not None else self._variables
 
+            op_dict = None
             if isinstance(operand, str):
                 if isinstance(slice_node, ast.Slice):
 
@@ -1445,28 +1472,28 @@ class Expander:
                 elif operand in active_vars and isinstance(active_vars[operand], dict):
                     op_dict = self.expand_var_name(operand, extra_vars=active_vars, typed=True)
 
-                    if _is_index_node(slice_node):
-                        key = self.eval_math(slice_node.value, expansion_vars=active_vars)
-                    elif isinstance(
-                        slice_node, (_AST_CONSTANT, _AST_NAME_CONSTANT)
-                    ) or _is_str_node(slice_node):
-                        key = self.eval_math(slice_node, expansion_vars=active_vars)
-                    else:
-                        key = None
+            elif isinstance(operand, dict):
+                op_dict = operand
 
-                    if key is None:
-                        msg = (
-                            "During dictionary extraction, key is None. " + "Skipping extraction."
-                        )
-                        self.__dbg_syntax_error(msg, node)
+            if isinstance(op_dict, dict):
+                if _is_index_node(slice_node):
+                    key = self.eval_math(slice_node.value, expansion_vars=active_vars)
+                elif isinstance(slice_node, (_AST_CONSTANT, _AST_NAME_CONSTANT)) or _is_str_node(
+                    slice_node
+                ):
+                    key = self.eval_math(slice_node, expansion_vars=active_vars)
+                else:
+                    key = None
 
-                    if key not in op_dict:
-                        msg = (
-                            f"Key {key} is not in dictionary {operand}. " + "Cannot extract value."
-                        )
-                        self.__dbg_syntax_error(msg, node)
+                if key is None:
+                    msg = "During dictionary extraction, key is None. " + "Skipping extraction."
+                    self.__dbg_syntax_error(msg, node)
 
-                    return op_dict[key]
+                if key not in op_dict:
+                    msg = f"Key {key} is not in dictionary {operand}. " + "Cannot extract value."
+                    self.__dbg_syntax_error(msg, node)
+
+                return op_dict[key]
 
             msg = (
                 "Currently subscripts are only support "
