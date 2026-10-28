@@ -168,47 +168,61 @@ This results in the following phases being registered by the associated objects:
 
 * **Application Hierarchy**:
 
-  * `ApplicationBase <https://github.com/Ramble-Project/ramble/blob/develop/var/ramble/repos/builtin/base_classes/application-base/base_class.py>`_
-    registers:
-
-    * ``bootstrap_utilities`` (``run_before=["get_inputs"]``)
-    * ``get_inputs`` (unconstrained)
-    * ``license_includes`` (unconstrained)
-    * ``make_experiments`` (``run_after=["get_inputs"]``)
-    * ``write_status`` (``run_after=["make_experiments"]``)
-
-  * `HpcgBase <https://github.com/Ramble-Project/ramble/blob/develop/var/ramble/repos/builtin/base_applications/hpcg/base_application.py>`_
-    registers:
-    
-    * ``calculate_values`` (``run_before=["make_experiments"]``)
-
-  * `Hpcg <https://github.com/Ramble-Project/ramble/blob/develop/var/ramble/repos/builtin/base_applications/hpcg/base_application.py>`_
-    doesn't register any additional phases.
++-------------------------+----------------------+----------------------+
+|                         | .. centered:: Constraints                   |
++-------------------------+----------------------+----------------------+
+| Phase                   |    Before            |    After             |
++=========================+======================+======================+
+| .. centered:: base_class definition: **ApplicationBase**              |
++-------------------------+----------------------+----------------------+
+| ``bootstrap_utilities`` | ``get_inputs``       |                      |
++-------------------------+----------------------+----------------------+
+| ``get_inputs``          | .. centered:: *Unconstrained*               |
++-------------------------+----------------------+----------------------+
+| ``license_includes``    | .. centered:: *Unconstrained*               |
++-------------------------+----------------------+----------------------+
+| ``make_experiments``    |                      | ``get_inputs``       |
++-------------------------+----------------------+----------------------+
+| ``write_status``        |                      | ``make_experiments`` |
++-------------------------+----------------------+----------------------+
+| .. centered:: base_application definition: **Hpcg**                   |
++-------------------------+----------------------+----------------------+
+| ``calculate_values``    | ``make_experiments`` |                      |
++-------------------------+----------------------+----------------------+
+| .. centered:: application definition: **Hpcg**                        |
++-------------------------+----------------------+----------------------+
+| *None*                  |                      |                      |
++-------------------------+----------------------+----------------------+
 
 * **Package Manager Hierarchy**:
-
-  * `PackageManagerBase <https://github.com/Ramble-Project/ramble/blob/develop/var/ramble/repos/builtin/base_classes/package-manager-base/base_class.py>`_
-    registers:
     
-    * ``check_auxiliary_software_files`` (``run_after=["make_experiments"]``)
-
-  * `SpackLightweight <https://github.com/Ramble-Project/ramble/blob/develop/var/ramble/repos/builtin/package_managers/spack-lightweight/package_manager.py>`_
-    registers:
-
-    * ``software_create_env`` (unconstrained)
-    * ``software_install_requested_compilers``
-      (``run_after=["software_create_env"]`` when ``+spack_install_compilers`` is enabled)
-    * ``software_configure``
-      (``run_after=["software_create_env", "software_install_requested_compilers"]``)
-    * ``evaluate_requirements`` (``run_before=["make_experiments"]``)
-
-  * `Spack <https://github.com/Ramble-Project/ramble/blob/develop/var/ramble/repos/builtin/package_managers/spack/package_manager.py>`_
-    registers:
-
-    * ``software_install`` (``run_after=["software_configure"]``,
-      ``run_before=["evaluate_requirements"]``)
-    * ``define_package_paths`` (``run_after=["software_install", "evaluate_requirements"]``,
-      ``run_before=["make_experiments"]``)
++------------------------------------------+---------------------------+------------------------------------------+
+|                                          | .. centered:: Constraints                                            |
++------------------------------------------+---------------------------+------------------------------------------+
+| Phase                                    |    Before                 |    After                                 |
++==========================================+===========================+==========================================+
+| .. centered:: base_class definition: **PackageManagerBase**                                                     |
++------------------------------------------+---------------------------+------------------------------------------+
+| ``check_auxiliary_software_files``       |                           | ``make_experiments``                     |
++------------------------------------------+---------------------------+------------------------------------------+
+| .. centered:: package_manager definition: **SpackLightweight**                                                  |
++------------------------------------------+---------------------------+------------------------------------------+
+| ``software_create_env``                  | .. centered:: *Unconstrained*                                        |
++------------------------------------------+---------------------------+------------------------------------------+
+| ``software_install_requested_compilers`` |                           | ``software_configure``                   |
++------------------------------------------+---------------------------+------------------------------------------+
+| ``software_configure``                   |                           | ``software_create_env``                  |
+|                                          |                           | ``software_install_requested_compilers`` |
++------------------------------------------+---------------------------+------------------------------------------+
+| ``evaluate_requirements``                | ``make_experiments``      |                                          |
++------------------------------------------+---------------------------+------------------------------------------+
+| .. centered:: package_manager definition: **Spack**                                                             |
++------------------------------------------+---------------------------+------------------------------------------+
+| ``software_install``                     | ``evaluate_requirements`` | ``software_configure``                   |
++------------------------------------------+---------------------------+------------------------------------------+
+| ``define_package_paths``                 | ``make_experiments``      | ``software_install``                     |
+|                                          |                           | ``evaluate_requirements``                |
++------------------------------------------+---------------------------+------------------------------------------+
 
 The diagram below shows the resulting :py:class:`~ramble.graphs.PhaseGraph` directed acyclic graph
 (DAG), where directed connecting lines express the ``run_before`` / ``run_after`` dependencies and
