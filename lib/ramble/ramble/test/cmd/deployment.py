@@ -90,6 +90,10 @@ def test_local_deployment(mutable_config, mutable_mock_workspace_path, workspace
             scope=ws.ws_file_config_scope_name(),
         )
 
+        repos_yaml_path = os.path.join(ws.config_dir, "repos.yaml")
+        with open(repos_yaml_path, "w", encoding="utf-8") as f:
+            f.write(f"repos:\n  - {ramble.paths.mock_builtin_path}\n")
+
         ws._re_read()
 
         deployment(
@@ -101,6 +105,8 @@ def test_local_deployment(mutable_config, mutable_mock_workspace_path, workspace
         this_deployment_dir = os.path.join(deployment_dir, workspace_name)
 
         check_deployment_files(this_deployment_dir, app_name)
+
+        assert not os.path.exists(os.path.join(this_deployment_dir, "configs", "repos.yaml"))
 
         deployed_yaml = os.path.join(this_deployment_dir, "configs", "ramble.yaml")
         with open(deployed_yaml, encoding="utf-8") as f:
