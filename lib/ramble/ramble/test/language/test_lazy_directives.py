@@ -311,6 +311,36 @@ def test_subclass_preferred_version_override():
         _ = ConflictVerApp.preferred_version
 
 
+def test_class_level_attribute_preservation():
+    """Verify that class-level attributes matching directive names are preserved."""
+
+    class ClassAttrApp(metaclass=ramble.language.application_language.ApplicationMeta):
+        name = "class_attr_app"
+        __module__ = "ramble.app"
+        maintainers = ["alice", "bob"]
+        tags = ["tag_custom"]
+
+    assert ClassAttrApp.maintainers == ["alice", "bob"]
+    assert ClassAttrApp.tags == ["tag_custom"]
+
+    class SubClassAttrApp(ClassAttrApp):
+        name = "sub_class_attr_app"
+        __module__ = "ramble.app"
+        ramble.language.shared_language.maintainers("charlie")
+
+    assert SubClassAttrApp.maintainers == ["alice", "bob", "charlie"]
+    assert SubClassAttrApp.tags == ["tag_custom"]
+    assert ClassAttrApp.maintainers == ["alice", "bob"]
+
+    class OverrideClassAttrApp(ClassAttrApp):
+        name = "override_class_attr_app"
+        __module__ = "ramble.app"
+        maintainers = ["dave"]
+
+    assert OverrideClassAttrApp.maintainers == ["dave"]
+    assert OverrideClassAttrApp.tags == ["tag_custom"]
+
+
 def test_instance_preferred_version_preservation_on_clone(mutable_mock_apps_repo):
     """Verify that setting preferred_version on an instance is preserved across clone."""
     import spack.version

@@ -75,10 +75,14 @@ class DirectiveDictDescriptor:
             return val
 
         dicts_to_init, directives_to_run = DirectiveMeta.get_cached_execution_plan(self.name)
+        class_values = getattr(cls, "_class_directive_values", {})
         initialized_dicts = []
         for dictionary in dicts_to_init:
             if cls.__dict__.get(f"_{dictionary}", _UNSET) is _UNSET:
-                init_val = DirectiveMeta._directive_init_values.get(dictionary, {})
+                if dictionary in class_values:
+                    init_val = class_values[dictionary]
+                else:
+                    init_val = DirectiveMeta._directive_init_values.get(dictionary, {})
                 setattr(cls, f"_{dictionary}", _copy_directive_value(init_val))
                 initialized_dicts.append(dictionary)
 
@@ -208,10 +212,25 @@ class DirectiveMeta(abc.ABCMeta):
         for source in sources:
             merged.extend(source)
 
+        # Collect class-level attribute initial values
+        class_directive_values = {}
+        for base in reversed(bases):
+            if hasattr(base, "_class_directive_values"):
+                class_directive_values.update(base._class_directive_values)
+
         # Add descriptors for known directive dictionaries
         for dict_name in relevant_dicts:
+            if dict_name in attr_dict and attr_dict[
+                dict_name
+            ] is not DirectiveMeta._get_descriptor(dict_name):
+                val = attr_dict.pop(dict_name)
+                default_init = DirectiveMeta._directive_init_values.get(dict_name, {})
+                if default_init is None or isinstance(val, type(default_init)):
+                    class_directive_values[dict_name] = val
             attr_dict.setdefault(f"_{dict_name}", _UNSET)
             attr_dict[dict_name] = DirectiveMeta._get_descriptor(dict_name)
+
+        attr_dict["_class_directive_values"] = class_directive_values
 
         defining_id = object()
         for _, directive in DirectiveMeta._directives_to_be_executed:
