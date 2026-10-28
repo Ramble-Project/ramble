@@ -233,16 +233,31 @@ def test_application_base_bootstrap_utilities_is_bootstrappable_false(
         SpackClass = type(ramble.repository.get("spack", ramble.repository.ObjectTypes.utilities))
         monkeypatch.setattr(SpackClass, "is_available", lambda *a, **k: False)
         # Mock bootstrappable to False
-        monkeypatch.setattr(SpackClass, "bootstrappable", {"True": [{"is_bootstrappable": False}]})
+        monkeypatch.setattr(
+            SpackClass, "bootstrappable", {frozenset(): [{"is_bootstrappable": False}]}
+        )
         monkeypatch.setattr(
             SpackClass,
             "missing_error_messages",
-            {"True": [{"message": "Custom Error"}]},
+            {frozenset(): [{"message": "Custom Error"}]},
         )
 
         with pytest.raises(SystemExit):
             setup_pipeline.run()
         # Custom Error should have been logged
+
+        # Also test fallback to availability_error when missing_error_messages is empty
+        monkeypatch.setattr(SpackClass, "missing_error_messages", {})
+        monkeypatch.setattr(SpackClass, "availability_error", "Not found on system", raising=False)
+        with pytest.raises(SystemExit):
+            app_inst._bootstrap_utilities(ws)
+
+        # Also test exception during bootstrap stage fetch when bootstrappable is True
+        monkeypatch.setattr(
+            SpackClass, "bootstrappable", {frozenset(): [{"is_bootstrappable": True}]}
+        )
+        with pytest.raises(SystemExit):
+            app_inst._bootstrap_utilities(ws)
 
 
 def test_application_base_bootstrap_utilities_allow_external_false(
@@ -337,8 +352,10 @@ def test_application_base_bootstrap_utilities_success(
         setup_pipeline = ramble.pipeline.SetupPipeline(ws, filters)
         app_inst = next(iter(setup_pipeline.experiment_set.experiments.values()))
         app_inst.required_utilities = {frozenset([]): {"spack": {"git": "mygit"}}}
-        UtilityBase = ramble.repository.get_base_class("utility-base")
-        monkeypatch.setattr(UtilityBase, "is_available", lambda *a, **k: False)
+        SpackClass = type(
+            ramble.repository.paths[ramble.repository.ObjectTypes.utilities].get("spack")
+        )
+        monkeypatch.setattr(SpackClass, "is_available", lambda *a, **k: False)
         # Force fetch
         ws.dry_run = False
 
@@ -362,11 +379,19 @@ def test_application_base_bootstrap_utilities_success(
                 pass
 
         monkeypatch.setattr(ramble.stage, "InputStage", MockStage)
-        monkeypatch.setattr(UtilityBase, "validate_versions", lambda *a, **k: True)
+        monkeypatch.setattr(SpackClass, "validate_versions", lambda *a, **k: True)
+        modified_calls = []
+        monkeypatch.setattr(
+            SpackClass,
+            "modify_bootstrap",
+            lambda self, ws_arg, obj_arg: modified_calls.append((ws_arg, obj_arg)),
+            raising=False,
+        )
 
         setup_pipeline.run()
     assert hasattr(app_inst, "_bootstrapped_utility_paths")
     assert "spack" in app_inst._bootstrapped_utility_paths
+    assert len(modified_calls) == 1
 
 
 def test_spack_utility_is_available_version_checking(

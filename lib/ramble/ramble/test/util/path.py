@@ -50,6 +50,10 @@ def test_substitute_config_variables():
         == "/my/custom/path/file"
     )
     assert (
+        ramble.util.path.substitute_config_variables("$tempdir/foo")
+        == f"{ramble.util.path.replacements['tempdir']}/foo"
+    )
+    assert (
         ramble.util.path.substitute_config_variables("$tempdir/foo", {})
         == f"{ramble.util.path.replacements['tempdir']}/foo"
     )

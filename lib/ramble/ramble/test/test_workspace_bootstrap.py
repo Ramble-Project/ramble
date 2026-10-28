@@ -130,6 +130,10 @@ def test_workspace_bootstrap_utilities_from_modifier(
         assert len(app_inst._utility_instances) == 1
         assert app_inst._utility_instances[0].name == "spack"
         assert app_inst._utility_instances[0].utility_config == app_inst.utilities["spack"]
+        # Calling build_utility_instances again should return early from cached instances
+        cached_instances = list(app_inst._utility_instances)
+        app_inst.build_utility_instances()
+        assert app_inst._utility_instances == cached_instances
         assert hasattr(app_inst, "_bootstrapped_utility_paths")
         assert "spack" in app_inst._bootstrapped_utility_paths
         ext_dep_dir = app_inst._bootstrapped_utility_paths["spack"]
@@ -211,3 +215,62 @@ def test_missing_required_utility_from_object_error(
     assert "The following utilities were required, but do not exist." in captured.err
     assert "  - missing_util_a\n  - missing_util_b" in captured.err
     assert "To view the available utilities, use `ramble list --type utilities`" in captured.err
+
+
+def test_bootstrap_utilities_edge_cases(
+    make_workspace_from_config, mock_applications, monkeypatch
+):
+    test_config = """
+ramble:
+  utilities:
+    spack:
+      git: https://github.com/my/ext_dep.git
+      when: ["some_cond"]
+"""
+    ws, ws_name = make_workspace_from_config(test_config, activate=True)
+    workspace = RambleCommand("workspace")
+    workspace(
+        "manage",
+        "experiments",
+        "basic",
+        "--wf",
+        "test_wl",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        "-v",
+        "spack_version=expanded_commit",
+        global_args=["-w", ws_name],
+    )
+    ws._re_read()
+
+    filters = ramble.filters.Filters()
+    setup_pipeline = ramble.pipeline.SetupPipeline(ws, filters)
+    app_inst = next(iter(setup_pipeline.experiment_set.experiments.values()))
+
+    app_inst.required_utilities = {
+        frozenset([]): {
+            "missing_repo_util": {},
+            "spack": {"git": "https://github.com/spack/spack.git"},
+        }
+    }
+
+    # Test inner config:bootstrap_utilities disabled check and missing utility warn/continue
+    config_calls = {"count": 0}
+    orig_get = ramble.config.get
+
+    def mock_config_get(key, default=None, **kwargs):
+        if key == "config:bootstrap_utilities":
+            config_calls["count"] += 1
+            return config_calls["count"] == 1
+        return orig_get(key, default=default, **kwargs)
+
+    monkeypatch.setattr(ramble.config, "get", mock_config_get)
+
+    app_inst._bootstrap_utilities(ws)
+    assert app_inst._bootstrapped_utility_paths["spack"] == "system"
+    assert app_inst.variables["utility::spack::commit"] == "expanded_commit"
+    assert "utility::spack::when" not in app_inst.variables
