@@ -756,7 +756,7 @@ _ramble_workspace_info() {
 _ramble_workspace_edit() {
     if $list_options
     then
-        RAMBLE_COMPREPLY="-h --help -f --file -c --config-only -t --template-only -l --license-only --all -p --print-file --dry-run"
+        RAMBLE_COMPREPLY="-h --help -f --file -c --config --config-only -t --templates --template-only -l --licenses --license-only -r --results --tables --logs --software-files --auxiliary-software-files -i --includes -e --experiments-script --all-configs --all -p --print-file --dry-run"
     else
         RAMBLE_COMPREPLY=""
     fi
