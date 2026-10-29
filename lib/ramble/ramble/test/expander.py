@@ -37,6 +37,10 @@ def exp_dict():
         "test_mask": '"0x0"',
         "max_len": 9,
         "test_dict": {"test_key1": "test_val1", "test_key2": "test_val2"},
+        "nested_dict": {
+            "foo": {"bar": "baz", "num": 42, "ref": "{var1}"},
+            "l1": {"l2": {"l3": "deep_val"}},
+        },
         "experiment_index": 5,
         "var4": "a-b",
         "test::var": "value",
@@ -124,6 +128,16 @@ def build_variant_set():
         ("{test_dict['test_key2']}", "test_val2", set(), 1),
         ("{test_dict['missing_key']}", "{test_dict['missing_key']}", set(), 1),
         ("{test_dict[None]}", "{test_dict[None]}", set(), 1),
+        ("{nested_dict['foo']['bar']}", "baz", set(), 1),
+        ("{nested_dict['l1']['l2']['l3']}", "deep_val", set(), 1),
+        ("{nested_dict['foo']['ref']}", "3", set(), 1),
+        ("{nested_dict['foo']}", "{'bar': 'baz', 'num': 42, 'ref': 3}", set(), 1),
+        (
+            "{nested_dict['foo']['missing_key']}",
+            "{nested_dict['foo']['missing_key']}",
+            set(),
+            1,
+        ),
         ("maybe(env_name, foo)", "spack_foo.bar", set(), 1),
         ("maybe(not_a_var, foo)", "foo", set(), 1),
         ("maybe(not_a_var)", "", set(), 1),
@@ -241,6 +255,8 @@ def test_expansions(input, output, no_expand_vars, passes):
         ('not ("SETUP" == "SUCCESS")', True, set(), 1),
         ('("SETUP" == "FAILED") and not ("SETUP" == "SUCCESS")', False, set(), 1),
         ('("SETUP" == "SETUP") and not ("SETUP" == "SUCCESS")', True, set(), 1),
+        ("{nested_dict['foo']['num']}", 42, set(), 1),
+        ("{nested_dict['foo']}", {"bar": "baz", "num": 42, "ref": 3}, set(), 1),
     ],
 )
 def test_typed_expansions(input, output, no_expand_vars, passes):
@@ -529,3 +545,29 @@ def test_expand_var_name_bypasses_expansion_graph(monkeypatch):
     assert expander.expand_var_name("experiment_index") == "5"
     assert expander.expand_var_name("experiment_index", typed=True) == 5
     assert {"application_name", "experiment_index"}.issubset(expander._used_variables)
+
+
+def test_nested_dict_in_workspace_config(make_workspace_from_config, mutable_mock_apps_repo):
+    test_config = """
+ramble:
+  variables:
+    mpi_command: ''
+    batch_submit: '{execute_experiment}'
+    processes_per_node: '1'
+    n_nodes: '1'
+    test_var: '{test_dict["foo"]["bar"]}'
+    test_dict:
+      foo:
+        bar: baz
+  applications:
+    basic:
+      workloads:
+        test_wl:
+          experiments:
+            exp_{test_var}: {}
+"""
+    ws, _ = make_workspace_from_config(test_config, activate=True)
+    exp_set = ws.build_experiment_set()
+    assert "basic.test_wl.exp_baz" in exp_set.experiments
+    exp = exp_set.experiments["basic.test_wl.exp_baz"]
+    assert exp.expander.expand_var_name("test_var") == "baz"
