@@ -3566,9 +3566,20 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                 if fom_value is None:
                     continue
                 fom_name = fom_conf["fom_name_expanded"]
-                expanded_fom_value = self.expander.expand_var(
-                    fom_value, extra_vars=fom_conf.get("extra_vars")
-                )
+                try:
+                    expanded_fom_value = self.expander.expand_var(
+                        fom_value, extra_vars=fom_conf.get("extra_vars")
+                    )
+                except (
+                    ramble.expander.ExpanderError,
+                    ZeroDivisionError,
+                    ValueError,
+                    TypeError,
+                ) as e:
+                    logger.debug(
+                        f"Failed to expand in-memory FOM '{fom_name}': {e}"
+                    )
+                    continue
                 context_key = _init_context(context)
                 fom_values[context_key][fom_name] = {
                     "value": expanded_fom_value,
@@ -3604,19 +3615,20 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
 
                 if callable(formula):
                     try:
-                        raw_value = formula(self)
+                        owning_obj = fom_conf.get("owning_object") or self
+                        raw_value = formula(owning_obj)
+                        if raw_value is None:
+                            next_pending.append(fom_conf)
+                            continue
+                        expanded_fom_value = self.expander.expand_var(
+                            raw_value, extra_vars=extra_vars
+                        )
                     except Exception as e:
                         logger.debug(
                             f"Failed to evaluate callable formula for FOM '{fom_name}': {e}"
                         )
                         next_pending.append(fom_conf)
                         continue
-                    if raw_value is None:
-                        next_pending.append(fom_conf)
-                        continue
-                    expanded_fom_value = self.expander.expand_var(
-                        raw_value, extra_vars=extra_vars
-                    )
                 else:
                     try:
                         expanded_fom_value = self.expander.expand_var(
@@ -4171,6 +4183,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                                 fom_def = {
                                     "origin": source.name,
                                     "origin_type": source.origin_type,
+                                    "owning_object": source,
                                     "contexts": set(source_def["contexts"]),
                                     "group": (
                                         ""

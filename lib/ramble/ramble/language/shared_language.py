@@ -359,7 +359,7 @@ def figure_of_merit(
                    figure of merit, and its value is extracted using this key
       formula (str | Callable | None): If supplied, defines a derived figure of merit
                    evaluated from resolved FOMs/variables via a string expression or
-                   callable receiving the application instance.
+                   callable receiving the owning object instance.
     """
 
     def _execute_figure_of_merit(obj):

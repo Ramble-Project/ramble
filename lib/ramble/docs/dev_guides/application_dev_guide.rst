@@ -322,14 +322,15 @@ in one of three ways:
              formula="1.0 / {Benchmark days per nanosecond}",
          )
 
-   * **Callable**: A function ``formula(app)`` receiving the application
-     instance. Inside the callable, use ``app.get_fom_value(fom_name,
-     context="null")`` to look up a single resolved FOM value or
-     ``app.get_fom_values(fom_name, context="null")`` to retrieve all resolved
-     values for a FOM across instances of a context. Returning ``None`` (or
-     raising an exception when a dependency is missing) omits the derived FOM.
-     Using a callable is also useful when an experiment variable is shadowed by
-     an identically named FOM (via ``app.expander.expand_var_name("var_name")``).
+   * **Callable**: A function ``formula(obj)`` receiving the owning object
+     instance (e.g., the application or modifier instance). Inside the callable,
+     use ``obj.get_fom_value(fom_name, context="null")`` to look up a single
+     resolved FOM value or ``obj.get_fom_values(fom_name, context="null")`` to
+     retrieve all resolved values for a FOM across instances of a context.
+     Returning ``None`` (or raising an exception when a dependency is missing)
+     omits the derived FOM. Using a callable is also useful when an experiment
+     variable is shadowed by an identically named FOM (via
+     ``obj.expander.expand_var_name("var_name")``).
 
      .. code-block:: python
 
