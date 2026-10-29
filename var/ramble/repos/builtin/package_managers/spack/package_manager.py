@@ -6,6 +6,9 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import glob
+import os
+
 from ramble.pkg_man.builtin.spack_lightweight import SpackLightweight
 from ramble.pkgmankit import *
 from ramble.util.command_runner import RunnerError
@@ -82,7 +85,14 @@ class Spack(SpackLightweight):
 
         logger.msg("Defining Spack variables")
 
-        cache = workspace.pkg_path_cache[self.name]
+        env_path = app_inst.expander.env_path
+        env_files = (
+            glob.glob(os.path.join(env_path, "*.yaml"))
+            + [os.path.join(env_path, "spack.lock")]
+            if env_path
+            else []
+        )
+        cache = self.get_pkg_path_cache(workspace, env_path, env_files)
         app_context = app_inst.expander.expand_var_name(self.keywords.env_name)
         require_env = self.environment_required
         software_environments = workspace.software_environments
@@ -140,6 +150,7 @@ class Spack(SpackLightweight):
                             f"Variable {spack_pkg_name}_path defined. "
                             + "Skipping extraction from spack"
                         )
+                self.write_pkg_path_cache(workspace, env_path, env_files)
 
             except RunnerError as e:
                 logger.die(e)

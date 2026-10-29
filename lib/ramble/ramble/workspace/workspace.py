@@ -494,7 +494,8 @@ class Workspace:
 
         self.install_cache = ramble.util.install_cache.SetCache()
 
-        # A per-package_manager dict mapping package spec to its install prefix.
+        # A per-package_manager, per-env_path dict mapping package spec to its
+        # install prefix: {pkg_man: {env_path: {pkg_spec: path_info}}}.
         # This can be re-used by all experiments of the workspace.
         self.pkg_path_cache = defaultdict(dict)
 
