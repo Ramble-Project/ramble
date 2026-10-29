@@ -367,15 +367,40 @@ def test_figure_of_merit_directive_required_args():
             "test_fom",
             units="s",
         )
+    with pytest.raises(DirectiveError, match="cannot both be specified"):
+        app_inst.figure_of_merit(
+            "test_invalid_both",
+            fom_map_key="key",
+            formula="1 + 1",
+        )
+    with pytest.raises(DirectiveError, match="cannot be combined with"):
+        app_inst.figure_of_merit(
+            "test_invalid_combo",
+            fom_regex=r"(?P<g>.*)",
+            group_name="g",
+            formula="1 + 1",
+        )
+    with pytest.raises(DirectiveError, match="`contexts` cannot be specified with `formula`"):
+        app_inst.figure_of_merit(
+            "test_invalid_ctx",
+            contexts=["ctx"],
+            formula="1 + 1",
+        )
     app_inst.figure_of_merit(
         "test_inmem_fom",
         units="s",
         fom_map_key="test_fom_map_key",
     )
+    app_inst.figure_of_merit(
+        "test_derived_fom",
+        units="1/s",
+        formula="1.0 / {test_inmem_fom}",
+    )
     first_fom_group = next(iter(app_inst.figures_of_merit.values()))
     foms = next(iter(first_fom_group.values()))
-    assert len(foms) == 1
+    assert len(foms) == 2
     assert foms["test_inmem_fom"]["fom_map_key"] == "test_fom_map_key"
+    assert foms["test_derived_fom"]["formula"] == "1.0 / {test_inmem_fom}"
 
 
 @pytest.mark.parametrize("app_class", app_types)
