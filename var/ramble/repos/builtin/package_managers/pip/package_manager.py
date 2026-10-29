@@ -215,9 +215,15 @@ class Pip(PackageManagerBase):
         if self.environment_required:
             self.runner.set_dry_run(workspace.dry_run)
             self.runner.configure_env(env_path)
-            self.runner.define_path_vars(
-                app_inst, workspace.pkg_path_cache[self.name]
-            )
+            env_files = [
+                os.path.join(env_path, self.runner._requirement_file_name),
+                os.path.join(env_path, self.runner._lock_file_name),
+            ]
+            cache = self.get_pkg_path_cache(workspace, env_path, env_files)
+            prev_size = len(cache)
+            self.runner.define_path_vars(app_inst, cache)
+            if len(cache) != prev_size:
+                self.write_pkg_path_cache(workspace, env_path, env_files)
 
     def get_spec_str(self, pkg, all_pkgs, compiler):
         """Return a spec string for the given pkg
