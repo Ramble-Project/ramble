@@ -85,6 +85,7 @@ class GoogleBatch(WorkflowManagerBase):
         name="batch_machine_image",
         default="batch-hpc-rocky",
         values=["batch-cos", "batch-debian", "batch-hpc-rocky"],
+        strict=False,
         description="Default machine image for batch jobs.",
     )
 
