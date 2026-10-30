@@ -12,27 +12,17 @@
 Variable Expansion, Indirection, and Software Stack Parameterization
 ======================================================================
 
-.. raw:: html
-
-   <div class="tn-app-switcher" data-recipe="var_expansion"></div>
+.. tutorial-header:: var_expansion
 
 In this tutorial, you will learn how to use variable expansion, indirection,
 and software stack parameterization when generating experiments.
 
-.. container:: tn-app-variant tn-app-wrf
+.. tutorial-app-template::
+   :wrf: app_link=`WRF <https://www.mmm.ucar.edu/models/wrf>`_, a free and open-source atmospheric research model.
+   :gromacs: app_link=`GROMACS <https://www.gromacs.org/>`_, a versatile package for molecular dynamics simulations.
+   :hpl: app_link=`HPL <https://netlib.org/benchmark/hpl/>`_, a benchmark for High-Performance Computing that measures floating point execution rate.
 
-   For this tutorial path, we will use `WRF <https://www.mmm.ucar.edu/models/wrf>`_,
-   a free and open-source atmospheric research model.
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   For this tutorial path, we will use `GROMACS <https://www.gromacs.org/>`_,
-   a versatile package for molecular dynamics simulations.
-
-.. container:: tn-app-variant tn-app-hpl
-
-   For this tutorial path, we will use `HPL <https://netlib.org/benchmark/hpl/>`_,
-   a benchmark for High-Performance Computing that measures floating point execution rate.
+   For this tutorial path, we will use {app_link}
 
 This tutorial builds off of concepts introduced in previous tutorials. Please
 make sure you review those before starting with this tutorial's content.
@@ -45,56 +35,8 @@ make sure you review those before starting with this tutorial's content.
 Create a Workspace
 ------------------
 
-.. container:: tn-workspace-create
-
-   To begin with, you need a workspace to configure the experiments. This can be
-   created with the following command:
-
-   .. container:: tn-app-variant tn-app-wrf
-
-      .. code-block:: console
-
-          $ ramble workspace create var_expansion_wrf
-
-   .. container:: tn-app-variant tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ramble workspace create var_expansion_gromacs
-
-   .. container:: tn-app-variant tn-app-hpl
-
-      .. code-block:: console
-
-          $ ramble workspace create var_expansion_hpl
-
-   .. rubric:: Activate the Workspace
-
-   Several of Ramble's commands require an activated workspace to function
-   properly. Activate the newly created workspace using the following command:
-
-   .. note::
-
-      You only need to run this if you do not currently have the workspace
-      active.
-
-   .. container:: tn-app-variant tn-app-wrf
-
-      .. code-block:: console
-
-          $ ramble workspace activate var_expansion_wrf
-
-   .. container:: tn-app-variant tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ramble workspace activate var_expansion_gromacs
-
-   .. container:: tn-app-variant tn-app-hpl
-
-      .. code-block:: console
-
-          $ ramble workspace activate var_expansion_hpl
+.. tutorial-workspace-create:: var_expansion
+   :separate-activate:
 
 Configure Experiment Definitions
 --------------------------------
@@ -115,20 +57,7 @@ Additionally, the configuration file can be edited directly with:
 Within the ``ramble.yaml`` file, write the following contents, which represent
 the baseline scaling configuration from the previous tutorial.
 
-.. container:: tn-app-variant tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_wrf_base.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_gromacs_base.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_hpl_base.yaml
-      :language: YAML
+.. tutorial-snippet:: var_expansion base.yaml
 
 The above configuration will execute 4 experiments, comprising a basic scaling
 study on two different sets of nodes across two different platforms.
@@ -184,50 +113,21 @@ environments, you'll put it under the workspace variables:
       variables:
         mpi_name: ['intel-mpi', 'openmpi']
 
-.. container:: tn-app-variant tn-app-wrf
+.. tutorial-app-template::
+   :wrf: env_pkg=wrfv4-{application::wrf::version}
+   :gromacs: env_pkg=gromacs
+   :hpl: env_pkg=hpl
 
    .. code-block:: YAML
 
        environments:
-         wrf@4.2-{mpi_name}:
+         {env_name_ver}-{mpi_name}:
            packages:
            - '{mpi_name}'
-           - wrfv4-{application::wrf::version}
+           - {env_pkg}
 
-.. container:: tn-app-variant tn-app-gromacs
-
-   .. code-block:: YAML
-
-       environments:
-         gromacs-{mpi_name}:
-           packages:
-           - '{mpi_name}'
-           - gromacs
-
-.. container:: tn-app-variant tn-app-hpl
-
-   .. code-block:: YAML
-
-       environments:
-         hpl-{mpi_name}:
-           packages:
-           - '{mpi_name}'
-           - hpl
-
-.. container:: tn-app-variant tn-app-wrf
-
-   This will create two software environments: one named ``wrf@4.2-intel-mpi`` and
-   another named ``wrf@4.2-openmpi``.
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   This will create two software environments: one named ``gromacs-intel-mpi`` and
-   another named ``gromacs-openmpi``.
-
-.. container:: tn-app-variant tn-app-hpl
-
-   This will create two software environments: one named ``hpl-intel-mpi`` and
-   another named ``hpl-openmpi``.
+   This will create two software environments: one named ``{env_name_ver}-intel-mpi`` and
+   another named ``{env_name_ver}-openmpi``.
 
 .. note::
    The reference to ``{mpi_name}`` within the environment package list is
@@ -236,20 +136,7 @@ environments, you'll put it under the workspace variables:
 
 The result might look like the following:
 
-.. container:: tn-app-variant tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_wrf_mpi.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_gromacs_mpi.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_hpl_mpi.yaml
-      :language: YAML
+.. tutorial-snippet:: var_expansion mpi.yaml
 
 At this point, executing:
 
@@ -259,41 +146,17 @@ At this point, executing:
 
 Should result in the following error:
 
-.. container:: tn-app-variant tn-app-wrf
+.. tutorial-app-template::
 
    .. code-block:: console
 
-       ==> Warning: Two experiments are defined with the name wrf@4.2.CONUS_12km.scaling_1_platform1
+       ==> Warning: Two experiments are defined with the name {env_name_ver}.{workload}.scaling_1_platform1
        ==> Warning:   -> Collision Origin: Within the same YAML experiment block: 'scaling_{n_nodes}_{platform}' (Matrix/Vector Expansion)
        ==> Warning: Variables unique to previously defined experiment:
        ==> Warning:   - experiment_index
        ==> Warning: Variable differences between experiment definitions:
        ==> Warning:   - mpi_name: {'previous': 'intel-mpi', 'new': 'openmpi'}
-       ==> Error: Experiment wrf@4.2.CONUS_12km.scaling_1_platform1 is not unique.
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   .. code-block:: console
-
-       ==> Warning: Two experiments are defined with the name gromacs.water_bare.scaling_1_platform1
-       ==> Warning:   -> Collision Origin: Within the same YAML experiment block: 'scaling_{n_nodes}_{platform}' (Matrix/Vector Expansion)
-       ==> Warning: Variables unique to previously defined experiment:
-       ==> Warning:   - experiment_index
-       ==> Warning: Variable differences between experiment definitions:
-       ==> Warning:   - mpi_name: {'previous': 'intel-mpi', 'new': 'openmpi'}
-       ==> Error: Experiment gromacs.water_bare.scaling_1_platform1 is not unique.
-
-.. container:: tn-app-variant tn-app-hpl
-
-   .. code-block:: console
-
-       ==> Warning: Two experiments are defined with the name hpl.calculator.scaling_1_platform1
-       ==> Warning:   -> Collision Origin: Within the same YAML experiment block: 'scaling_{n_nodes}_{platform}' (Matrix/Vector Expansion)
-       ==> Warning: Variables unique to previously defined experiment:
-       ==> Warning:   - experiment_index
-       ==> Warning: Variable differences between experiment definitions:
-       ==> Warning:   - mpi_name: {'previous': 'intel-mpi', 'new': 'openmpi'}
-       ==> Error: Experiment hpl.calculator.scaling_1_platform1 is not unique.
+       ==> Error: Experiment {env_name_ver}.{workload}.scaling_1_platform1 is not unique.
 
 As you have implicitly defined 8 experiments (2 from ``n_nodes``, times 2 from
 ``platform_config``, times another 2 from ``mpi_name``), but you haven't
@@ -309,23 +172,11 @@ The experiments are still not completely defined. Running:
 
 Should result in the following warning:
 
-.. container:: tn-app-variant tn-app-wrf
+.. tutorial-app-template::
 
    .. code-block:: console
 
-       ==> Warning: Software environment 'wrf@4.2' was auto-constructed for package manager 'spack' and contains no packages. If this was not intended, please define the environment or packages in your configuration.
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   .. code-block:: console
-
-       ==> Warning: Software environment 'gromacs' was auto-constructed for package manager 'spack' and contains no packages. If this was not intended, please define the environment or packages in your configuration.
-
-.. container:: tn-app-variant tn-app-hpl
-
-   .. code-block:: console
-
-       ==> Warning: Software environment 'hpl' was auto-constructed for package manager 'spack' and contains no packages. If this was not intended, please define the environment or packages in your configuration.
+       ==> Warning: Software environment '{env_name_ver}' was auto-constructed for package manager 'spack' and contains no packages. If this was not intended, please define the environment or packages in your configuration.
 
 The default software environment every application uses is named the same as the
 application. Now that you've changed the name of the environment, you need to
@@ -339,43 +190,16 @@ also utilize variable indirection / expansion to fix this issue. For the
 purposes of this tutorial, we will use indirection instead of explicit zips. In
 the experiment variables, add:
 
-.. container:: tn-app-variant tn-app-wrf
+.. tutorial-app-template::
 
    .. code-block:: YAML
 
        variables:
-         env_name: 'wrf@4.2-{mpi_name}'
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   .. code-block:: YAML
-
-       variables:
-         env_name: 'gromacs-{mpi_name}'
-
-.. container:: tn-app-variant tn-app-hpl
-
-   .. code-block:: YAML
-
-       variables:
-         env_name: 'hpl-{mpi_name}'
+         env_name: '{env_name_ver}-{mpi_name}'
 
 The resulting configuration file might look like the following:
 
-.. container:: tn-app-variant tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_wrf_mpi_matrix.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_gromacs_mpi_matrix.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_hpl_mpi_matrix.yaml
-      :language: YAML
+.. tutorial-snippet:: var_expansion mpi_matrix.yaml
 
 Variable Expansion and Indirection
 ----------------------------------
@@ -438,20 +262,7 @@ Allows the ``mpi_command`` definition to change based on the definition of
 indirection to help parameterize the MPI arguments as shown above, the
 resulting configuration might look like the following:
 
-.. container:: tn-app-variant tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_wrf_expansion_indirection.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_gromacs_expansion_indirection.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/var_expansion_hpl_expansion_indirection.yaml
-      :language: YAML
+.. tutorial-snippet:: var_expansion expansion_indirection.yaml
 
 .. note::
    The arguments for the various MPI implementations may not run on your
@@ -478,131 +289,13 @@ arguments within the relevant experiments: Intel MPI experiments will contain
 Execute Experiments
 -------------------
 
-.. container:: tn-full-run-only
-
-   .. note::
-      This workspace uses the ``spack`` package manager to build the software stack
-      and MPI implementations. ``spack`` can either be installed in your ``PATH``, or
-      Ramble will automatically bootstrap it for you.
-
-   .. note::
-      When not running in dry-run mode, both setup and execution can take a very
-      long time:
-
-      * Because the software stack is parameterized across two MPI libraries
-        (``intel-mpi`` and ``openmpi``), ``ramble workspace setup`` will concretize
-        and build **two separate software environments** from source if they are not
-        already installed on your system.
-      * ``ramble on`` executes all 8 scaling experiments across both MPI stacks and
-        node counts.
-
-      To skip software installation and execution, you can enable **Dry-Run Mode**
-      at the top of this tutorial or validate the workspace configuration using
-      ``ramble workspace setup --dry-run`` instead.
-
-   Now that you have made the appropriate modifications, set up, execute, and
-   analyze the new experiments using:
-
-   .. code-block:: console
-
-       $ ramble workspace setup
-       $ ramble on
-       $ ramble workspace analyze
-
-   This creates a ``results`` file in the root of the workspace that contains
-   extracted figures of merit:
-
-.. container:: tn-dry-run-only
-
-   With **Dry-Run Mode** enabled, set up the parameterized workspace using
-   ``--dry-run``:
-
-   .. code-block:: console
-
-       $ ramble workspace setup --dry-run
-
-   Because we are running in dry-run mode, we do **not** execute ``ramble on`` or
-   ``ramble workspace analyze``. Instead, explore the generated ``software/`` and
-   ``experiments/`` directories in the workspace to verify how Ramble expanded the
-   parameterized software stacks and indirect variable references in each
-   ``execute_experiment`` script:
-
-   .. container:: tn-app-variant tn-app-wrf
-
-      .. code-block:: console
-
-          $ ls -la $RAMBLE_ROOT/var/ramble/workspaces/var_expansion_wrf/software/
-          $ ls -la $RAMBLE_ROOT/var/ramble/workspaces/var_expansion_wrf/experiments/wrf/CONUS_12km/
-
-   .. container:: tn-app-variant tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ls -la $RAMBLE_ROOT/var/ramble/workspaces/var_expansion_gromacs/software/
-          $ ls -la $RAMBLE_ROOT/var/ramble/workspaces/var_expansion_gromacs/experiments/gromacs/water_bare/
-
-   .. container:: tn-app-variant tn-app-hpl
-
-      .. code-block:: console
-
-          $ ls -la $RAMBLE_ROOT/var/ramble/workspaces/var_expansion_hpl/software/
-          $ ls -la $RAMBLE_ROOT/var/ramble/workspaces/var_expansion_hpl/experiments/hpl/calculator/
-
-   **Example Output (Full Run):**
-
-   In a full run where ``ramble on`` and ``ramble workspace analyze`` are executed,
-   Ramble creates a ``results.latest.txt`` file in the root of the workspace
-   containing the following extracted figures of merit:
-
-.. container:: tn-app-variant tn-app-wrf
-
-   * **Average Timestep Time**: Time (in seconds) on average each timestep takes
-   * **Cumulative Timestep Time**: Time (in seconds) spent executing all timesteps
-   * **Minimum Timestep Time**: Minimum time (in seconds) spent on any one timestep
-   * **Maximum Timestep Time**: Maximum time (in seconds) spent on any one timestep
-   * **Number of timesteps**: Count of total timesteps performed
-   * **Avg. Max Ratio Time**: Ratio of Average Timestep Time and Maximum Timestep Time
-
-.. container:: tn-app-variant tn-app-gromacs
-
-   * **Core Time**: CPU time (in seconds) spent on benchmark calculations
-   * **Wall Time**: Elapsed real time (in seconds) spent on benchmark calculations
-   * **Nanosecs per day**: Simulation speed achieved
-   * **Hours per nanosec**: Hours required to calculate 1 nanosecond of simulation
-
-.. container:: tn-app-variant tn-app-hpl
-
-   * **Time**: Time (in seconds) spent executing the benchmark calculation
-   * **GFlops**: Performance in GFLOP/s achieved
+.. tutorial-execute:: var_expansion
+   :timing-note: Because the software stack is parameterized across two MPI libraries (``intel-mpi`` and ``openmpi``), running ``ramble workspace setup`` without ``--dry-run`` will concretize and build two separate software environments from source if they are not already installed on your system, and ``ramble on`` executes all 8 scaling experiments across both MPI stacks and node counts.
+   :dry-run-cmds: ls -la $RAMBLE_ROOT/var/ramble/workspaces/var_expansion_{app}/software/; ls -la $RAMBLE_ROOT/var/ramble/workspaces/var_expansion_{app}/experiments/{app}/{workload}/
+   :include-foms:
 
 
 Clean the Workspace
 -------------------
 
-.. container:: tn-workspace-cleanup
-
-   Once you are finished with the tutorial content, make sure you deactivate your workspace:
-
-   .. code-block:: console
-
-       $ ramble workspace deactivate
-
-   Additionally, you can remove the workspace and all of its content with:
-
-   .. container:: tn-app-variant tn-app-wrf
-
-      .. code-block:: console
-
-          $ ramble workspace remove var_expansion_wrf
-
-   .. container:: tn-app-variant tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ramble workspace remove var_expansion_gromacs
-
-   .. container:: tn-app-variant tn-app-hpl
-
-      .. code-block:: console
-
-          $ ramble workspace remove var_expansion_hpl
+.. tutorial-workspace-cleanup:: var_expansion

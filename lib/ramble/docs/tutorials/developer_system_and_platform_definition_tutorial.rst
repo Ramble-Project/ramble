@@ -25,9 +25,7 @@ familiar with the content of the
 This tutorial is intended to be a practical, hands-on guide to creating a
 simple set of system and platform definitions.
 
-.. raw:: html
-
-   <div class="tn-ws-prompt"></div>
+.. tutorial-header::
 
 Installation
 ============
@@ -37,7 +35,7 @@ To install Ramble, see the :doc:`../getting_started` guide.
 .. note::
    This tutorial does not require a package manager to be installed or configured.
 
-.. include:: shared/repository_create.rst
+.. tutorial-repo-create::
 
 
 System And Platform Classes
@@ -566,24 +564,8 @@ can customize the behavior of a workspace for a specific set of hardware. You
 have tested it within a workspace, and have constructed a custom object
 repository to create new definitions in.
 
-.. container:: tn-workspace-cleanup
+.. tutorial-workspace-cleanup:: test-sys-plat
+   :dir:
 
-   To clean up your system, make sure to deactivate your workspace before trying
-   to remove it. These steps can be completed with:
-
-   .. code-block:: console
-
-     $ ramble workspace deactivate
-     $ rm -rf test-sys-plat
-
-.. container:: tn-repo-cleanup
-
-   You are also free to delete the ``tutorial-repo`` repository, but make sure you
-   unregister it from your list of repositories using the ``ramble repo rm``
-   command:
-
-   .. code-block:: console
-
-     $ ramble repo rm tutorial-repo
-     $ rm -rf tutorial-repo
+.. tutorial-repo-cleanup::
 

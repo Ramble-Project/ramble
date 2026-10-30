@@ -12,6 +12,8 @@
 Utility Definition Tutorial
 ===========================
 
+.. tutorial-header::
+
 This tutorial will guide you through creating a simple utility definition in Ramble. We will create a mock utility called ``my-tool`` that provides an executable and modifies the environment.
 
 Installation
@@ -22,7 +24,7 @@ To install Ramble, see the :doc:`../getting_started` guide.
 .. note::
    This tutorial does not require a package manager to be installed or configured.
 
-.. include:: shared/repository_create.rst
+.. tutorial-repo-create::
 
 Step 1: Setting up the file structure
 =====================================
@@ -160,14 +162,5 @@ You've successfully created your first utility definition! You can now reference
 Cleanup
 =======
 
-.. container:: tn-repo-cleanup
-
-   You are also free to delete the ``tutorial-repo`` repository, but make sure you
-   unregister it from your list of repositories using the ``ramble repo rm``
-   command:
-
-   .. code-block:: console
-
-     $ ramble repo rm tutorial-repo
-     $ rm -rf tutorial-repo
+.. tutorial-repo-cleanup::
 

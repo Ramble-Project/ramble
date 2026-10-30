@@ -26,9 +26,7 @@ use Ramble workspaces before starting this tutorial. You should at least be
 familiar with the content of the
 :ref:`Hello World Tutorial<hello_world_tutorial>`.
 
-.. raw:: html
-
-   <div class="tn-ws-prompt"></div>
+.. tutorial-header::
 
 Installation
 ============
@@ -41,7 +39,7 @@ To install Ramble, see the :doc:`../getting_started` guide.
    ``PATH``, it will be bootstrapped for you. To see compilers already
    available to Spack, use ``spack compilers``.
 
-.. include:: shared/repository_create.rst
+.. tutorial-repo-create::
 
 
 HPL Application Definition
@@ -341,13 +339,9 @@ Final Tests
 
 To complete this tutorial we will test the application.
 
-.. container:: tn-workspace-create
-
-   First, create a workspace:
-
-   .. code-block:: console
-
-     $ ramble workspace create -d tutorial-workspace -a
+.. tutorial-workspace-create:: tutorial-workspace
+   :single:
+   :dir:
 
 Now, add an experiment. We'll need to provide values for the number of nodes
 and ranks. For HPL, the number of ranks should equal PxQ.
@@ -363,61 +357,16 @@ and ranks. For HPL, the number of ranks should equal PxQ.
       -v Ns=2000 \
       -v NBs=256
 
-.. container:: tn-full-run-only
-
-   Now, to complete the test we can execute:
-
-   .. code-block:: console
-
-     $ ramble workspace concretize
-     $ ramble workspace setup
-     $ ramble on
-     $ ramble workspace analyze
+.. tutorial-execute:: tutorial-workspace
+   :single:
+   :concretize:
+   :package-manager: none
+   :dry-run-cmds: ls -la tutorial-workspace/experiments/hpl/standard/generated/; cat tutorial-workspace/experiments/hpl/standard/generated/HPL.dat; cat tutorial-workspace/experiments/hpl/standard/generated/execute_experiment
+   :results-text: This creates a ``results.latest.txt`` file containing the extracted ``Time`` and ``GFlops`` figures of merit from your HPL application definition.
 
    The ``ramble workspace concretize`` command pulls the default software
    environment and package specs from the HPL application definition into the
-   workspace configuration. Afterwards, ``ramble workspace setup`` configures the
-   environment, ``ramble on`` executes the HPL benchmark, and
-   ``ramble workspace analyze`` creates a ``results.latest.txt`` file containing
-   the ``GFlops`` and execution ``Time`` from your run.
-
-   .. note::
-      When not running in dry-run mode, ``ramble workspace setup`` will build HPL
-      along with its MPI and BLAS dependencies from source if they are not already
-      installed on your system, which can take a significant amount of time.
-
-.. container:: tn-dry-run-only
-
-   With **Dry-Run Mode** enabled, concretize and set up the workspace using
-   ``--dry-run``:
-
-   .. code-block:: console
-
-     $ ramble workspace concretize
-     $ ramble workspace setup --dry-run
-
-   The ``ramble workspace concretize`` command pulls the default software environment
-   and package specs from your new HPL application definition into ``ramble.yaml``.
-   Running ``ramble workspace setup --dry-run`` then generates the experiment directory
-   without building HPL with Spack.
-
-   Instead of running ``ramble on`` and ``ramble workspace analyze``, explore the
-   generated experiment directory (including the templated ``HPL.dat`` input file and
-   ``execute_experiment`` script):
-
-   .. code-block:: console
-
-     $ ls -la tutorial-workspace/experiments/hpl/standard/generated/
-     $ cat tutorial-workspace/experiments/hpl/standard/generated/HPL.dat
-     $ cat tutorial-workspace/experiments/hpl/standard/generated/execute_experiment
-
-   **Example Output (Full Run):**
-
-   In a full run where ``ramble on`` and ``ramble workspace analyze`` are executed,
-   Ramble runs the ``xhpl`` binary and produces a ``results.latest.txt`` file containing
-   the extracted ``Time`` and ``GFlops`` figures of merit from your HPL application
-   definition.
-
+   workspace configuration.
 
 Summary and Final Cleanup
 -------------------------
@@ -425,26 +374,10 @@ Summary and Final Cleanup
 At this stage, you have now created a new application definition to build and
 run the HPL benchmark.
 
-.. container:: tn-workspace-cleanup
+.. tutorial-workspace-cleanup:: tutorial-workspace
+   :dir:
 
-   To clean up your system, make sure to deactivate your workspace before trying
-   to remove it. These steps can be completed with:
-
-   .. code-block:: console
-
-     $ ramble workspace deactivate
-     $ rm -rf tutorial-workspace
-
-.. container:: tn-repo-cleanup
-
-   You are also free to delete the ``tutorial-repo`` repository, but make sure you
-   unregister it from your list of repositories using the ``ramble repo rm``
-   command:
-
-   .. code-block:: console
-
-     $ ramble repo rm tutorial-repo
-     $ rm -rf tutorial-repo
+.. tutorial-repo-cleanup::
 
 The application definition you have now matches some of the basic functionality
 from Ramble's HPL implementation. You should now be able to compare your

@@ -26,9 +26,7 @@ simple application definition. For a more comprehensive reference on all
 available directives and advanced features, please see the
 :ref:`Application Definition Developers Guide<application-dev-guide>`.
 
-.. raw:: html
-
-   <div class="tn-ws-prompt"></div>
+.. tutorial-header::
 
 Installation
 ============
@@ -38,7 +36,7 @@ To install Ramble, see the :doc:`../getting_started` guide.
 .. note::
    This tutorial does not require a package manager to be installed or configured.
 
-.. include:: shared/repository_create.rst
+.. tutorial-repo-create::
 
 Hostname Application Definition
 ===============================
@@ -237,28 +235,6 @@ should look similar to the following (with some expected path differences):
 .. code-block:: console
 
     #!/bin/bash
-    # This is a template execution script for
-    # running the execute pipeline.
-    #
-    # Variables surrounded by curly braces will be expanded
-    # when generating a specific execution script.
-    # Some example variables are:
-    #   - experiment_run_dir (Will be replaced with the experiment directory)
-    #   - command (Will be replaced with the command to run the experiment)
-    #   - log_dir (Will be replaced with the logs directory)
-    #   - experiment_name (Will be replaced with the name of the experiment)
-    #   - workload_run_dir (Will be replaced with the directory of the workload
-    #   - application_name (Will be replaced with the name of the application)
-    #   - n_nodes (Will be replaced with the required number of nodes)
-    #   Any experiment parameters will be available as variables as well.
-
-    # ****************************************************
-    # * No workflow is used with this experiment
-    # * Execution command: /tmp/tutorial-workspace/experiments/hostname/local/generated/execute_experiment
-    # * If this file is not the same as the above path, it is unlikely that this script
-    # * is used when `ramble on` executes experiments.
-    # ****************************************************
-
 
     cd "/tmp/tutorial-workspace/experiments/hostname/local/generated"
 
@@ -564,42 +540,12 @@ Now, we can add an experiment to exercise the local workload using:
 The ``--workload-filter local`` arguments are added here to filter the
 workloads so we only use the local workload.
 
-.. container:: tn-full-run-only
-
-   Now, to complete the test we can execute:
-
-   .. code-block:: console
-
-     $ ramble workspace setup
-     $ ramble on
-     $ ramble workspace analyze
-
-   The result of these commands should be the creation of a ``results.latest.txt``
-   file that contains the hostname of your machine.
-
-.. container:: tn-dry-run-only
-
-   Since **Dry-Run Mode** is enabled, we can set up the experiment using
-   ``--dry-run`` without executing it or analyzing results:
-
-   .. code-block:: console
-
-     $ ramble workspace setup --dry-run
-
-   Instead of running ``ramble on`` and ``ramble workspace analyze``, you can
-   explore the generated experiment directory and examine the rendered
-   ``execute_experiment`` script:
-
-   .. code-block:: console
-
-     $ ls -la tutorial-workspace/experiments/hostname/local/generated
-     $ cat tutorial-workspace/experiments/hostname/local/generated/execute_experiment
-
-   If you were to execute and analyze the experiment in a full run, Ramble would
-   create a ``results.latest.txt`` file that contains the hostname of your
-   machine.
-
-
+.. tutorial-execute:: tutorial-workspace
+   :single:
+   :package-manager: none
+   :no-timing-note:
+   :dry-run-cmds: ls -la tutorial-workspace/experiments/hostname/local/generated; cat tutorial-workspace/experiments/hostname/local/generated/execute_experiment
+   :results-text: This creates a ``results.latest.txt`` file that contains the hostname of your machine.
 
 Summary and Final Cleanup
 -------------------------
@@ -608,23 +554,7 @@ At this stage, you have now created a new application definition to execute the
 ``hostname`` binary. You have tested it within a workspace, and have
 constructed a custom object repository to create new definitions in.
 
-.. container:: tn-workspace-cleanup
+.. tutorial-workspace-cleanup:: tutorial-workspace
+   :dir:
 
-   To clean up your system, make sure to deactivate your workspace before trying
-   to remove it. These steps can be completed with:
-
-   .. code-block:: console
-
-     $ ramble workspace deactivate
-     $ rm -rf tutorial-workspace
-
-.. container:: tn-repo-cleanup
-
-   You are also free to delete the ``tutorial-repo`` repository, but make sure you
-   unregister it from your list of repositories using the ``ramble repo rm``
-   command:
-
-   .. code-block:: console
-
-     $ ramble repo rm tutorial-repo
-     $ rm -rf tutorial-repo
+.. tutorial-repo-cleanup::

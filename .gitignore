@@ -11,4 +11,5 @@ perf_test_metrics.json
 
 # generated documentation snippets
 lib/ramble/docs/_generated/
+lib/ramble/docs/_static/tutorial_data.js
 

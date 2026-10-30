@@ -223,20 +223,11 @@ removed from the variables dictionaries.
 Conclusion And Cleanup
 -----------------------
 
-.. container:: tn-workspace-cleanup
+At the end of this tutorial, you should have learned how to construct a
+workspace consisting of externally referenced configuration files, squash the
+configuration file out of this workspace, and simplify the software and
+variables contained within the resulting workspace.
 
-   At the end of this tutorial, you should have learned how to construct a
-   workspace consisting of externally referenced configuration files. You then
-   learned how to squash the configuration file out of this workspace, and
-   simplify the software and variables contained within the resulting workspace.
-
-   At this stage, if you are finished using the workspaces, you can clean up your
-   workspaces using:
-
-   .. code-block:: console
-
-      $ rm -rf includes-workspace squash-workspace
-
-   The skills learned in this tutorial should help you construct more reproducible
-   artifacts for experiments, regardless of how you initially configured the
-   experiments.
+.. tutorial-workspace-cleanup:: includes-workspace squash-workspace
+   :dir:
+   :no-deactivate:

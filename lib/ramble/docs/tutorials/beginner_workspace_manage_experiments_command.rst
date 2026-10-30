@@ -145,25 +145,6 @@ configuration should also now look like:
 
 .. code-block:: yaml
 
-        # This is a ramble workspace config file.
-        #
-        # It describes the experiments, the software stack
-        # and all variables required for ramble to configure
-        # experiments.
-        # As an example, experiments can be defined as follows.
-        # applications:
-        #   hostname: # Application name, as seen in `ramble list`
-        #     variables:
-        #       iterations: '5'
-        #     workloads:
-        #       serial: # Workload name, as seen in `ramble info <app>`
-        #         variables:
-        #           type: 'test'
-        #         experiments:
-        #           single_node: # Arbitrary experiment name
-        #             variables:
-        #               n_ranks: '{processes_per_node}'
-        
         ramble:
           env_vars:
             set:
@@ -221,25 +202,6 @@ experiments, let's remove the extra workloads. Use
 the following:
 
 .. code-block:: yaml
-
-    # This is a ramble workspace config file.
-    #
-    # It describes the experiments, the software stack
-    # and all variables required for ramble to configure
-    # experiments.
-    # As an example, experiments can be defined as follows.
-    # applications:
-    #   hostname: # Application name, as seen in `ramble list`
-    #     variables:
-    #       iterations: '5'
-    #     workloads:
-    #       serial: # Workload name, as seen in `ramble info <app>`
-    #         variables:
-    #           type: 'test'
-    #         experiments:
-    #           single_node: # Arbitrary experiment name
-    #             variables:
-    #               n_ranks: '{processes_per_node}'
 
     ramble:
       env_vars:
@@ -401,14 +363,10 @@ details. To explore further, consult the following resources:
 Conclusion and Cleanup
 ----------------------
 
-.. container:: tn-workspace-cleanup
+In this tutorial, you learned how to use ``ramble workspace manage experiments`` to programmatically
+create baseline experiments, filter workloads, set variables, construct matrix sweeps, set variants,
+and dry-run experiment configurations.
 
-   In this tutorial, you learned how to use ``ramble workspace manage experiments`` to programmatically
-   create baseline experiments, filter workloads, set variables, construct matrix sweeps, set variants,
-   and dry-run experiment configurations.
-
-   To clean up the tutorial workspace, run:
-
-   .. code-block:: console
-
-      $ rm -rf manage-workspace
+.. tutorial-workspace-cleanup:: manage-workspace
+   :dir:
+   :no-deactivate:

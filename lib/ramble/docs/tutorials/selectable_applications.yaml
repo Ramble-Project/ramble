@@ -11,12 +11,411 @@ selectable_applications:
     name: "WRF"
     workload: "CONUS_12km"
     description: "Weather Research and Forecasting atmospheric model"
+    vars:
+      workload2: "CONUS_2p5km"
+      app_spec: "wrf@4.2"
+      env_name_ver: "wrf@4.2"
+      pkg_name: "wrfv4-{application::wrf::version}"
+      pkg_spec: "wrf@{application::wrf::version} build_type=dm+sm compile_type=em_real nesting=basic ~pnetcdf"
+      exp_vars: {n_nodes: [1, 2]}
+      exp_args: []
+      single_args: []
+      vec_exp_name: "tile_{num_tiles}_{n_ranks}ranks"
+      vec_dim: "num_tiles"
+      vec_e1: "tile_1"
+      vec_e2: "tile_2"
+      vec_etpl: "tile_{num_tiles}"
+      vec_list: "['1', '2']"
+      vec_v1: "1"
+      vec_v2: "2"
+      vec_p1: "tile_1"
+      vec_p2: "tile_2"
+      vec_extra_var: ""
+      vec_base_args: ["-V", "wrf_tiles=true", "-v", "n_ranks=[1, 2]", "-v", "n_threads=1", "-v", "num_tiles=[1, 2]"]
+      sw_spec: "wrf@{wrf_version} build_type=dm+sm compile_type=em_real nesting=basic ~pnetcdf"
+      sw_versions: "[4.2, 3.9.1.1]"
+      sw_v1: "4.2"
+      sw_v2: "3.9.1.1"
+    foms:
+      - "* **Average Timestep Time**: Time (in seconds) on average each timestep takes"
+      - "* **Cumulative Timestep Time**: Time (in seconds) spent executing all timesteps"
+      - "* **Minimum Timestep Time**: Minimum time (in seconds) spent on any one timestep"
+      - "* **Maximum Timestep Time**: Maximum time (in seconds) spent on any one timestep"
+      - "* **Number of timesteps**: Count of total timesteps performed"
+      - "* **Avg. Max Ratio Time**: Ratio of Average Timestep Time and Maximum Timestep Time"
   gromacs:
     name: "GROMACS"
     workload: "water_bare"
     description: "Molecular dynamics simulation package"
+    vars:
+      workload2: "water_gmx50"
+      app_spec: "gromacs@2025.3"
+      env_name_ver: "gromacs"
+      pkg_name: "gromacs"
+      pkg_spec: "gromacs@{application::gromacs::version}"
+      exp_vars: {n_nodes: [1, 2]}
+      exp_args: []
+      single_args: ["-v", "size=0003", "-v", "type=pme"]
+      vec_exp_name: "{type}_{n_ranks}ranks"
+      vec_dim: "type"
+      vec_e1: "pme_single_rank"
+      vec_e2: "rf_single_rank"
+      vec_etpl: "{type}_single_rank"
+      vec_list: "['pme', 'rf']"
+      vec_v1: "pme"
+      vec_v2: "rf"
+      vec_p1: "pme"
+      vec_p2: "rf"
+      vec_extra_var: "size: '0003'"
+      vec_base_args: ["-v", "n_ranks=[1, 2]", "-v", "n_threads=1", "-v", "size=0003", "-v", "type=[pme, rf]"]
+      sw_spec: "gromacs@{gromacs_version}"
+      sw_versions: "[2025.3, 2025.4]"
+      sw_v1: "2025.3"
+      sw_v2: "2025.4"
+    foms:
+      - "* **Core Time**: CPU time (in seconds) spent on benchmark calculations"
+      - "* **Wall Time**: Elapsed real time (in seconds) spent on benchmark calculations"
+      - "* **Nanosecs per day**: Simulation speed achieved"
+      - "* **Hours per nanosec**: Hours required to calculate 1 nanosecond of simulation"
   hpl:
     name: "HPL"
     workload: "calculator"
     description: "High-Performance Linpack benchmark"
+    vars:
+      workload2: "standard"
+      app_spec: "hpl@2.3"
+      env_name_ver: "hpl"
+      pkg_name: "hpl"
+      pkg_spec: "hpl@{application::hpl::version} +openmp"
+      exp_vars: {n_nodes: [1, 2], memory_per_node: 8}
+      exp_args: ["-v", "memory_per_node=8"]
+      single_args: ["-v", "memory_per_node=8"]
+      vec_exp_name: "pfact_{PFACTs}_{n_ranks}ranks"
+      vec_dim: "PFACTs"
+      vec_e1: "pfact_0"
+      vec_e2: "pfact_1"
+      vec_etpl: "pfact_{PFACTs}"
+      vec_list: "['0', '1']"
+      vec_v1: "0"
+      vec_v2: "1"
+      vec_p1: "pfact_0"
+      vec_p2: "pfact_1"
+      vec_extra_var: "memory_per_node: '8'"
+      vec_base_args: ["-v", "n_ranks=[1, 2]", "-v", "n_threads=1", "-v", "memory_per_node=8", "-v", "PFACTs=[0, 1]"]
+      sw_spec: "hpl@{hpl_version} +openmp"
+      sw_versions: "[2.3, 2.2]"
+      sw_v1: "2.3"
+      sw_v2: "2.2"
+    foms:
+      - "* **Time**: Time (in seconds) spent executing the benchmark calculation"
+      - "* **GFlops**: Benchmark calculation throughput (in GFLOP/s)"
 
+snippet_templates:
+  scaling_base:
+    ramble:
+      variants: {package_manager: spack}
+      env_vars:
+        set: {OMP_NUM_THREADS: '{n_threads}'}
+      variables:
+        processes_per_node: 16
+        n_ranks: '{processes_per_node}*{n_nodes}'
+        batch_submit: '{execute_experiment}'
+        mpi_command: mpirun -n {n_ranks}
+      applications:
+        '{app_spec}':
+          workloads:
+            '{workload}':
+              experiments:
+                scaling_{n_nodes}:
+                  variables: '{exp_vars}'
+      software:
+        packages:
+          gcc14: {pkg_spec: gcc@14.2.0}
+          intel-mpi: {pkg_spec: intel-oneapi-mpi@2021.17.2, compiler: gcc14}
+          '{pkg_name}': {pkg_spec: '{pkg_spec}', compiler: gcc14}
+        environments:
+          '{app_spec}':
+            packages: [intel-mpi, '{pkg_name}']
+
+command_templates:
+  create_ws:
+    cmd: ["workspace", "create", "-d", "{ws}"]
+    display: "$ ramble workspace create {ws_name}"
+    in_commands_sh: false
+  concretize:
+    cmd: ["workspace", "concretize"]
+    display: true
+  info_workload:
+    cmd: ["info", "--attrs", "workloads", "-v", "-p", "{workload}", "{app}"]
+    display: '$ ramble info --attrs workloads -v -p "{workload}" {app}'
+    use_workspace: false
+    use_pty: true
+    command_file: "info_workload_cmd.sh"
+    output_file: "info_workload.out"
+    in_commands_sh: false
+  single_rank_exp_cmd:
+    ["workspace", "manage", "experiments", "{app}", "--workload-filter", "{workload}", "-e", "single_rank", "-V", "package_manager=spack", "-v", "n_ranks=1", "-v", "n_threads=1", "{single_args}"]
+  vec_base_setup:
+    - "{create_ws}"
+    - {cmd: ["config", "add", "variables:processes_per_node:16"]}
+    - {cmd: ["config", "add", "variables:mpi_command:mpirun -n {n_ranks} -ppn {processes_per_node}"]}
+    - {cmd: ["config", "add", 'variables:batch_submit:"{execute_experiment}"']}
+
+recipes:
+  hello_world:
+    apps:
+      hostname:
+        commands:
+          - {cmd: ["workspace", "create", "-d", "{ws}"], display: "$ ramble workspace create -d hello_world", in_commands_sh: false}
+          - {cmd: ["workspace", "info"], display: true, output_file: "workspace_info_initial.out", in_commands_sh: false}
+          - {cmd: ["workspace", "manage", "experiments", "hostname", "--workload-filter", "local", "-e", "test", "-v", "n_ranks=1"], display: true}
+          - {cmd: ["workspace", "info"], display: true, output_file: "workspace_info.out", in_commands_sh: false}
+          - {cmd: ["workspace", "setup"], display: true, global_args: ["--disable-progress-bar"], output_file: "setup.out", in_commands_sh: false}
+          - {cmd: ["on"], display: true, output_file: "on.out", in_commands_sh: false}
+          - {cmd: ["workspace", "analyze"], display: true, global_args: ["--disable-progress-bar"], output_file: "analyze.out", in_commands_sh: false}
+          - {read_file: "{ws}/results/results.latest.txt", output_file: "results.txt", in_commands_sh: false}
+
+  ramble_basics:
+    command_defaults: {display: true, use_workspace: false, use_pty: true, in_commands_sh: false}
+    apps:
+      hostname:
+        commands:
+          - {cmd: ["list", "h"], output_file: "list_h.out"}
+          - {cmd: ["list", "h*"], display: '$ ramble list "h*"', output_file: "list_hstar.out"}
+          - {cmd: ["list", "-t", "test-app"], output_file: "list_tag.out"}
+          - {cmd: ["list", "--type", "modifiers"], output_file: "list_modifiers.out"}
+          - {cmd: ["list", "--type", "package_managers"], output_file: "list_package_managers.out"}
+          - {cmd: ["list", "--type", "workflow_managers"], output_file: "list_workflow_managers.out"}
+          - {cmd: ["info", "hostname"], output_file: "info.out"}
+          - {cmd: ["info", "hostname", "-o"], output_file: "info_overview.out"}
+          - {cmd: ["info", "hostname", "--attrs", "workloads", "-v"], output_file: "filtered_info.out"}
+          - {cmd: ["info", "--type", "modifiers", "lscpu"], output_file: "info_modifier_lscpu.out"}
+          - {cmd: ["config", "list"], output_file: "config_list.out"}
+
+  single_experiment:
+    workspace_name: "basic_{app}"
+    commands:
+      - "{info_workload}"
+      - {cmd: ["info", "--attrs", "known_versions,software_specs,compilers", "-v", "{app}"], display: true, use_workspace: false, use_pty: true, command_file: "info_software_cmd.sh", output_file: "info_software.out", in_commands_sh: false}
+      - "{create_ws}"
+      - {cmd: "{single_rank_exp_cmd}", display: true}
+      - "{concretize}"
+
+  modify_experiment:
+    workspace_name: "basic_{app}"
+    commands:
+      - "{info_workload}"
+      - {cmd: ["workspace", "create", "-d", "{ws}"]}
+      - {cmd: "{single_rank_exp_cmd}"}
+      - {cmd: ["workspace", "concretize"]}
+      - {cmd: ["workspace", "info"], display: true, use_pty: true, output_file: "workspace_info.out", in_commands_sh: false}
+      - {cmd: ["workspace", "info", "--expansions"], display: true, use_pty: true, output_file: "workspace_info_expansions_initial.out", in_commands_sh: false}
+      - {cmd: ["workspace", "manage", "experiments", "{app}", "--workload-filter", "{workload}", "-e", "single_rank", "--overwrite", "-V", "package_manager=spack", "{mod_args}"], display: true}
+      - {cmd: ["workspace", "info", "--expansions"], display: true, use_pty: true, output_file: "workspace_info_expansions_modified.out", in_commands_sh: false}
+    apps:
+      wrf: {mod_args: ["-V", "wrf_tiles=true", "-v", "n_ranks=1", "-v", "n_threads=1", "-v", "num_tiles=2"]}
+      gromacs: {mod_args: ["-v", "n_ranks=1", "-v", "n_threads=1", "-v", "size=0006", "-v", "type=pme"]}
+      hpl: {mod_args: ["-v", "n_ranks=1", "-v", "n_threads=1", "-v", "memory_per_node=8", "-v", "percent_mem=80"]}
+
+  vectors_matrices:
+    workspace_name: "vectors_{app}"
+    commands:
+      - "{vec_base_setup}"
+      - {cmd: ["workspace", "manage", "experiments", "{app}", "--workload-filter", "{workload}", "--workload-filter", "{workload2}", "-w", "app_workload", "-e", "{vec_exp_name}", "-V", "package_manager=spack", "{vec_base_args}", "-m", "app_workload,{vec_dim},n_ranks"], display: true}
+      - "{concretize}"
+
+  scaling_study:
+    workspace_name: "scaling_{app}"
+    commands:
+      - "{create_ws}"
+      - {cmd: ["config", "add", "variables:processes_per_node:16"]}
+      - {cmd: ["config", "add", 'variables:n_ranks:"{processes_per_node}*{n_nodes}"']}
+      - {cmd: ["config", "add", "variables:mpi_command:mpirun -n {n_ranks}"]}
+      - {cmd: ["config", "add", 'variables:batch_submit:"{execute_experiment}"']}
+      - {cmd: ["workspace", "manage", "experiments", "{app}", "--workload-filter", "{workload}", "-e", "scaling_{n_nodes}", "-V", "package_manager=spack", "-v", "n_nodes=[1, 2]", "{exp_args}"], display: true}
+      - "{concretize}"
+
+  software_stack:
+    workspace_name: "software_{app}"
+    commands:
+      - "{vec_base_setup}"
+      - {cmd: ["workspace", "manage", "software", "--package-name", "gcc14", "--package-spec", "gcc@14.2.0", "--compiler-spec", "gcc@14.2.0"], display: true}
+      - {cmd: ["workspace", "manage", "software", "--package-name", "intel-mpi", "--package-spec", "intel-oneapi-mpi@2021.17.2", "--compiler", "gcc14"], display: true}
+      - {cmd: ["workspace", "manage", "software", "--package-name", "{app}-{{app}_version}", "--package-spec", "{sw_spec}", "--compiler", "gcc14", "--environment-name", "{app}-{{app}_version}", "--environment-packages", "intel-mpi,{app}-{{app}_version}"], display: true}
+      - {cmd: ["workspace", "manage", "experiments", "{app}", "--workload-filter", "{workload}", "--workload-filter", "{workload2}", "-w", "app_workload", "-e", "{vec_exp_name}-{{app}_version}", "-V", "package_manager=spack", "{vec_base_args}", "-v", "{app}_version={sw_versions}", "-v", "env_name={app}-{{app}_version}", "-m", "app_workload,{vec_dim},n_ranks,{app}_version"], display: true}
+      - "{concretize}"
+
+  modifiers:
+    workspace_name: "modifiers_{app}"
+    snippets:
+      base: {extends: scaling_base}
+      lscpu:
+        extends: base
+        ramble:
+          modifiers: [{name: lscpu}]
+      aps_error:
+        extends: lscpu
+        ramble:
+          modifiers: [{name: lscpu}, {name: intel-aps}]
+      aps_final:
+        extends: aps_error
+        ramble:
+          software:
+            packages:
+              aps: {pkg_spec: intel-oneapi-vtune}
+            environments:
+              "{app_spec}":
+                packages: [intel-mpi, "{pkg_name}", aps]
+
+  success_criteria:
+    workspace_name: "success_{app}"
+    snippets:
+      base:
+        extends: scaling_base
+        ramble: {env_vars: null}
+      regex_criteria:
+        extends: base
+        ramble:
+          applications:
+            "{app_spec}": {success_criteria: "{regex_sc}"}
+      fom_criteria:
+        extends: regex_criteria
+        ramble:
+          applications:
+            "{app_spec}":
+              workloads:
+                "{workload}": {success_criteria: "{fom_sc}"}
+    apps:
+      wrf:
+        regex_sc: [{name: timing-present, mode: string, match: "Timing for main.*", file: '{experiment_run_dir}/rsl.out.base'}]
+        fom_sc: [{name: correct-timesteps, mode: fom_comparison, fom_name: "Number of timesteps", formula: '{value} >= 50'}]
+      gromacs:
+        regex_sc: [{name: mdrun-finished, mode: string, match: "Finished mdrun.*", file: '{experiment_run_dir}/md.log'}]
+        fom_sc: [{name: max-walltime, mode: fom_comparison, fom_name: "Wall Time", formula: '{value} <= 300'}]
+      hpl:
+        regex_sc: [{name: passed, mode: string, match: '.*PASSED.*', file: '{experiment_run_dir}/HPL.out'}]
+        fom_sc: [{name: min-gflops, mode: fom_comparison, fom_name: "GFlops", formula: '{value} >= 1.0'}]
+
+  zips_matrices:
+    workspace_name: "zips_{app}"
+    commands:
+      - "{create_ws}"
+      - {cmd: ["config", "add", "variables:processes_per_node:[16, 18, 20]"], display: true}
+      - {cmd: ["config", "add", "variables:platform:[platform1, platform2, platform3]"], display: true}
+      - {cmd: ["config", "add", 'variables:n_ranks:"{processes_per_node}*{n_nodes}"'], display: true}
+      - {cmd: ["config", "add", "variables:mpi_command:mpirun -n {n_ranks}"], display: true}
+      - {cmd: ["config", "add", 'variables:batch_submit:"{execute_experiment}"'], display: true}
+      - {cmd: ["workspace", "manage", "experiments", "{app}", "--workload-filter", "{workload}", "-e", "scaling_{n_nodes}_{platform}", "-V", "package_manager=spack", "-v", "n_nodes=[1, 2]", "{exp_args}", "--zip", "platform_config=[platform,processes_per_node]", "-m", "platform_config,n_nodes"], display: true}
+      - "{concretize}"
+
+  internals:
+    workspace_name: "internals_{app}"
+    snippets:
+      base: {extends: scaling_base}
+      new_exec:
+        extends: base
+        ramble:
+          applications:
+            "{app_spec}":
+              workloads:
+                "{workload}":
+                  experiments:
+                    scaling_{n_nodes}:
+                      internals:
+                        custom_executables:
+                          start_time: {template: [date +%s], redirect: '{experiment_run_dir}/start_time', use_mpi: false}
+                          end_time: {template: [date +%s], redirect: '{experiment_run_dir}/end_time', use_mpi: false}
+      exec_order:
+        extends: new_exec
+        ramble:
+          applications:
+            "{app_spec}":
+              workloads:
+                "{workload}":
+                  experiments:
+                    scaling_{n_nodes}:
+                      internals: {executables: "{exec_list}"}
+      exec_injection:
+        extends: new_exec
+        ramble:
+          applications:
+            "{app_spec}":
+              workloads:
+                "{workload}":
+                  experiments:
+                    scaling_{n_nodes}:
+                      internals:
+                        executable_injection:
+                          - {name: start_time, order: before, relative_to: "{exec_target}"}
+                          - {name: end_time, order: after, relative_to: "{exec_target}"}
+    apps:
+      wrf:
+        exec_target: execute
+        exec_list: [builtin::env_vars, package_manager_builtin::spack::spack_source, package_manager_builtin::spack::spack_activate, stage-files, stage-namelist, cleanup, define_nproc_y, define_nproc_x, fix_12km_start_hour, fix_12km_restart, start_time, execute, end_time, copy-logs, post-exec-clean]
+      gromacs:
+        exec_target: execute-gen
+        exec_list: [builtin::env_vars, package_manager_builtin::spack::spack_source, package_manager_builtin::spack::spack_activate, print-binary-info, pre-process, start_time, execute-gen, end_time]
+      hpl:
+        app_spec: hpl
+        pkg_spec: hpl@2.3 +openmp
+        exec_target: execute
+        exec_list: [builtin::env_vars, package_manager_builtin::spack::spack_source, package_manager_builtin::spack::spack_activate, start_time, execute, end_time]
+
+  var_expansion:
+    workspace_name: "var_expansion_{app}"
+    snippets:
+      base:
+        extends: scaling_base
+        ramble:
+          variables:
+            platform: [platform1, platform2]
+            processes_per_node: [16, 18]
+          zips:
+            platform_config: [platform, processes_per_node]
+          applications:
+            "{app_spec}":
+              workloads:
+                "{workload}":
+                  experiments:
+                    scaling_{n_nodes}: null
+                    scaling_{n_nodes}_{platform}:
+                      variables: "{exp_vars}"
+                      matrix: [platform_config, n_nodes]
+      mpi:
+        extends: base
+        ramble:
+          variables:
+            mpi_name: [intel-mpi, openmpi]
+          software:
+            packages:
+              openmpi: {pkg_spec: openmpi@5.0.8, compiler: gcc14}
+            environments:
+              "{app_spec}": null
+              "{app_spec}-{mpi_name}":
+                packages: ["{mpi_name}", "{pkg_name}"]
+      mpi_matrix:
+        extends: mpi
+        ramble:
+          applications:
+            "{app_spec}":
+              workloads:
+                "{workload}":
+                  experiments:
+                    scaling_{n_nodes}_{platform}: null
+                    scaling_{n_nodes}_{platform}_{mpi_name}:
+                      variables:
+                        "<<": "{exp_vars}"
+                        env_name: "{app_spec}-{mpi_name}"
+                      matrix: [platform_config, n_nodes, mpi_name]
+      expansion_indirection:
+        extends: mpi_matrix
+        ramble:
+          variables:
+            batch_submit: '{execute_experiment}'
+            mpi_command: mpirun {{mpi_name}_args}
+            mpi_name: [intel-mpi, openmpi]
+            intel-mpi_args: -n {n_ranks} -ppn {processes_per_node}
+            openmpi_args: --np {n_ranks} --map-by ppr:{processes_per_node}:node -x OMP_NUM_THREADS
+    apps:
+      gromacs: {app_spec: gromacs, pkg_spec: gromacs@2025.3}
+      hpl: {app_spec: hpl, pkg_spec: hpl@2.3 +openmp}
