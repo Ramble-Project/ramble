@@ -1647,9 +1647,11 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         self.utilities = {}
         self._utility_instances = []
 
-        for _, obj in self.objects():
+        for _, obj in reversed(list(self.objects())):
             for util_name, util_conf in obj.selected_utilities.items():
-                self.utilities[util_name] = util_conf.copy()
+                if util_name not in self.utilities:
+                    self.utilities[util_name] = {}
+                self.utilities[util_name].update(util_conf)
 
         ws_utils = ramble.config.get(namespace.utilities) or {}
         if self.workspace and hasattr(self.workspace, "_get_workspace_dict"):
