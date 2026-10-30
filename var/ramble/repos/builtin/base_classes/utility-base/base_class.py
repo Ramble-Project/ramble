@@ -38,6 +38,8 @@ class UtilityBase(ObjectMixin, metaclass=DirectiveMeta):
         super().__init__(file_path)
 
         self.workspace = None
+        self.app_inst = None
+        self.utility_config = {}
         self.keywords = None
 
     @ObjectMixin.workspace_cache

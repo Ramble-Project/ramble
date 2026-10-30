@@ -87,6 +87,13 @@ def test_repo_unknown_app(mutable_mock_apps_repo):
                 ("package_managers", "spack-lightweight/package_manager.py", "builtin"),
             ],
         ),
+        (
+            "spack",
+            ramble.repository.ObjectTypes.utilities,
+            [
+                ("utilities", "spack/utility.py", "builtin"),
+            ],
+        ),
     ],
 )
 def test_list_object_files(
@@ -96,11 +103,14 @@ def test_list_object_files(
     mutable_apps_repo_path,
     mutable_mods_repo_path,
     mutable_pkg_mans_repo_path,
+    mutable_utilitys_repo_path,
 ):
     if obj_type == ramble.repository.ObjectTypes.applications:
         repo = mutable_apps_repo_path
     elif obj_type == ramble.repository.ObjectTypes.modifiers:
         repo = mutable_mods_repo_path
+    elif obj_type == ramble.repository.ObjectTypes.utilities:
+        repo = mutable_utilitys_repo_path
     else:
         repo = mutable_pkg_mans_repo_path
     obj_inst = repo.get(obj_name)
