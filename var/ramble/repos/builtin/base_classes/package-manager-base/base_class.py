@@ -13,6 +13,7 @@ import tempfile
 from typing import List
 
 import ramble.repository
+import ramble.util.hashing
 from ramble.fetch_strategy import VCS_CHECKOUT_ATTRIBUTES
 from ramble.language.language_base import DirectiveMeta
 from ramble.language.shared_language import register_phase
@@ -21,6 +22,7 @@ from ramble.software_environments import (
     RambleSoftwareEnvironmentError,
     TemplatePackage,
 )
+from ramble.util import json_util
 from ramble.util.logger import logger
 from ramble.util.naming import NS_SEPARATOR
 
@@ -752,3 +754,51 @@ class PackageManagerBase(ObjectMixin, metaclass=DirectiveMeta):
         return self._extract_specs(
             attr_name="compilers", app_inst=app_inst, prefixed=prefixed
         )
+
+    def _env_files_hash(self, env_files):
+        """Compute the hash of the environment files"""
+        hashes = {
+            os.path.basename(f): ramble.util.hashing.hash_file(f)
+            for f in env_files
+            if os.path.isfile(f)
+        }
+        return ramble.util.hashing.hash_json(hashes)
+
+    def get_pkg_path_cache(self, workspace, env_path, env_files):
+        env_caches = workspace.pkg_path_cache[self.name]
+        if env_path in env_caches:
+            return env_caches[env_path]
+
+        cache = {}
+        if env_path:
+            cache_file = os.path.join(
+                env_path, f"ramble_{self.name}_pkg_path_cache.json"
+            )
+            if os.path.isfile(cache_file):
+                cache_mtime = os.path.getmtime(cache_file)
+                expired = any(
+                    os.path.getmtime(f) > cache_mtime
+                    for f in env_files
+                    if os.path.isfile(f)
+                )
+                if not expired:
+                    with open(cache_file, encoding="utf-8") as f:
+                        data = json_util.load(f)
+                    if data.get("env_hash") == self._env_files_hash(env_files):
+                        cache = data.get("paths", {})
+
+        env_caches[env_path] = cache
+        return cache
+
+    def write_pkg_path_cache(self, workspace, env_path, env_files):
+        if workspace.dry_run or not env_path or not os.path.isdir(env_path):
+            return
+        cache_file = os.path.join(
+            env_path, f"ramble_{self.name}_pkg_path_cache.json"
+        )
+        data = {
+            "env_hash": self._env_files_hash(env_files),
+            "paths": workspace.pkg_path_cache[self.name].get(env_path, {}),
+        }
+        with open(cache_file, "w+", encoding="utf-8") as f:
+            json_util.dump(data, f)
