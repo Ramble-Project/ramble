@@ -12,6 +12,7 @@ import pytest
 
 import ramble.workspace
 from ramble.main import RambleCommand
+from ramble.success_criteria import SuccessCriteriaScope
 
 # everything here uses the mock_workspace_path
 pytestmark = pytest.mark.usefixtures("mutable_config", "mutable_mock_workspace_path")
@@ -77,3 +78,66 @@ ramble:
         with open(os.path.join(ws.results_dir, "results.latest.txt"), encoding="utf-8") as f:
             data = f.read()
             assert "Status = FAILED" in data
+
+
+def test_experiment_success_list_populated_at_init(
+    mock_applications, mock_modifiers, workspace_name
+):
+    global_args = ["-w", workspace_name]
+
+    with ramble.workspace.create(workspace_name) as ws:
+        ws.write()
+
+        workspace(
+            "manage",
+            "experiments",
+            "zlib",
+            "--wf",
+            "ensure_installed",
+            "-e",
+            "test_exp",
+            "-v",
+            "n_nodes=1",
+            "-v",
+            "processes_per_node=1",
+            "-v",
+            "n_threads=1",
+            "-v",
+            "target_pattern=libz.so",
+            global_args=global_args,
+        )
+
+        workspace(
+            "manage",
+            "modifiers",
+            "--add",
+            "--name",
+            "success-criteria",
+            "--mode",
+            "test",
+            "--scope",
+            "workspace",
+            global_args=global_args,
+        )
+
+        sc_config_path = os.path.join(ws.config_dir, "success_criteria.yaml")
+        with open(sc_config_path, "w+", encoding="utf-8") as f:
+            f.write("""success_criteria:
+- name: exp_criteria_with_var
+  mode: string
+  match: '{target_pattern}'
+""")
+        ws._re_read()
+
+        exp_set = ws.build_experiment_set()
+        for _, app, _ in exp_set.all_experiments():
+            obj_names = [
+                c.name for c in app.success_list.criteria[SuccessCriteriaScope.OBJECT_DEFINITIONS]
+            ]
+            assert "zlib_installed" in obj_names
+            assert "status" in obj_names
+            assert "_application_function" in obj_names
+
+            crit = app.success_list.find_criteria("exp_criteria_with_var")
+            assert crit is not None
+            assert crit.match.pattern == "libz.so"
