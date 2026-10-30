@@ -181,7 +181,7 @@ class ObjectMixin(metaclass=SharedMeta):
 
     def satisfy_when(self, when_key, variant_set=None):
         app_inst = self._get_app_inst()
-        if app_inst is None or not hasattr(app_inst, "expander"):
+        if app_inst is None or getattr(app_inst, "expander", None) is None:
             return True
         experiment_variants = self.experiment_variants()
         return app_inst.expander.satisfies(when_key, experiment_variants)
