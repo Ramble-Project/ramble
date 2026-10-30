@@ -421,12 +421,16 @@ _ramble_data() {
     then
         RAMBLE_COMPREPLY="-h --help"
     else
-        RAMBLE_COMPREPLY="create-db"
+        RAMBLE_COMPREPLY="create-db upgrade-db"
     fi
 }
 
 _ramble_data_create_db() {
     RAMBLE_COMPREPLY="-h --help"
+}
+
+_ramble_data_upgrade_db() {
+    RAMBLE_COMPREPLY="-h --help -n --dry-run"
 }
 
 _ramble_debug() {

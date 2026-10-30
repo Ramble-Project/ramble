@@ -16,6 +16,7 @@ level = "short"
 
 subcommands = [
     "create-db",
+    "upgrade-db",
 ]
 
 
@@ -25,37 +26,29 @@ def data_create_db_setup_parser(subparser):
 
 def data_create_db(args):
     """create the database"""
-    import ramble.config
     import ramble.uploader
-    from ramble.config import ConfigError
 
-    uri = ramble.config.get("config:upload:uri")
-    if not uri:
-        raise ConfigError("No upload URI (config:upload:uri) in config.")
+    uploader, uri = ramble.uploader.get_uploader_and_uri()
+    uploader.create_tables(uri)
 
-    uploader_type_str = ramble.config.get("config:upload:type")
 
-    if uploader_type_str is None:
-        raise ConfigError("No upload type (config:upload:type) in config.")
+def data_upgrade_db_setup_parser(subparser):
+    """upgrade the database schema"""
+    subparser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="validate and report planned schema changes without modifying the database",
+    )
 
-    if not hasattr(ramble.uploader.uploader_types, uploader_type_str):
-        raise ConfigError(f"Upload type {uploader_type_str} is not valid.")
 
-    uploader_type = getattr(ramble.uploader.uploader_types, uploader_type_str)
+def data_upgrade_db(args):
+    """upgrade the database schema"""
+    import ramble.uploader
 
-    if uploader_type == ramble.uploader.uploader_types.BigQuery:
-        uploader = ramble.uploader.BigQueryUploader()
-    elif uploader_type == ramble.uploader.uploader_types.SQLite:
-        uploader = ramble.uploader.SQLiteUploader()
-    else:
-        # Note: PrintOnlyUploader shouldn't really be used here since it doesn't create tables
-        uploader = ramble.uploader.PrintOnlyUploader()
-
-    if hasattr(uploader, "create_tables"):
-        uploader.create_tables(uri)
-    else:
-        # Some uploaders might not have/need create_tables (like PrintOnly)
-        pass
+    uploader, uri = ramble.uploader.get_uploader_and_uri()
+    uploader.upgrade_tables(uri, dry_run=args.dry_run)
 
 
 #: Dictionary mapping subcommand names and aliases to functions

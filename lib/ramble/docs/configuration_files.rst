@@ -226,8 +226,11 @@ Upload
 Ramble aims to support the upload of experiment outcomes (including FOMs), to
 SQL-like datastores. To do this we can specify an ``upload:type`` as defined by
 :mod:`ramble.uploader.uploader_types`, and a ``upload:uri`` to specify the
-destination. Supported types include ``BigQuery`` and ``PrintOnly`` (which
-only logs the data without performing an actual upload).
+destination. Supported types include ``BigQuery``, ``SQLite``, and
+``PrintOnly`` (which only logs the data without performing an actual upload).
+
+Database tables can be created with ``ramble data create-db`` and upgraded when
+table schemas evolve with ``ramble data upgrade-db``.
 
 As part of the upload it tries to attribute the data to a user. This can be
 specified via ``config:user``, or if blank ramble will try deduce it based on
