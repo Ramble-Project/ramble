@@ -1359,7 +1359,9 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                         ].items():
                             new_inst.variables[var] = val
 
-                    new_inst.expander._experiment_namespace = new_name
+                    new_inst.variables[self.keywords.experiment_namespace] = (
+                        new_name
+                    )
                     new_inst.variables[self.keywords.experiment_run_dir] = (
                         new_run_dir
                     )

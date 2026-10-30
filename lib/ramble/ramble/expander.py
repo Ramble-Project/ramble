@@ -554,6 +554,17 @@ class ExpansionGraph:
         return "\n".join(lines)
 
 
+def _cached_keyword_property(keyword_attr: str) -> Any:
+    def getter(self: "Expander"):
+        val = self._cached_keywords.get(keyword_attr)
+        if not val:
+            val = self.expand_var_name(getattr(self._keywords, keyword_attr))
+            self._cached_keywords[keyword_attr] = val
+        return val
+
+    return property(getter)
+
+
 class Expander:
     """A class that will track and expand keyword arguments
 
@@ -584,25 +595,7 @@ class Expander:
         self.replacement_paths = {}
 
         self._math_str_stack = []
-
-        self._application_name = None
-        self._application_spec = None
-        self._application_version = None
-        self._workload_name = None
-        self._experiment_name = None
-
-        self._application_namespace = None
-        self._workload_namespace = None
-        self._experiment_namespace = None
-        self._env_path = None
-
-        self._application_input_dir = None
-        self._workload_input_dir = None
-        self._license_input_dir = None
-
-        self._application_run_dir = None
-        self._workload_run_dir = None
-        self._experiment_run_dir = None
+        self._cached_keywords: Dict[str, Any] = {}
 
     def add_no_expand_var(self, var: str):
         """Add a new variable to the no expand set
@@ -658,116 +651,21 @@ class Expander:
             self._no_expand_vars.copy(),
         )
 
-    @property
-    def application_name(self):
-        if not self._application_name:
-            self._application_name = self.expand_var_name(self._keywords.application_name)
-
-        return self._application_name
-
-    @property
-    def application_spec(self):
-        if not self._application_spec:
-            self._application_spec = self.expand_var_name(self._keywords.application_spec)
-
-        return self._application_spec
-
-    @property
-    def application_version(self):
-        if not self._application_version:
-            self._application_version = self.expand_var_name(self._keywords.application_version)
-
-        return self._application_version
-
-    @property
-    def workload_name(self):
-        if not self._workload_name:
-            self._workload_name = self.expand_var_name(self._keywords.workload_name)
-
-        return self._workload_name
-
-    @property
-    def experiment_name(self):
-        if not self._experiment_name:
-            self._experiment_name = self.expand_var_name(self._keywords.experiment_name)
-
-        return self._experiment_name
-
-    @property
-    def application_namespace(self):
-        if not self._application_namespace:
-            self._application_namespace = self.application_spec
-
-        return self._application_namespace
-
-    @property
-    def workload_namespace(self):
-        if not self._workload_namespace:
-            self._workload_namespace = f"{self.application_spec}.{self.workload_name}"
-
-        return self._workload_namespace
-
-    @property
-    def experiment_namespace(self):
-        if not self._experiment_namespace:
-            self._experiment_namespace = "{}.{}.{}".format(
-                self.application_spec,
-                self.workload_name,
-                self.experiment_name,
-            )
-
-        return self._experiment_namespace
-
-    @property
-    def env_path(self):
-        if not self._env_path:
-            self._env_path = self.expand_var_name(self._keywords.env_path)
-
-        return self._env_path
-
-    @property
-    def application_input_dir(self):
-        if not self._application_input_dir:
-            self._application_input_dir = self.expand_var_name(
-                self._keywords.application_input_dir
-            )
-
-        return self._application_input_dir
-
-    @property
-    def workload_input_dir(self):
-        if not self._workload_input_dir:
-            self._workload_input_dir = self.expand_var_name(self._keywords.workload_input_dir)
-
-        return self._workload_input_dir
-
-    @property
-    def license_input_dir(self):
-        if not self._license_input_dir:
-            self._license_input_dir = self.expand_var_name(self._keywords.license_input_dir)
-
-        return self._license_input_dir
-
-    @property
-    def application_run_dir(self):
-        if not self._application_run_dir:
-            self._application_run_dir = self.expand_var_name(self._keywords.application_run_dir)
-
-        return self._application_run_dir
-
-    @property
-    def workload_run_dir(self):
-        if not self._workload_run_dir:
-            self._workload_run_dir = self.expand_var_name(self._keywords.workload_run_dir)
-
-        return self._workload_run_dir
-
-    @property
-    def experiment_run_dir(self):
-        if not self._experiment_run_dir:
-            self._experiment_run_dir = self.expand_var_name(self._keywords.experiment_run_dir)
-
-        return self._experiment_run_dir
+    application_name = _cached_keyword_property("application_name")
+    application_spec = _cached_keyword_property("application_spec")
+    application_version = _cached_keyword_property("application_version")
+    workload_name = _cached_keyword_property("workload_name")
+    experiment_name = _cached_keyword_property("experiment_name")
+    application_namespace = _cached_keyword_property("application_namespace")
+    workload_namespace = _cached_keyword_property("workload_namespace")
+    experiment_namespace = _cached_keyword_property("experiment_namespace")
+    env_path = _cached_keyword_property("env_path")
+    application_input_dir = _cached_keyword_property("application_input_dir")
+    workload_input_dir = _cached_keyword_property("workload_input_dir")
+    license_input_dir = _cached_keyword_property("license_input_dir")
+    application_run_dir = _cached_keyword_property("application_run_dir")
+    workload_run_dir = _cached_keyword_property("workload_run_dir")
+    experiment_run_dir = _cached_keyword_property("experiment_run_dir")
 
     @contextmanager
     def preserve_escaped_braces(self):
