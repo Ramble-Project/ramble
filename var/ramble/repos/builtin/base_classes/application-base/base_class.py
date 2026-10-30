@@ -2363,7 +2363,13 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             {frozenset(): self._context_formatted_executables}
         ]
 
-        objs_to_extract = [self, self.workflow_manager, self.package_manager]
+        objs_to_extract = [
+            self,
+            self.system,
+            self.platform,
+            self.workflow_manager,
+            self.package_manager,
+        ]
 
         formatted_exec_groups.extend(
             obj.formatted_executables
