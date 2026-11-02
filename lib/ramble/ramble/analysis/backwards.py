@@ -32,14 +32,19 @@ def _read_file_backwards(file_path, block_size=4096):
             chunk = f.read(grab_size)
             buffer = chunk + buffer
 
-            lines = buffer.split(b"\n")
-            if is_first_block and lines and lines[-1] == b"":
-                lines.pop()
+            if is_first_block and buffer.endswith(b"\n"):
+                buffer = buffer[:-1]
             is_first_block = False
-            buffer = lines[0]
 
-            for line in reversed(lines[1:]):
-                yield line.decode("utf-8", errors="replace") + "\n"
+            nl_idx = buffer.find(b"\n")
+            if nl_idx == -1:
+                continue
+
+            complete = buffer[nl_idx + 1 :]
+            buffer = buffer[:nl_idx]
+
+            for line in reversed(complete.decode("utf-8", errors="replace").split("\n")):
+                yield line + "\n"
 
         if file_size > 0:
             yield buffer.decode("utf-8", errors="replace") + "\n"
@@ -103,6 +108,7 @@ class BackwardsAnalysisStrategy(AnalysisStrategyBase):
 
         # Iterate over files. We already know they exist
         with lk.ReadTransaction(exp_lock):
+            null_foms = f_defs.get(_NULL_CONTEXT, {}).get("foms", {})
             for file, file_conf in files.items():
 
                 logger.debug(f"Reading log file backwards: {file}")
@@ -115,15 +121,31 @@ class BackwardsAnalysisStrategy(AnalysisStrategyBase):
                     criteria_list.find_criteria(c) for c in file_conf["success_criteria"]
                 ]
 
-                foms_to_find = set(file_conf["contexts"].get(_NULL_CONTEXT, []))
+                foms_to_find = [
+                    (fom, null_foms[fom], null_foms[fom].get("pre_filter", ""))
+                    for fom in file_conf["contexts"].get(_NULL_CONTEXT, [])
+                ]
 
                 for line in _read_file_backwards(file):
-                    per_file_crit_objs = self._update_per_file_criteria(line, per_file_crit_objs)
+                    if per_file_crit_objs:
+                        per_file_crit_objs = self._update_per_file_criteria(
+                            line, per_file_crit_objs
+                        )
 
-                    for fom in list(foms_to_find):
-                        fom_conf = f_defs[_NULL_CONTEXT]["foms"][fom]
-                        if self._extract_fom_from_line(line, fom, fom_conf, null_key, fom_values):
-                            foms_to_find.remove(fom)
+                    if foms_to_find:
+                        matched_foms = None
+                        for fom, fom_conf, pre_filter in foms_to_find:
+                            if pre_filter in line and self._extract_fom_from_line(
+                                line, fom, fom_conf, null_key, fom_values
+                            ):
+                                if matched_foms is None:
+                                    matched_foms = {fom}
+                                else:
+                                    matched_foms.add(fom)
+                        if matched_foms is not None:
+                            foms_to_find = [
+                                entry for entry in foms_to_find if entry[0] not in matched_foms
+                            ]
 
                     # Stop reading if everything is found
                     if not foms_to_find and not per_file_crit_objs:

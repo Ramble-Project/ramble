@@ -108,11 +108,9 @@ class ScopedCriteriaList:
             self.criteria[s] = []
 
     def passed(self):
-        succeed = True
-        for scope in self._valid_scopes:
-            for criteria in self.criteria[scope]:
-                succeed = succeed and criteria.ok()
-        return succeed
+        return all(
+            criteria.ok() for scope in self._valid_scopes for criteria in self.criteria[scope]
+        )
 
     def all_criteria(self):
         for scope in self._valid_scopes:
@@ -199,14 +197,11 @@ class SuccessCriteria:
             self.fom_context = fom_context
 
     def passed(self, test=None, app_inst=None, fom_values=None):
-        logger.debug(f"Testing criteria {self.name} mode = {self.mode}")
         if self.mode == SuccessCriteriaMode.STRING:
             if self.match is not None:
                 if self.pre_filter and self.pre_filter not in test:
                     return False
-                match_obj = self.match.match(test)
-                if match_obj:
-                    return True
+                return bool(self.match.match(test))
         elif self.mode == SuccessCriteriaMode.APPLICATION_FUNCTION:
             if hasattr(app_inst, self._success_function):
                 func = getattr(app_inst, self._success_function)
@@ -225,7 +220,6 @@ class SuccessCriteria:
                 )
 
             comparison_tested = False
-            result = True
 
             fom_context_glob = app_inst.expander.expand_var(self.fom_context)
             matching_keys = []
@@ -253,9 +247,10 @@ class SuccessCriteria:
                     }
 
                     comparison_tested = True
-                    result = result and app_inst.expander.evaluate_predicate(
+                    if not app_inst.expander.evaluate_predicate(
                         self.fom_formula, extra_vars=comparison_vars
-                    )
+                    ):
+                        return False
 
             # If fom doesn't match any fom names, fail the comparison
             if not comparison_tested:
@@ -264,19 +259,16 @@ class SuccessCriteria:
                     f'"{self.fom_name}" did not match any FOMs.'
                 )
                 return False
-            return result
+            return True
 
         return False
 
     def anti_matched(self, test=None):
-        logger.debug(f"Testing anti-criterion {self.name} mode = {self.mode}")
         if self.mode == SuccessCriteriaMode.STRING:
             if self.anti_match is not None:
                 if self.pre_filter and self.pre_filter not in test:
                     return False
-                anti_match_obj = self.anti_match.match(test)
-                if anti_match_obj:
-                    return True
+                return bool(self.anti_match.match(test))
         return False
 
     def mark_found(self):
