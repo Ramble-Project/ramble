@@ -61,16 +61,27 @@ class AnalysisStrategyBase(metaclass=ApplicationMeta):
         return fom_values, context_metadata, null_key
 
     def _update_per_file_criteria(self, line, per_file_crit_objs):
+        if not per_file_crit_objs:
+            return per_file_crit_objs
+
         app = self.app_inst
-        new_per_file_crit_objs = []
+        matched = False
         for crit_obj in per_file_crit_objs:
             if crit_obj.passed(line, app):
                 crit_obj.mark_found()
+                matched = True
             elif crit_obj.anti_matched(line):
                 crit_obj.mark_anti_found()
-            else:
-                new_per_file_crit_objs.append(crit_obj)
-        return new_per_file_crit_objs
+                matched = True
+
+        if not matched:
+            return per_file_crit_objs
+
+        return [
+            crit_obj
+            for crit_obj in per_file_crit_objs
+            if not crit_obj.found and not crit_obj.anti_found
+        ]
 
     def _extract_fom_from_line(self, line, fom, fom_conf, fom_context, fom_values):
         """Attempt to match and extract a FOM from a log line.
@@ -129,11 +140,11 @@ class AnalysisStrategyBase(metaclass=ApplicationMeta):
                     criteria_obj.mark_found()
 
         # If an app has no FOMs defined, don't fail it for that
-        success = (not f_defs and not inmem_defs) or False
-        for fom in fom_values.values():
-            for value in fom.values():
-                if "origin_type" in value and value["origin_type"] == "application":
-                    success = True
+        success = (not f_defs and not inmem_defs) or any(
+            value.get("origin_type") == "application"
+            for fom in fom_values.values()
+            for value in fom.values()
+        )
         success = success and criteria_list.passed()
 
         if success:

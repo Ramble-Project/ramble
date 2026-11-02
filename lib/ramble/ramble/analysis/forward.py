@@ -9,7 +9,6 @@
 """Define the forward-reading analysis strategy"""
 
 import os
-import string
 
 import ramble.util.lock as lk
 from ramble.analysis.base import AnalysisStrategyBase
@@ -27,16 +26,6 @@ class ForwardAnalysisStrategy(AnalysisStrategyBase):
         if prepared is None:
             return
         criteria_list, files, f_defs, inmem_defs = prepared
-
-        def format_context(context_match, context_format):
-            context_val = {}
-            if isinstance(context_format, str):
-                for group in string.Formatter().parse(context_format):
-                    if group[1]:
-                        context_val[group[1]] = context_match[group[1]]
-
-            context_string = context_format.format(**context_val)
-            return context_string
 
         exp_lock = app.experiment_lock
         fom_values, context_metadata, null_key = self._init_fom_containers()
@@ -57,30 +46,49 @@ class ForwardAnalysisStrategy(AnalysisStrategyBase):
                     criteria_list.find_criteria(c) for c in file_conf["success_criteria"]
                 ]
 
+                context_entries = []
+                for context, foms in file_conf["contexts"].items():
+                    context_def = (
+                        f_defs[context]["definition"] if context != _NULL_CONTEXT else None
+                    )
+                    context_pre_filter = (
+                        context_def.get("pre_filter", "") if context_def is not None else ""
+                    )
+                    context_foms = f_defs[context]["foms"]
+                    fom_entries = [
+                        (
+                            fom,
+                            context_foms[fom],
+                            context_foms[fom].get("pre_filter", ""),
+                            bool(context_foms[fom]["contexts"]),
+                        )
+                        for fom in foms
+                    ]
+                    context_entries.append((context, context_def, context_pre_filter, fom_entries))
+
                 with open(file, encoding="utf-8", errors="replace") as f:
                     for line in f:
-                        per_file_crit_objs = self._update_per_file_criteria(
-                            line, per_file_crit_objs
-                        )
+                        if per_file_crit_objs:
+                            per_file_crit_objs = self._update_per_file_criteria(
+                                line, per_file_crit_objs
+                            )
 
                         # Iterate over contexts and add matched contexts to active_contexts
-                        for context, foms in file_conf["contexts"].items():
-                            if context != _NULL_CONTEXT:
-                                context_conf = f_defs[context]["definition"]
-                                if context_conf.get("pre_filter", "") not in line:
-                                    context_match = None
-                                else:
-                                    context_match = context_conf["regex"].match(line)
+                        for (
+                            context,
+                            context_conf,
+                            context_pre_filter,
+                            fom_entries,
+                        ) in context_entries:
+                            if context_conf is not None and context_pre_filter in line:
+                                context_match = context_conf["regex"].match(line)
 
                                 if context_match:
-                                    context_name = format_context(
-                                        context_match,
-                                        context_conf["format"],
-                                    )
+                                    context_vars = context_match.groupdict()
+                                    context_name = context_conf["format"].format(**context_vars)
                                     logger.debug(f"Line was: {line}")
                                     logger.debug(f" Context match {context} -- {context_name}")
 
-                                    context_vars = context_match.groupdict()
                                     context_key = (
                                         context_name,
                                         context,
@@ -97,11 +105,12 @@ class ForwardAnalysisStrategy(AnalysisStrategyBase):
                                             "vars": context_vars,
                                         }
 
-                            for fom in foms:
-                                fom_conf = f_defs[context]["foms"][fom]
+                            for fom, fom_conf, pre_filter, has_contexts in fom_entries:
+                                if pre_filter not in line:
+                                    continue
                                 fom_context = (
                                     active_contexts.get(context, null_key)
-                                    if fom_conf["contexts"]
+                                    if has_contexts
                                     else null_key
                                 )
                                 self._extract_fom_from_line(
