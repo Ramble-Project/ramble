@@ -3601,10 +3601,16 @@ def test_workspace_manage_no_active_workspace_dry_run(tmpdir):
             "pkg1",
             "--spec",
             "pkg1@1.0",
+            "--env",
+            "env1",
+            "--environment-packages",
+            "pkg1",
             global_args=["-W"],
         )
-        assert "pkg1:" in soft_out
-        assert "pkg1@1.0" in soft_out
+        parsed = syaml.load(soft_out)
+        assert "software" not in parsed
+        assert parsed["ramble"]["software"]["packages"]["pkg1"]["pkg_spec"] == "pkg1@1.0"
+        assert parsed["ramble"]["software"]["environments"]["env1"]["packages"] == ["pkg1"]
 
         assert os.listdir(str(tmpdir)) == []
 
