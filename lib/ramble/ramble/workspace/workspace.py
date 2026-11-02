@@ -1071,7 +1071,10 @@ cd "{experiment_run_dir}"
             )
         else:
             workspace_dict = self._get_workspace_dict()
-            workspace_dict[namespace.software] = software_dict
+            ws_software = workspace_dict[namespace.ramble].setdefault(
+                namespace.software, syaml.syaml_dict()
+            )
+            ws_software[namespace.environments] = environments
 
     def manage_packages(
         self,
@@ -1149,7 +1152,10 @@ cd "{experiment_run_dir}"
             )
         else:
             workspace_dict = self._get_workspace_dict()
-            workspace_dict[namespace.software] = software_dict
+            ws_software = workspace_dict[namespace.ramble].setdefault(
+                namespace.software, syaml.syaml_dict()
+            )
+            ws_software[namespace.packages] = packages
 
     def squash_and_print_config(self, included_section=None, excluded_section=None):
         workspace_dict = self._get_workspace_dict()
