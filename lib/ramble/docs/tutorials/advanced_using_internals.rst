@@ -12,9 +12,7 @@
 Internals
 =========
 
-.. raw:: html
-
-   <div class="tn-app-switcher" data-recipe="using_internals"></div>
+.. tutorial-header:: internals
 
 In this tutorial, you will learn how to use ``internals`` within experiments to
 define custom executables and control their execution order.
@@ -25,56 +23,8 @@ make sure you review those before starting with this tutorial's content.
 Create a Workspace
 ------------------
 
-.. container:: tn-workspace-create
-
-   To begin with, you need a workspace to configure the experiments. This can be
-   created with the following command:
-
-   .. container:: tn-app-variant tn-app-container tn-app-wrf
-
-      .. code-block:: console
-
-          $ ramble workspace create internals_wrf
-
-   .. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ramble workspace create internals_gromacs
-
-   .. container:: tn-app-variant tn-app-container tn-app-hpl
-
-      .. code-block:: console
-
-          $ ramble workspace create internals_hpl
-
-   .. rubric:: Activate the Workspace
-
-   Several of Ramble's commands require an activated workspace to function
-   properly. Activate the newly created workspace using the following command:
-
-   .. note::
-
-      You only need to run this if you do not currently have the workspace
-      active.
-
-   .. container:: tn-app-variant tn-app-container tn-app-wrf
-
-      .. code-block:: console
-
-          $ ramble workspace activate internals_wrf
-
-   .. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ramble workspace activate internals_gromacs
-
-   .. container:: tn-app-variant tn-app-container tn-app-hpl
-
-      .. code-block:: console
-
-          $ ramble workspace activate internals_hpl
+.. tutorial-workspace-create:: internals
+   :separate-activate:
 
 Configure Experiment Definitions
 --------------------------------
@@ -83,20 +33,7 @@ To begin with, you need to configure the workspace. Within the ``ramble.yaml``
 file, write the following contents, which represents the scaling study
 configuration from previous tutorials:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/using_internals_wrf_base.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/using_internals_gromacs_base.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/using_internals_hpl_base.yaml
-      :language: YAML
+.. tutorial-snippet:: internals base.yaml
 
 Experiment Internals
 --------------------
@@ -158,20 +95,7 @@ Within this file, use the example above to define two new executables
 in the ``end_time`` executable definition. The resulting file should look like
 the following:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/using_internals_wrf_new_exec.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/using_internals_gromacs_new_exec.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/using_internals_hpl_new_exec.yaml
-      :language: YAML
+.. tutorial-snippet:: internals new_exec.yaml
 
 Defining Executable Order
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -192,128 +116,31 @@ Currently, when controlling the order of executables, the entire order of
 executables must be defined. To see the current list of executables for your
 experiments, execute:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
+.. tutorial-app-template::
+   :wrf: exec_list=['stage-files', 'stage-namelist', 'cleanup', 'define_nproc_y', 'define_nproc_x', 'fix_12km_start_hour', 'fix_12km_restart', 'execute', 'copy-logs', 'post-exec-clean']
+   :gromacs: exec_list=['print-binary-info', 'pre-process', 'execute-gen']
+   :hpl: exec_list=['execute']
 
    .. code-block:: console
 
-       $ ramble info --attrs workloads -v -p "CONUS_12km" wrf
+       $ ramble info --attrs workloads -v -p "{workload}" {app}
 
-   This prints the information for the ``CONUS_12km`` workload in the WRF application definition.
+   This prints the information for the ``{workload}`` workload in the {app_upper} application definition.
    The ``Executables:`` definition lists the order of executables used for this workload:
 
    .. code-block:: console
 
-       Executables: ['stage-files', 'stage-namelist', 'cleanup', 'define_nproc_y', 'define_nproc_x', 'fix_12km_start_hour', 'fix_12km_restart', 'execute', 'copy-logs', 'post-exec-clean']
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. code-block:: console
-
-       $ ramble info --attrs workloads -v -p "water_bare" gromacs
-
-   This prints the information for the ``water_bare`` workload in the GROMACS application definition.
-   The ``Executables:`` definition lists the order of executables used for this workload:
-
-   .. code-block:: console
-
-       Executables: ['print-binary-info', 'pre-process', 'execute-gen']
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. code-block:: console
-
-       $ ramble info --attrs workloads -v -p "calculator" hpl
-
-   This prints the information for the ``calculator`` workload in the HPL application definition.
-   The ``Executables:`` definition lists the order of executables used for this workload:
-
-   .. code-block:: console
-
-       Executables: ['execute']
+       Executables: {exec_list}
 
 Some executables are provided through the ``builtin`` functionality. These are
 executable commands that are injected by default from the object definitions.
 To be able to see these, you can execute:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
+.. tutorial-app-template::
 
    .. code-block:: console
 
-       $ ramble info --attrs builtins -v wrf
-
-   This command should print something like the following:
-
-   .. code-block:: console
-
-       ############
-       # builtins #
-       ############
-       builtin::pre_cleanup:
-           name: pre_cleanup
-           required: True
-           injection_method: prepend
-           depends_on: []
-           dependents: []
-           when: []
-
-       builtin::post_cleanup:
-           name: post_cleanup
-           required: True
-           injection_method: append
-           depends_on: []
-           dependents: []
-           when: []
-
-       builtin::env_vars:
-           name: env_vars
-           required: True
-           injection_method: prepend
-           depends_on: []
-           dependents: []
-           when: []
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. code-block:: console
-
-       $ ramble info --attrs builtins -v gromacs
-
-   This command should print something like the following:
-
-   .. code-block:: console
-
-       ############
-       # builtins #
-       ############
-       builtin::pre_cleanup:
-           name: pre_cleanup
-           required: True
-           injection_method: prepend
-           depends_on: []
-           dependents: []
-           when: []
-
-       builtin::post_cleanup:
-           name: post_cleanup
-           required: True
-           injection_method: append
-           depends_on: []
-           dependents: []
-           when: []
-
-       builtin::env_vars:
-           name: env_vars
-           required: True
-           injection_method: prepend
-           depends_on: []
-           dependents: []
-           when: []
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. code-block:: console
-
-       $ ramble info --attrs builtins -v hpl
+       $ ramble info --attrs builtins -v {app}
 
    This command should print something like the following:
 
@@ -362,20 +189,7 @@ For the purposes of this tutorial, add ``start_time`` directly before the main
 execution command and ``end_time`` directly after it. The resulting configuration
 file should look like the following:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/using_internals_wrf_exec_order.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/using_internals_gromacs_exec_order.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/using_internals_hpl_exec_order.yaml
-      :language: YAML
+.. tutorial-snippet:: internals exec_order.yaml
 
 .. note::
    Omitting any executables from the ``executables`` list will
@@ -384,66 +198,10 @@ file should look like the following:
 Execute Experiments
 ~~~~~~~~~~~~~~~~~~~
 
-.. container:: tn-full-run-only
-
-   .. note::
-      This workspace uses the ``spack`` package manager to build the software stack
-      and MPI implementation. ``spack`` can either be installed in your ``PATH``, or
-      Ramble will automatically bootstrap it for you.
-
-   .. note::
-      When not running in dry-run mode, ``ramble workspace setup`` can take a long
-      time if the software stack is not already installed on your system, and
-      ``ramble on`` will execute the scaling study workloads across multiple node
-      counts, which may also take a while. To skip software installation and
-      execution, you can enable **Dry-Run Mode** in the configuration card at the
-      top of this page to use ``ramble workspace setup --dry-run`` instead.
-
-   Now set up and execute the experiments:
-
-   .. code-block:: console
-
-       $ ramble workspace setup
-       $ ramble on
-
-   Examining the experiment run directories, you should see ``start_time`` and
-   ``end_time`` files which contain the output of our custom executables.
-
-.. container:: tn-dry-run-only
-
-   Since **Dry-Run Mode** is enabled, set up the workspace using ``--dry-run``
-   without executing ``ramble on``:
-
-   .. code-block:: console
-
-       $ ramble workspace setup --dry-run
-
-   Instead of executing the experiments, explore the generated experiment directories
-   and examine the rendered ``execute_experiment`` scripts to verify that ``date +%s``
-   is now redirected into ``start_time`` before the main executable and ``end_time``
-   after it:
-
-   .. container:: tn-app-variant tn-app-container tn-app-wrf
-
-      .. code-block:: console
-
-          $ grep "date +%s" $(ramble workspace info | grep "Location" | awk '{print $NF}')/experiments/wrf/CONUS_12km/*/execute_experiment
-
-   .. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-      .. code-block:: console
-
-          $ grep "date +%s" $(ramble workspace info | grep "Location" | awk '{print $NF}')/experiments/gromacs/water_bare/*/execute_experiment
-
-   .. container:: tn-app-variant tn-app-container tn-app-hpl
-
-      .. code-block:: console
-
-          $ grep "date +%s" $(ramble workspace info | grep "Location" | awk '{print $NF}')/experiments/hpl/calculator/*/execute_experiment
-
-   If you were to execute the experiments in a full run, each experiment run
-   directory would contain ``start_time`` and ``end_time`` files with the Unix
-   epoch timestamps produced by our custom executables.
+.. tutorial-execute:: internals
+   :no-analyze:
+   :dry-run-cmds: grep "date +%s" $(ramble workspace info | grep "Location" | awk '{print $NF}')/experiments/{app}/{workload}/*/execute_experiment
+   :results-text: Examining the experiment run directories, you should see ``start_time`` and ``end_time`` files which contain the Unix epoch timestamps produced by our custom executables.
 
 Using Executable Injection
 --------------------------
@@ -457,41 +215,20 @@ documentation sections.
 As an example, the following YAML could replace the ``executables`` section of
 your existing configuration:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
+.. tutorial-app-template::
+   :wrf: rel_exec=execute
+   :gromacs: rel_exec=execute-gen
+   :hpl: rel_exec=execute
 
    .. code-block:: YAML
 
        executable_injection:
        - name: start_time
          order: before
-         relative_to: execute
+         relative_to: {rel_exec}
        - name: end_time
          order: after
-         relative_to: execute
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. code-block:: YAML
-
-       executable_injection:
-       - name: start_time
-         order: before
-         relative_to: execute-gen
-       - name: end_time
-         order: after
-         relative_to: execute-gen
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. code-block:: YAML
-
-       executable_injection:
-       - name: start_time
-         order: before
-         relative_to: execute
-       - name: end_time
-         order: after
-         relative_to: execute
+         relative_to: {rel_exec}
 
 Go ahead and edit the workspace configuration file with:
 
@@ -503,83 +240,19 @@ Replace the ``executables`` block with the ``executable_injection`` block
 presented above. The resulting configuration file should look like the
 following:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/using_internals_wrf_exec_injection.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/using_internals_gromacs_exec_injection.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/using_internals_hpl_exec_injection.yaml
-      :language: YAML
+.. tutorial-snippet:: internals exec_injection.yaml
 
 Execute Experiments
 ~~~~~~~~~~~~~~~~~~~
 
-.. container:: tn-full-run-only
-
-   .. note::
-      When not running in dry-run mode, ``ramble on`` will re-execute the scaling
-      study workloads across all configured node counts, which may take a while
-      depending on the application workload.
-
-   Now set up and execute the workspace experiments again:
-
-   .. code-block:: console
-
-       $ ramble workspace setup
-       $ ramble on
-
-   Examining the experiment run directories, you should see ``start_time`` and
-   ``end_time`` in the same places as they were when you ran the explicitly
-   defined order experiments.
-
-.. container:: tn-dry-run-only
-
-   Now set up the workspace experiments again using ``--dry-run``:
-
-   .. code-block:: console
-
-       $ ramble workspace setup --dry-run
-
-   Inspect the generated ``execute_experiment`` scripts in the experiment run
-   directories to verify that ``executable_injection`` placed ``start_time`` and
-   ``end_time`` in the exact same positions around the main executable as the
-   explicitly defined ``executables`` list.
+.. tutorial-execute:: internals
+   :no-analyze:
+   :package-manager: none
+   :dry-run-cmds: grep "date +%s" $(ramble workspace info | grep "Location" | awk '{print $NF}')/experiments/{app}/{workload}/*/execute_experiment
+   :results-text: Examining the experiment run directories, you should see ``start_time`` and ``end_time`` in the same places around the main executable as when you used the explicitly defined ``executables`` list.
 
 
 Clean the Workspace
 -------------------
 
-.. container:: tn-workspace-cleanup
-
-   Once you are finished with the tutorial content, make sure you deactivate your workspace:
-
-   .. code-block:: console
-
-       $ ramble workspace deactivate
-
-   Additionally, you can remove the workspace and all of its content with:
-
-   .. container:: tn-app-variant tn-app-container tn-app-wrf
-
-      .. code-block:: console
-
-          $ ramble workspace remove internals_wrf
-
-   .. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ramble workspace remove internals_gromacs
-
-   .. container:: tn-app-variant tn-app-container tn-app-hpl
-
-      .. code-block:: console
-
-          $ ramble workspace remove internals_hpl
+.. tutorial-workspace-cleanup:: internals

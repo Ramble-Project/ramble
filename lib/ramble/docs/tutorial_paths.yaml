@@ -74,17 +74,6 @@ tutorials:
     reuses_workspace_from: "single_experiment"
 
   # Intermediate tutorials
-  software_stack:
-    title: "Changing Your Software Stack"
-    url: "tutorials/intermediate_changing_your_software_stack.html"
-    level: "Intermediate"
-    duration: "20 min"
-    dry_run_duration: "10 min"
-    description: "Explore the impact of changing the software stack used in an experiment."
-    order_rank: 100
-    default_workspace_name: "tutorial-workspace-{app}"
-    reuses_workspace_from: "single_experiment"
-
   scaling_study:
     title: "Configuring a Scaling Study"
     url: "tutorials/intermediate_configuring_a_scaling_study.html"
@@ -92,6 +81,17 @@ tutorials:
     duration: "25 min"
     dry_run_duration: "10 min"
     description: "Set up scaling experiments from an existing experiment."
+    order_rank: 100
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
+
+  software_stack:
+    title: "Changing Your Software Stack"
+    url: "tutorials/intermediate_changing_your_software_stack.html"
+    level: "Intermediate"
+    duration: "20 min"
+    dry_run_duration: "10 min"
+    description: "Explore the impact of changing the software stack used in an experiment."
     order_rank: 110
     default_workspace_name: "tutorial-workspace-{app}"
     reuses_workspace_from: "single_experiment"
@@ -168,7 +168,8 @@ tutorials:
     dry_run_duration: "8 min"
     description: "Learn to manipulate internal experiment aspects using workspace configuration files."
     order_rank: 220
-    default_workspace_name: "internals_{app}"
+    default_workspace_name: "tutorial-workspace-{app}"
+    reuses_workspace_from: "single_experiment"
 
   workspace_config_cmd:
     title: "Workspace Config Command"
@@ -238,6 +239,16 @@ goals:
       - ramble_basics
       - hello_world
       - workspace_manage_cmd
+
+  replicate_experiment:
+    title: "I want to replicate and modify an experiment given by someone else"
+    icon: "🔁"
+    description: "Learn how to repeat an experiment someone has performed before, and how to change aspects to perform a new experiment"
+    tutorials:
+      - ramble_basics
+      - hello_world
+      - single_experiment
+      - modify_experiment
 
   scaling_study:
     title: "I want to perform a scaling study with an existing experiment"

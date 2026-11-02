@@ -251,19 +251,5 @@ the experiment.
 Clean Up the Workspace
 ----------------------
 
-.. container:: tn-workspace-cleanup
-
-   Once you have finished exploring this tutorial, deactivate the workspace so it
-   does not affect future commands:
-
-   .. code-block:: console
-
-       $ ramble workspace deactivate
-
-   Then, remove the workspace and all of its contents:
-
-   .. code-block:: console
-
-       $ ramble workspace remove hello_world
-       ==> Really remove workspace hello_world? [y/N] y
-       ==> Successfully removed workspace
+.. tutorial-workspace-cleanup:: hello_world
+   :single:

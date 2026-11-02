@@ -14,8 +14,7 @@ Tutorials
 =========
 
 .. raw:: html
-
-   <div id="tutorial-navigator-app"></div>
+   :file: _generated/tutorial_navigator.html
 
 .. toctree::
    :hidden:

@@ -12,9 +12,7 @@
 Modifiers
 =========
 
-.. raw:: html
-
-   <div class="tn-app-switcher" data-recipe="using_modifiers"></div>
+.. tutorial-header:: modifiers
 
 In this tutorial, you will learn how to discover modifiers, learn about their
 functionality, and apply them to experiments.
@@ -30,55 +28,8 @@ make sure you review those before starting with this tutorial's content.
 Create a Workspace
 ------------------
 
-.. container:: tn-workspace-create
-
-   To begin with, you need a workspace to configure the experiments. This can be
-   created with the following command:
-
-   .. container:: tn-app-variant tn-app-container tn-app-wrf
-
-      .. code-block:: console
-
-          $ ramble workspace create modifiers_wrf
-
-   .. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ramble workspace create modifiers_gromacs
-
-   .. container:: tn-app-variant tn-app-container tn-app-hpl
-
-      .. code-block:: console
-
-          $ ramble workspace create modifiers_hpl
-
-
-   .. rubric:: Activate the Workspace
-
-   Several of Ramble's commands require an activated workspace to function
-   properly. Activate the newly created workspace using the following command:
-
-   .. note::
-      You only need to run this if you do not currently have the workspace active.
-
-   .. container:: tn-app-variant tn-app-container tn-app-wrf
-
-      .. code-block:: console
-
-          $ ramble workspace activate modifiers_wrf
-
-   .. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ramble workspace activate modifiers_gromacs
-
-   .. container:: tn-app-variant tn-app-container tn-app-hpl
-
-      .. code-block:: console
-
-          $ ramble workspace activate modifiers_hpl
+.. tutorial-workspace-create:: modifiers
+   :separate-activate:
 
 Configure Experiment Definitions
 --------------------------------
@@ -87,20 +38,7 @@ To begin with, you need to configure the workspace. Within the ``ramble.yaml``
 file, write the following contents, which represents a base scaling study
 configuration:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_wrf_base.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_gromacs_base.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_hpl_base.yaml
-      :language: YAML
+.. tutorial-snippet:: modifiers base.yaml
 
 Discovering Modifiers
 ---------------------
@@ -179,20 +117,7 @@ And add the following lines at the workspace scope:
 
 The resulting configuration file should look like the following:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_wrf_lscpu.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_gromacs_lscpu.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_hpl_lscpu.yaml
-      :language: YAML
+.. tutorial-snippet:: modifiers lscpu.yaml
 
 The ``modifiers`` dictionary can be defined at any scope ``variables`` can be
 defined at. Defined ``modifiers`` are inherited by all experiments at lower
@@ -201,70 +126,9 @@ scope levels.
 Execute Experiments
 ~~~~~~~~~~~~~~~~~~~
 
-.. container:: tn-full-run-only
-
-   .. note::
-      This workspace uses the ``spack`` package manager. ``spack`` can either be
-      installed in your ``PATH``, or Ramble will automatically bootstrap it for you
-      during ``ramble workspace setup``. See the `Spack Getting Started Guide
-      <https://spack.readthedocs.io/en/latest/getting_started.html>`_ for more
-      information on Spack.
-
-   .. note::
-      When not running in dry-run mode, ``ramble workspace setup`` may take a long
-      time if the required software stack is not already installed on your system,
-      and ``ramble on`` will execute the scaling study workloads, which can also
-      take a while to complete. You can enable **Dry-Run Mode** at the top of this
-      tutorial or pass ``--dry-run`` to ``ramble workspace setup`` to skip building
-      software and running the experiments.
-
-   Now, set up and run the experiments to see the modifier in action:
-
-   .. code-block:: console
-
-       $ ramble workspace setup
-       $ ramble on
-       $ ramble workspace analyze
-
-   In addition to the application-defined figures of merit, you should also see
-   ``lscpu`` defined figures of merit. These might include the following:
-
-.. container:: tn-dry-run-only
-
-   With **Dry-Run Mode** enabled, set up the workspace using ``--dry-run``:
-
-   .. code-block:: console
-
-       $ ramble workspace setup --dry-run
-
-   Because we are running in dry-run mode, we do **not** execute ``ramble on`` or
-   ``ramble workspace analyze``. Instead, inspect the rendered ``execute_experiment``
-   script in the experiment directory to see the commands injected by the ``lscpu``
-   modifier:
-
-   .. container:: tn-app-variant tn-app-container tn-app-wrf
-
-      .. code-block:: console
-
-          $ cat $RAMBLE_ROOT/var/ramble/workspaces/modifiers_wrf/experiments/wrf/CONUS_12km/single_rank/execute_experiment
-
-   .. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-      .. code-block:: console
-
-          $ cat $RAMBLE_ROOT/var/ramble/workspaces/modifiers_gromacs/experiments/gromacs/water_bare/single_rank/execute_experiment
-
-   .. container:: tn-app-variant tn-app-container tn-app-hpl
-
-      .. code-block:: console
-
-          $ cat $RAMBLE_ROOT/var/ramble/workspaces/modifiers_hpl/experiments/hpl/calculator/single_rank/execute_experiment
-
-   **Example Output (Full Run):**
-
-   In a full run where ``ramble on`` and ``ramble workspace analyze`` are executed,
-   ``results.latest.txt`` includes the ``lscpu`` figures of merit alongside the
-   application-defined figures of merit:
+.. tutorial-execute:: modifiers
+   :dry-run-cmds: cat $RAMBLE_ROOT/var/ramble/workspaces/modifiers_{app}/experiments/{app}/{workload}/single_rank/execute_experiment
+   :results-text: In addition to the application-defined figures of merit, ``results.latest.txt`` includes the ``lscpu`` figures of merit:
 
 * CPU family
 * Model
@@ -316,20 +180,7 @@ to the list of modifiers. This will cause both ``lscpu`` and ``intel-aps`` to
 be applied to all of the experiments. The resulting configuration file should
 look like the following:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_wrf_aps_error.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_gromacs_aps_error.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_hpl_aps_error.yaml
-      :language: YAML
+.. tutorial-snippet:: modifiers aps_error.yaml
 
 To test some aspects of the workspace configuration before spending time
 performing a real setup, use:
@@ -342,23 +193,11 @@ This will perform many of the validation checks, and generate the experiment
 directories as a normal setup would, but can execute much faster. Before this
 command proceeds too far, you should see an error message similar to:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
+.. tutorial-app-template::
 
    .. code-block:: console
 
-       ==> Error: Software spec intel-oneapi-vtune is not defined in environment wrf@4.2, but is required by the intel-aps modifier definition
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. code-block:: console
-
-       ==> Error: Software spec intel-oneapi-vtune is not defined in environment gromacs@2025.3, but is required by the intel-aps modifier definition
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. code-block:: console
-
-       ==> Error: Software spec intel-oneapi-vtune is not defined in environment hpl@2.3, but is required by the intel-aps modifier definition
+       ==> Error: Software spec intel-oneapi-vtune is not defined in environment {app_spec}, but is required by the intel-aps modifier definition
 
 As mentioned earlier, this is because the ``intel-aps`` modifier requires
 additional software to function properly. In this case, it requires the
@@ -375,81 +214,15 @@ And write a Spack package definition for ``intel-oneapi-vtune``. After the
 package is defined, add the package to the application environment. The resulting
 configuration file should look like the following:
 
-.. container:: tn-app-variant tn-app-container tn-app-wrf
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_wrf_aps_final.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_gromacs_aps_final.yaml
-      :language: YAML
-
-.. container:: tn-app-variant tn-app-container tn-app-hpl
-
-   .. literalinclude:: ../_generated/snippets/using_modifiers_hpl_aps_final.yaml
-      :language: YAML
+.. tutorial-snippet:: modifiers aps_final.yaml
 
 Execute Experiments
 ~~~~~~~~~~~~~~~~~~~
 
-.. container:: tn-full-run-only
-
-   .. note::
-      Because adding the ``intel-aps`` modifier introduced ``intel-oneapi-vtune``
-      into the workspace's software environment, running ``ramble workspace setup``
-      without ``--dry-run`` will install ``intel-oneapi-vtune`` if it is not
-      already present on your system, which can take some time. Running ``ramble on``
-      will then re-execute the scaling study experiments under APS profiling.
-
-   Now execute the workspace experiments again:
-
-   .. code-block:: console
-
-       $ ramble workspace setup
-       $ ramble on
-       $ ramble workspace analyze
-
-   In addition to the application-defined figures of merit, you should also see
-   ``lscpu`` and ``intel-aps`` defined figures of merit. These might include the
-   following:
-
-.. container:: tn-dry-run-only
-
-   With **Dry-Run Mode** enabled, set up the updated workspace using ``--dry-run``:
-
-   .. code-block:: console
-
-       $ ramble workspace setup --dry-run
-
-   Notice that the software environment validation now succeeds! Instead of running
-   ``ramble on`` or ``ramble workspace analyze``, inspect the updated
-   ``execute_experiment`` script in the experiment directory to see how ``intel-aps``
-   wraps the MPI execution command:
-
-   .. container:: tn-app-variant tn-app-container tn-app-wrf
-
-      .. code-block:: console
-
-          $ cat $RAMBLE_ROOT/var/ramble/workspaces/modifiers_wrf/experiments/wrf/CONUS_12km/single_rank/execute_experiment
-
-   .. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-      .. code-block:: console
-
-          $ cat $RAMBLE_ROOT/var/ramble/workspaces/modifiers_gromacs/experiments/gromacs/water_bare/single_rank/execute_experiment
-
-   .. container:: tn-app-variant tn-app-container tn-app-hpl
-
-      .. code-block:: console
-
-          $ cat $RAMBLE_ROOT/var/ramble/workspaces/modifiers_hpl/experiments/hpl/calculator/single_rank/execute_experiment
-
-   **Example Output (Full Run):**
-
-   In a full run where ``ramble on`` and ``ramble workspace analyze`` are executed,
-   ``results.latest.txt`` includes both ``lscpu`` and ``intel-aps`` figures of merit
-   alongside the application-defined metrics:
+.. tutorial-execute:: modifiers
+   :timing-note: Because adding the ``intel-aps`` modifier introduced ``intel-oneapi-vtune`` into the workspace's software environment, running ``ramble workspace setup`` without ``--dry-run`` will install ``intel-oneapi-vtune`` if it is not already present on your system, and ``ramble on`` will re-execute the experiments under APS profiling.
+   :dry-run-cmds: cat $RAMBLE_ROOT/var/ramble/workspaces/modifiers_{app}/experiments/{app}/{workload}/single_rank/execute_experiment
+   :results-text: In addition to the application-defined figures of merit, ``results.latest.txt`` includes both ``lscpu`` and ``intel-aps`` figures of merit:
 
 * CPU family - From ``lscpu``
 * Model - From ``lscpu``
@@ -462,31 +235,5 @@ Execute Experiments
 Clean the Workspace
 -------------------
 
-.. container:: tn-workspace-cleanup
-
-   Once you are finished with the tutorial content, make sure you deactivate your workspace:
-
-   .. code-block:: console
-
-       $ ramble workspace deactivate
-
-   Additionally, you can remove the workspace and all of its content with:
-
-   .. container:: tn-app-variant tn-app-container tn-app-wrf
-
-      .. code-block:: console
-
-          $ ramble workspace remove modifiers_wrf
-
-   .. container:: tn-app-variant tn-app-container tn-app-gromacs
-
-      .. code-block:: console
-
-          $ ramble workspace remove modifiers_gromacs
-
-   .. container:: tn-app-variant tn-app-container tn-app-hpl
-
-      .. code-block:: console
-
-          $ ramble workspace remove modifiers_hpl
+.. tutorial-workspace-cleanup:: modifiers
 

@@ -119,12 +119,16 @@ class NoTabExpansionRSTParser(RSTParser):
 
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-from tutorial_generator import generate_all_tutorial_artifacts  # noqa: E402
+from tutorial_generator import (  # noqa: E402
+    generate_all_tutorial_artifacts,
+    register_tutorial_directives,
+)
 
 
 def setup(sphinx):
     sphinx.add_domain(PatchedPythonDomain, override=True)
     sphinx.add_source_parser(NoTabExpansionRSTParser, override=True)
+    register_tutorial_directives(sphinx)
     sphinx.connect("builder-inited", generate_all_tutorial_artifacts)
 
 
