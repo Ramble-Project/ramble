@@ -227,50 +227,6 @@ def test_all_applications_with_version_and_namespace(mutable_mock_workspace_path
             shutil.rmtree(ws_root)
 
 
-def test_all_applications_application_configs(mutable_mock_workspace_path):
-    ws_name = "test-ws-app-configs"
-    ws_root = workspace.root(ws_name)
-    ws = None
-
-    if os.path.exists(ws_root):
-        shutil.rmtree(ws_root)
-
-    try:
-        ws = workspace.create(ws_name)
-        workspace.activate(ws)
-
-        ws.application_configs = {
-            "app_conf_1": {
-                "filename": "app_conf_1.yaml",
-                "path": "/fake/path/app_conf_1.yaml",
-                "raw_yaml": None,
-                "yaml": {
-                    ramble.namespace.namespace.application: {
-                        "builtin.app.wrfv3@3.9": {ramble.namespace.namespace.workload: {}},
-                        "hostname@2.0": {ramble.namespace.namespace.workload: {}},
-                        "basic": {ramble.namespace.namespace.workload: {}},
-                    }
-                },
-            }
-        }
-
-        apps = {}
-        for contents, app_context in ws.all_applications():
-            apps[app_context.context_name] = contents.get(ramble.namespace.namespace.version)
-
-        assert "builtin.app.wrfv3" in apps
-        assert apps["builtin.app.wrfv3"] == "3.9"
-        assert "hostname" in apps
-        assert apps["hostname"] == "2.0"
-        assert "basic" in apps
-        assert apps["basic"] is None
-    finally:
-        if ws:
-            workspace.deactivate()
-        if os.path.exists(ws_root):
-            shutil.rmtree(ws_root)
-
-
 def test_no_active_workspace(make_workspace_from_config, monkeypatch):
     ws, ws_name = make_workspace_from_config(activate=True)
     monkeypatch.delenv(workspace.RAMBLE_WORKSPACE_VAR, raising=False)

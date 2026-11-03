@@ -86,22 +86,16 @@ section_order = {
 #: Properties that commands are required to set.
 required_command_properties = ["level", "section", "description"]
 
-#: Recorded directory where ramble command was originally invoked
-ramble_working_dir = None
-ramble_ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
-
 #: Standard POSIX offset for exit codes from signal termination (128 + signal)
 POSIX_SIGNAL_EXIT_OFFSET = 128
 
 
 def set_working_dir():
     """Change the working directory to getcwd, or ramble prefix if no cwd."""
-    global ramble_working_dir
     try:
-        ramble_working_dir = os.getcwd()
+        os.getcwd()
     except OSError:
         os.chdir(ramble.paths.prefix)
-        ramble_working_dir = ramble.paths.prefix
 
 
 def add_all_commands(parser):
@@ -764,9 +758,6 @@ class RambleCommand:
             )
 
         return self.output
-
-    def _log_command_output(self, out):
-        logger.debug("Command output:\n%s" % self.output)
 
     @contextlib.contextmanager
     def capture_output(self, enable: bool = True):

@@ -488,8 +488,6 @@ class Workspace:
 
         self.results_tables = ramble.results_table.ResultsTables()
 
-        self.specs = []
-
         self.config_sections = {}
 
         self.install_cache = ramble.util.install_cache.SetCache()
@@ -510,16 +508,6 @@ class Workspace:
         # A cache structured as {pkg_man: {env_name: pkg_list}}.
         # It's used to cache package provenance info from different package managers.
         self.pkg_prov_cache = defaultdict(dict)
-
-        # Key for each application config should be it's filepath
-        # Format for an application config should be:
-        #  {
-        #     'filename': <filename>,
-        #     'path': <filepath>,
-        #     'raw_yaml': <raw_yaml>,
-        #     'yaml': <yaml>
-        #  }
-        self.application_configs = {}
 
         self.experiments_script = []
 
@@ -708,7 +696,6 @@ cd "{experiment_run_dir}"
         """Read configuration file"""
         config = self.config_sections[section]
         self._read_yaml(config, f, raw_yaml)
-        self._check_deprecated(config["yaml"])
 
     def _read_metadata(self):
         """Read workspace metadata file
@@ -735,28 +722,6 @@ cd "{experiment_run_dir}"
 
         with open(metadata_file_path, "w+", encoding="utf-8") as f:
             syaml.dump(self.metadata, stream=f)
-
-    def _check_deprecated(self, config):
-        """
-        Trap and warn (or error) on deprecated configuration settings
-        in the workspace config.
-        """
-
-        error_sections = []
-        deprecated_sections = []
-
-        if deprecated_sections:
-            logger.warn("Your workspace configuration contains deprecated sections:")
-            for section in deprecated_sections:
-                logger.warn(f"     {section}")
-            logger.warn("Please see the current workspace documentation and update")
-            logger.warn("to ensure your workspace continues to function properly")
-
-        if error_sections:
-            logger.warn("Your workspace configuration contains invalid sections:")
-            for section in error_sections:
-                logger.warn(f"     {section}")
-            logger.die("Please update to the latest format.")
 
     def _read_yaml(self, config, f, raw_yaml=None):
         if raw_yaml:
@@ -873,9 +838,7 @@ cd "{experiment_run_dir}"
 
     def clear(self):
         self.config_sections = {}
-        self.application_configs = {}
         self._previous_active = None  # previously active environment
-        self.specs = []
 
     @property
     def all_experiments_path(self):
@@ -934,26 +897,6 @@ cd "{experiment_run_dir}"
             application_context = ramble.context.create_context_from_dict(app_name, contents)
 
             yield contents, application_context
-
-        logger.debug("  Iterating over configs in directories...")
-        # Iterate over applications defined in application directories
-        # files after the ramble.yaml file is complete
-        for app_conf in self.application_configs:
-            config = self._get_application_dict_config(app_conf)
-            if namespace.application not in config:
-                logger.msg(f"No applications in config file {app_conf}")
-            app_dict = config[namespace.application]
-            for application, contents in app_dict.items():
-                app_name, _, maybe_version = application.partition("@")
-                if maybe_version:
-                    contents[namespace.version] = maybe_version
-
-                app_spec = ramble.spec.Spec(app_name)
-                app_name = app_spec.fullname
-
-                application_context = ramble.context.create_context_from_dict(app_name, contents)
-
-                yield contents, application_context
 
     def all_workloads(self, application):
         """Iterator over workloads in an application dict
@@ -2774,9 +2717,6 @@ cd "{experiment_run_dir}"
             if namespace.workspace in self.config_sections
             else None
         )
-
-    def _get_application_dict_config(self, key):
-        return self.application_configs[key]["yaml"] if key in self.application_configs else None
 
     def read_transaction(self):
         """Get a read lock context manager for use in a `with` block."""
