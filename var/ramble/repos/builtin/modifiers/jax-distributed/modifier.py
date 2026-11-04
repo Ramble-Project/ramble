@@ -7,66 +7,106 @@
 # except according to those terms.
 
 from ramble.modkit import *
+from ramble.util.executable import CommandExecutable
 
 
 class JaxDistributed(BasicModifier):
     """Launcher modifier for distributed JAX execution.
 
-    Bootstraps the JAX coordinator address and port from the cluster environment
-    (Slurm, Google Batch, or localhost fallback) and ensures task coordination
-    variables are passed into containerized sandboxes.
+    Bootstraps the JAX coordinator address and port across cluster environments
+    (GKE, Slurm, Google Batch, PBS, LSF, MPI, or localhost fallback) and ensures
+    JAX coordination variables are passed into containerized sandboxes.
     """
 
     name = "jax-distributed"
-    tags("tpu", "jax", "distributed", "slurm")
+    tags("tpu", "jax")
     maintainers("tteggelit")
 
     mode("standard", description="Standard JAX distributed launcher mode")
+    mode(
+        "node-local",
+        description="Configure node-local TPU initialization for single-host workloads",
+    )
     default_mode("standard")
 
     modifier_variable(
         "jax_coordinator_port",
         default="8471",
         description="Port for JAX distributed coordination service",
+        modes=["standard"],
     )
 
     modifier_variable(
         "jax_coordinator_address",
         default="",
         description="Override JAX coordinator IP/hostname (auto-discovered if empty)",
+        modes=["standard"],
     )
 
     modifier_variable(
-        "jax_export_node_rank",
-        default=False,
-        description="Prefix commands with NODE_RANK for scripts requiring NODE_RANK",
+        "node_local_libtpu_init_args",
+        default="--xla_tpu_use_enhanced_launch_barrier=false --megascale_error_reporter_abort_on_hang=true",
+        description="LIBTPU_INIT_ARGS flags for node-local (single-host) TPU initialization",
+        modes=["node-local"],
     )
 
     # Register environment variable modifications so ContainerBase forwards them into container_env_vars
     env_var_modification(
         "JAX_COORDINATOR_ADDRESS",
-        modification="${JAX_COORDINATOR_ADDRESS:-127.0.0.1}",
+        modification="{jax_coordinator_address}",
         method="set",
+        modes=["standard"],
     )
     env_var_modification(
         "JAX_COORDINATOR_PORT",
         modification="${JAX_COORDINATOR_PORT:-{jax_coordinator_port}}",
         method="set",
+        modes=["standard"],
     )
     env_var_modification(
-        "SLURM_PROCID",
-        modification="${SLURM_PROCID:-${BATCH_TASK_INDEX:-0}}",
+        "JAX_NUM_PROCESSES",
+        modification="${JAX_NUM_PROCESSES:-}",
         method="set",
+        modes=["standard"],
     )
     env_var_modification(
-        "SLURM_NTASKS",
-        modification="${SLURM_NTASKS:-${BATCH_TASK_COUNT:-1}}",
+        "JAX_PROCESS_ID",
+        modification="${JAX_PROCESS_ID:-}",
         method="set",
+        modes=["standard"],
+    )
+
+    # Node-local mode environment variables for single-host execution on multi-host TPU slices
+    env_var_modification(
+        "TPU_HOST_BOUNDS",
+        modification="1,1,1",
+        method="set",
+        modes=["node-local"],
     )
     env_var_modification(
-        "SLURM_NODEID",
-        modification="${SLURM_NODEID:-${BATCH_TASK_INDEX:-0}}",
+        "TPU_SKIP_MDS_QUERY",
+        modification="true",
         method="set",
+        modes=["node-local"],
+    )
+    env_var_modification(
+        "TPU_WORKER_ID",
+        modification="0",
+        method="set",
+        modes=["node-local"],
+    )
+    env_var_modification(
+        "TPU_WORKER_HOSTNAMES",
+        modification="localhost",
+        method="set",
+        modes=["node-local"],
+    )
+    env_var_modification(
+        "LIBTPU_INIT_ARGS",
+        modification="{node_local_libtpu_init_args}",
+        method="append",
+        separator=" ",
+        modes=["node-local"],
     )
 
     executable_modifier("jax_coordinator_setup", usage_filter="once")
@@ -74,17 +114,34 @@ class JaxDistributed(BasicModifier):
     def jax_coordinator_setup(
         self, executable_name, executable, app_inst=None
     ):
-        from ramble.util.executable import CommandExecutable
-
         pre_cmds = []
         post_cmds = []
 
+        if self._usage_mode == "node-local":
+            return pre_cmds, post_cmds
+
         coord_script = (
             'if [ -z "${JAX_COORDINATOR_ADDRESS:-}" ]; then\n'
-            '    if [ -n "${SLURM_JOB_NODELIST:-}" ] && command -v scontrol >/dev/null 2>&1; then\n'
+            '    if [ -n "${MEGASCALE_COORDINATOR_ADDRESS:-}" ]; then\n'
+            '        export JAX_COORDINATOR_ADDRESS="${MEGASCALE_COORDINATOR_ADDRESS%%:*}"\n'
+            '    elif [ -n "${TPU_WORKER_HOSTNAMES:-}" ]; then\n'
+            '        export JAX_COORDINATOR_ADDRESS="${TPU_WORKER_HOSTNAMES%%,*}"\n'
+            '    elif [ -n "${SLURM_JOB_NODELIST:-}" ] && command -v scontrol >/dev/null 2>&1; then\n'
             '        export JAX_COORDINATOR_ADDRESS=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)\n'
-            "    else\n"
+            '    elif [ -n "${BATCH_HOSTS_FILE:-}" ] && [ -f "${BATCH_HOSTS_FILE}" ]; then\n'
+            '        export JAX_COORDINATOR_ADDRESS=$(head -n 1 "${BATCH_HOSTS_FILE}")\n'
+            '        export JAX_NUM_PROCESSES="${JAX_NUM_PROCESSES:-${BATCH_TASK_COUNT:-1}}"\n'
+            '        export JAX_PROCESS_ID="${JAX_PROCESS_ID:-${BATCH_TASK_INDEX:-0}}"\n'
+            "    elif [ -f /etc/mpi/hostfile ]; then\n"
+            "        export JAX_COORDINATOR_ADDRESS=$(awk 'NF && $1 !~ /^#/ {print $1; exit}' /etc/mpi/hostfile)\n"
+            '    elif [ -n "${PBS_NODEFILE:-}" ] && [ -f "${PBS_NODEFILE}" ]; then\n'
+            '        export JAX_COORDINATOR_ADDRESS=$(head -n 1 "${PBS_NODEFILE}")\n'
+            '    elif [ -n "${LSB_HOSTS:-}" ]; then\n'
+            "        export JAX_COORDINATOR_ADDRESS=$(echo \"${LSB_HOSTS}\" | awk '{print $1}')\n"
+            '    elif [ -z "${OMPI_MCA_orte_hnp_uri:-}" ] && [ -z "${KUBERNETES_SERVICE_HOST:-}" ]; then\n'
             '        export JAX_COORDINATOR_ADDRESS="127.0.0.1"\n'
+            '        export JAX_NUM_PROCESSES="${JAX_NUM_PROCESSES:-1}"\n'
+            '        export JAX_PROCESS_ID="${JAX_PROCESS_ID:-0}"\n'
             "    fi\n"
             "fi\n"
             "export JAX_COORDINATOR_PORT=${JAX_COORDINATOR_PORT:-{jax_coordinator_port}}"
@@ -99,14 +156,5 @@ class JaxDistributed(BasicModifier):
                 output_capture="",
             )
         )
-
-        if self.expander and str(
-            self.expander.expand_var("{jax_export_node_rank}")
-        ).lower() in ("true", "1"):
-            if executable.mpi:
-                executable.template = [
-                    f"NODE_RANK=${{SLURM_NODEID:-${{BATCH_TASK_INDEX:-0}}}} {cmd}"
-                    for cmd in executable.template
-                ]
 
         return pre_cmds, post_cmds

@@ -79,6 +79,38 @@ class PyxisEnroot(ContainerBase):
         modes=["standard", "no_provenance"],
     )
 
+    _SLURM_CONTAINER_ENV_VARS = (
+        "SLURM_JOB_ID",
+        "SLURM_JOB_NODELIST",
+        "SLURM_STEP_NODELIST",
+        "SLURM_NNODES",
+        "SLURM_NTASKS",
+        "SLURM_PROCID",
+        "SLURM_NODEID",
+        "SLURM_LOCALID",
+    )
+
+    def _define_container_variables(self, workspace, app_inst=None):
+        super()._define_container_variables(workspace, app_inst=app_inst)
+        if app_inst is not None:
+            if not app_inst.variables.get("container_path"):
+                app_inst.define_variable(
+                    "container_path",
+                    "{container_dir}/{container_name}."
+                    + self.container_extension,
+                )
+            existing = [
+                v
+                for v in app_inst.variables.get(
+                    "container_env_vars", ""
+                ).split(",")
+                if v
+            ]
+            for slurm_var in self._SLURM_CONTAINER_ENV_VARS:
+                if slurm_var not in existing:
+                    existing.append(slurm_var)
+            app_inst.define_variable("container_env_vars", ",".join(existing))
+
     register_phase(
         "import_sqsh",
         pipeline="setup",

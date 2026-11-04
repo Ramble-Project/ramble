@@ -25,23 +25,6 @@ class TpuPlatform(PlatformBase):
 
     name = "tpu-platform"
 
-    TOPOLOGY_TO_MESH = {
-        # tpu7x / 3D
-        "2x2x1": "2x2x2",
-        "2x2x2": "4x2x2",
-        "2x2x4": "4x4x2",
-        "2x4x4": "8x4x2",
-        "4x4x4": "16x4x2",
-        # v6e / 2D
-        "2x2": "2x2",
-        "2x4": "4x2",
-        "4x4": "4x4",
-        "4x8": "8x4",
-        "8x8": "8x8",
-        "8x16": "16x8",
-        "16x16": "16x16",
-    }
-
     variant(
         "accelerator",
         default=True,
@@ -63,11 +46,12 @@ class TpuPlatform(PlatformBase):
         description="TPU workloads strictly require 1 host process per node",
     )
 
-    register_validator(
-        "processes_per_node_tpu_platform_validation",
-        predicate="{processes_per_node} == 1",
-        message="TPU workloads strictly require processes_per_node to be 1, but got {processes_per_node}",
-    )
+    with when("+validate_platform"):
+        register_validator(
+            "processes_per_node_tpu_platform_validation",
+            predicate="{processes_per_node} == 1",
+            message="TPU workloads strictly require processes_per_node to be 1, but {processes_per_node} were specified",
+        )
 
     variable(
         "chips_per_node",
@@ -79,6 +63,12 @@ class TpuPlatform(PlatformBase):
         "cores_per_chip",
         default="1",
         description="Tensor cores per TPU chip",
+    )
+
+    variable(
+        "hbm_per_device_gb",
+        default="32",
+        description="HBM capacity per TPU device in GiB",
     )
 
     variable(
@@ -106,6 +96,26 @@ class TpuPlatform(PlatformBase):
     )
 
     variable(
+        "k8s_tpu_resource",
+        default="google.com/tpu",
+        description="Kubernetes resource name for TPU requests/limits on GKE",
+        when=["workflow_manager=gke-mpi"],
+    )
+
+    variable(
+        "gke_tpu_accelerator",
+        default="",
+        description="GKE nodeSelector label value for cloud.google.com/gke-tpu-accelerator",
+        when=["workflow_manager=gke-mpi"],
+    )
+
+    variable(
+        "node_local_libtpu_init_args",
+        default="--xla_tpu_use_enhanced_launch_barrier=false --megascale_error_reporter_abort_on_hang=true",
+        description="LIBTPU_INIT_ARGS flags for node-local (single-host) TPU initialization",
+    )
+
+    variable(
         "tpu_topology",
         default="2x2x1",
         description="TPU interconnect topology string (e.g. 2x2, 2x2x1, 2x2x2, 4x4x4)",
@@ -119,62 +129,42 @@ class TpuPlatform(PlatformBase):
 
     variable(
         "ici_size",
-        default="4",
+        default="{n_nodes} * {chips_per_node} * {cores_per_chip}",
         description="Total ICI size across the TPU topology",
     )
 
-    # Baseline performance thresholds (defaults per platform, overridable)
     variable(
-        "min_gemm_tflops",
-        default="0.0",
-        description="Minimum GEMM throughput in TFLOP/s/device",
+        "max_sockets_per_node",
+        default="1",
+        description="Maximum number of sockets per node",
     )
 
     variable(
-        "min_hbm_bw",
-        default="0.0",
-        description="Minimum HBM memory bandwidth in GB/s",
+        "max_threads_per_core",
+        default="2",
+        description="Maximum number of threads per core",
     )
 
     variable(
-        "min_h2d_bw",
-        default="0.0",
-        description="Minimum Host-to-Device transfer bandwidth in GiB/s",
+        "max_cores_per_node",
+        default="64",
+        description="Maximum number of host CPU cores per node",
     )
 
-    @classmethod
-    def topology_math(cls, topology, cores_per_chip=1):
-        """Calculate total chips, physical mesh shape, and ICI size from topology.
+    variable(
+        "max_memory_per_node",
+        default="128",
+        description="Maximum host memory per node in GB",
+    )
 
-        Args:
-            topology (str): Topology string, e.g. "2x2x1" or "2x2"
-            cores_per_chip (int): Tensor cores per chip (default: 1)
+    variable(
+        "optimization_target",
+        default="x86_64_v3",
+        description="Spack optimization target for this platform",
+    )
 
-        Returns:
-            dict: Dictionary with 'total_chips', 'tpu_mesh_shape', and 'ici_size'
-        """
-        dims = [int(d) for d in str(topology).split("x") if d.isdigit()]
-        if not dims:
-            raise ValueError(f"Invalid TPU topology: '{topology}'")
-
-        total_chips = 1
-        for d in dims:
-            total_chips *= d
-
-        cores = int(cores_per_chip)
-        ici_size = total_chips * cores
-
-        top_str = str(topology)
-        if cores > 1 and top_str in cls.TOPOLOGY_TO_MESH:
-            mesh_shape = cls.TOPOLOGY_TO_MESH[top_str]
-        elif cores == 1 and top_str in cls.TOPOLOGY_TO_MESH:
-            mesh_shape = cls.TOPOLOGY_TO_MESH[top_str]
-        else:
-            scaled_dims = [dims[0] * cores] + dims[1:]
-            mesh_shape = "x".join(str(d) for d in scaled_dims)
-
-        return {
-            "total_chips": total_chips,
-            "tpu_mesh_shape": mesh_shape,
-            "ici_size": ici_size,
-        }
+    variable(
+        "portable_target",
+        default="x86_64",
+        description="Portable Spack optimization target for this platform",
+    )
