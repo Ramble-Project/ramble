@@ -291,3 +291,35 @@ def test_no_active_workspace(make_workspace_from_config, monkeypatch):
 
     assert workspace.active_workspace() == ws
     assert os.environ.get(workspace.RAMBLE_WORKSPACE_VAR) == ws_name
+
+
+def test_yaml_equivalent():
+    import spack.util.spack_yaml as syaml
+
+    assert workspace.yaml_equivalent({"a": 1, "b": 2.5}, {"a": syaml.syaml_int(1), "b": 2.5})
+    assert workspace.yaml_equivalent(
+        {"flag": True, "off": False, "none": None},
+        {"flag": syaml.syaml_bool(True), "off": syaml.syaml_bool(False), "none": None},
+    )
+    assert workspace.yaml_equivalent(["x", 1, True, None], [syaml.syaml_str("x"), 1, True, None])
+    assert not workspace.yaml_equivalent(1, True)
+    assert not workspace.yaml_equivalent(True, 1)
+    assert not workspace.yaml_equivalent(1, syaml.syaml_bool(True))
+    assert not workspace.yaml_equivalent(1, 1.0)
+    assert not workspace.yaml_equivalent("1", 1)
+
+
+def test_workspace_create_preserves_unchanged_yaml(tmpdir):
+    from ramble.main import RambleCommand
+
+    ws_cmd = RambleCommand("workspace")
+    ws_dir = tmpdir.join("existing_ws")
+    cfg_dir = ws_dir.join("configs")
+    cfg_dir.ensure(dir=True)
+    cfg_file = cfg_dir.join("ramble.yaml")
+    original_yaml = "ramble:\n  variables:\n    processes_per_node:   1\n"
+    cfg_file.write(original_yaml)
+
+    ws_cmd("create", "-d", str(ws_dir))
+
+    assert cfg_file.read() == original_yaml
