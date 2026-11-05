@@ -2817,8 +2817,18 @@ def yaml_equivalent(first, second):
         return isinstance(second, dict) and _equiv_dict(first, second)
     elif isinstance(first, list):
         return isinstance(second, list) and _equiv_list(first, second)
-    else:  # it's a string
+    elif isinstance(first, (bool, syaml.syaml_bool)):
+        return isinstance(second, (bool, syaml.syaml_bool)) and bool(first) == bool(second)
+    elif isinstance(second, (bool, syaml.syaml_bool)):
+        return False
+    elif isinstance(first, str):
         return isinstance(second, str) and first == second
+    elif isinstance(first, int):
+        return isinstance(second, int) and first == second
+    elif isinstance(first, float):
+        return isinstance(second, float) and first == second
+    else:
+        return type(first) is type(second) and first == second
 
 
 def _equiv_list(first, second):
