@@ -32,7 +32,7 @@ ramble:
     n_ranks: '{processes_per_node}*{n_nodes}'
     n_threads: '1'
   applications:
-    wrfv3:
+    wrf@3.9.1.1:
       workloads:
         CONUS_2p5km:
           experiments:
@@ -47,14 +47,14 @@ ramble:
       intel-mpi:
         pkg_spec: intel-oneapi-mpi@2021.13.1
         compiler: gcc8
-      wrfv3:
+      wrf:
         pkg_spec: my_wrf@3.9.1.1 build_type=dm+sm compile_type=em_real nesting=basic ~pnetcdf
         compiler: gcc8
     environments:
-      wrfv3:
+      wrf:
         packages:
         - intel-mpi
-        - wrfv3
+        - wrf
 """
 
     ws, ws_name = make_workspace_from_config(test_config)
@@ -63,4 +63,4 @@ ramble:
         workspace("setup", "--dry-run", global_args=["-w", ws_name])
     setup_log = os.path.join(ws.log_dir, "setup.latest.out")
     with open(setup_log, encoding="utf-8") as f:
-        assert "Software spec wrf is not defined in environment wrfv3" in f.read()
+        assert "Software spec wrf is not defined in environment wrf" in f.read()

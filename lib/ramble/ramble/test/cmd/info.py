@@ -10,6 +10,7 @@ import argparse
 import re
 from typing import Dict, List
 
+import deprecation
 import pytest
 
 import ramble.cmd.common.info
@@ -67,8 +68,27 @@ def test_info_fields(app_query, parser, info_lines):
         assert match
 
 
-@pytest.mark.parametrize("app_query", ["gromacs", "wrfv3", "wrfv4"])
+@pytest.mark.parametrize("app_query", ["gromacs", "wrf"])
 def test_spack_info_software(app_query):
+    expected_fields = (
+        "Description:",
+        "executables",
+        "pipelines",
+        "setup:",
+        "analyze:",
+        "tags",
+        "software_specs",
+    )
+
+    out = info("-v", app_query)
+
+    for field in expected_fields:
+        assert field in out
+
+
+@pytest.mark.parametrize("app_query", ["wrfv3", "wrfv4"])
+@deprecation.fail_if_not_removed
+def test_deprecated_spack_info_software(app_query):
     expected_fields = (
         "Description:",
         "executables",

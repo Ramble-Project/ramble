@@ -46,7 +46,7 @@ ramble:
     n_threads: '1'
     my_external_env: {env_path}
   applications:
-    wrfv4:
+    wrf:
       workloads:
         CONUS_12km:
           experiments:
@@ -56,7 +56,7 @@ ramble:
   software:
     packages: {{}}
     environments:
-      wrfv4:
+      wrf:
         external_env: '{{my_external_env}}'
 """
 
@@ -80,7 +80,7 @@ ramble:
 
         env_file = os.path.join(
             glob.glob(os.path.join(ws.software_dir, "spack*"))[0],
-            "wrfv4",
+            "wrf",
             "spack.yaml",
         )
 

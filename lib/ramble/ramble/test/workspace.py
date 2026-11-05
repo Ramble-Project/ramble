@@ -246,7 +246,7 @@ def test_all_applications_application_configs(mutable_mock_workspace_path):
                 "raw_yaml": None,
                 "yaml": {
                     ramble.namespace.namespace.application: {
-                        "builtin.app.wrfv3@3.9": {ramble.namespace.namespace.workload: {}},
+                        "builtin.app.wrf@3.9.1.1": {ramble.namespace.namespace.workload: {}},
                         "hostname@2.0": {ramble.namespace.namespace.workload: {}},
                         "basic": {ramble.namespace.namespace.workload: {}},
                     }
@@ -258,8 +258,8 @@ def test_all_applications_application_configs(mutable_mock_workspace_path):
         for contents, app_context in ws.all_applications():
             apps[app_context.context_name] = contents.get(ramble.namespace.namespace.version)
 
-        assert "builtin.app.wrfv3" in apps
-        assert apps["builtin.app.wrfv3"] == "3.9"
+        assert "builtin.app.wrf" in apps
+        assert apps["builtin.app.wrf"] == "3.9.1.1"
         assert "hostname" in apps
         assert apps["hostname"] == "2.0"
         assert "basic" in apps
