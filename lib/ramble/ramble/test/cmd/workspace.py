@@ -1238,9 +1238,190 @@ def test_edit_edits_correct_paths():
     )
     assert workspace("edit", "-c", "--print-file", global_args=ws_args).strip() == config_file
     assert (
+        workspace("edit", "--config", "--print-file", global_args=ws_args).strip() == config_file
+    )
+    assert (
         workspace("edit", "-t", "--print-file", global_args=ws_args).strip()
         == default_template_path
     )
+    assert (
+        workspace("edit", "--templates", "--print-file", global_args=ws_args).strip()
+        == default_template_path
+    )
+    assert workspace(
+        "edit", "-l", "--print-file", global_args=ws_args
+    ).strip() == ramble.workspace.licenses_file(ws.root)
+    assert workspace(
+        "edit", "--licenses", "--print-file", global_args=ws_args
+    ).strip() == ramble.workspace.licenses_file(ws.root)
+    # Combining -c and -t opens both
+    combined = (
+        workspace("edit", "-c", "-t", "--print-file", global_args=ws_args).strip().splitlines()
+    )
+    assert combined == [config_file, default_template_path]
+    # Combining --all-configs (and --all alias) and -c deduplicates config_file
+    all_configs_and_c = (
+        workspace("edit", "--all-configs", "-c", "--print-file", global_args=ws_args)
+        .strip()
+        .splitlines()
+    )
+    assert all_configs_and_c == [config_file, default_template_path]
+    all_and_c = (
+        workspace("edit", "--all", "-c", "--print-file", global_args=ws_args).strip().splitlines()
+    )
+    assert all_and_c == [config_file, default_template_path]
+
+
+def test_edit_auxiliary_files(workspace_name, tmpdir):
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    ws_args = ["-w", workspace_name]
+
+    # Create included files (file and directory)
+    inc_file = os.path.join(ws.root, "variables.yaml")
+    with open(inc_file, "w", encoding="utf-8") as f:
+        f.write("variables:\n  foo: bar\n")
+
+    inc_dir = str(tmpdir.mkdir("inc_scope"))
+    inc_dir_file = os.path.join(inc_dir, "software.yaml")
+    with open(inc_dir_file, "w", encoding="utf-8") as f:
+        f.write("software:\n  packages: {}\n")
+
+    workspace(
+        "manage",
+        "experiments",
+        "basic",
+        "--wf",
+        "test_wl",
+        "-e",
+        "test_exp",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "n_ranks=1",
+        global_args=ws_args,
+    )
+    workspace(
+        "manage",
+        "includes",
+        "--add",
+        "$workspace_root/variables.yaml",
+        global_args=ws_args,
+    )
+    workspace(
+        "manage",
+        "includes",
+        "--add",
+        inc_dir,
+        global_args=ws_args,
+    )
+
+    # Create auxiliary software file
+    aux_soft_file = os.path.join(ws.auxiliary_software_dir, "packages.yaml")
+    with open(aux_soft_file, "w", encoding="utf-8") as f:
+        f.write("packages: {}\n")
+
+    # Setup and analyze workspace to generate all_experiments, logs, and results
+    workspace("setup", "--dry-run", global_args=ws_args)
+    workspace("analyze", "-f", "text", "json", global_args=ws_args)
+
+    # Create a latest table file
+    fs.mkdirp(ws.tables_dir)
+    table_target = os.path.join(ws.tables_dir, "summary.2026-01-01_00.00.00.csv")
+    table_latest = os.path.join(ws.tables_dir, "summary.latest.csv")
+    with open(table_target, "w", encoding="utf-8") as f:
+        f.write("col1,col2\n1,2\n")
+    os.symlink(table_target, table_latest)
+
+    # Test -r / --results
+    results_out = workspace("edit", "-r", "-p", global_args=ws_args).strip().splitlines()
+    assert results_out == [
+        os.path.join(ws.results_dir, "results.latest.json"),
+        os.path.join(ws.results_dir, "results.latest.txt"),
+    ]
+
+    # Test --tables
+    tables_out = workspace("edit", "--tables", "-p", global_args=ws_args).strip().splitlines()
+    assert tables_out == [table_latest]
+
+    # Test --logs
+    logs_out = workspace("edit", "--logs", "-p", global_args=ws_args).strip().splitlines()
+    assert os.path.join(ws.log_dir, "setup.latest.out") in logs_out
+    assert os.path.join(ws.log_dir, "analyze.latest.out") in logs_out
+
+    # Test --software-files / --auxiliary-software-files
+    soft_out = (
+        workspace("edit", "--software-files", "-p", global_args=ws_args).strip().splitlines()
+    )
+    assert soft_out == [aux_soft_file]
+    aux_soft_out = (
+        workspace("edit", "--auxiliary-software-files", "-p", global_args=ws_args)
+        .strip()
+        .splitlines()
+    )
+    assert aux_soft_out == [aux_soft_file]
+
+    # Test -i / --includes
+    inc_out = workspace("edit", "-i", "-p", global_args=ws_args).strip().splitlines()
+    assert inc_out == [inc_file, inc_dir_file]
+
+    # Test -e / --experiments-script
+    exp_out = workspace("edit", "-e", "-p", global_args=ws_args).strip().splitlines()
+    assert exp_out == [ws.all_experiments_path]
+
+    # Test combining multiple auxiliary flags
+    multi_out = (
+        workspace("edit", "-r", "--tables", "-e", "-p", global_args=ws_args).strip().splitlines()
+    )
+    assert multi_out == [
+        os.path.join(ws.results_dir, "results.latest.json"),
+        os.path.join(ws.results_dir, "results.latest.txt"),
+        table_latest,
+        ws.all_experiments_path,
+    ]
+
+    # Test -f with $workspace_results and ${workspace_results} path variable substitution
+    file_var_out = workspace(
+        "edit", "-f", "$workspace_results/results.latest.txt", "-p", global_args=ws_args
+    ).strip()
+    assert file_var_out == os.path.join(ws.results_dir, "results.latest.txt")
+
+    file_braced_var_out = workspace(
+        "edit", "-f", "${workspace_results}/results.latest.txt", "-p", global_args=ws_args
+    ).strip()
+    assert file_braced_var_out == os.path.join(ws.results_dir, "results.latest.txt")
+
+
+def test_edit_missing_auxiliary_files(workspace_name):
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    ws_args = ["-w", workspace_name]
+
+    for flag, category in [
+        ("-r", "result"),
+        ("--tables", "table"),
+        ("--logs", "log"),
+        ("--software-files", "auxiliary software"),
+        ("-i", "included config"),
+        ("-e", "all_experiments script"),
+    ]:
+        out = workspace("edit", flag, "-p", global_args=ws_args, fail_on_error=False)
+        assert workspace.returncode != 0
+        assert f"No {category} files found in workspace." in out
+
+    # Multiple missing categories should warn and die
+    multi_missing = workspace(
+        "edit", "-r", "--tables", "-p", global_args=ws_args, fail_on_error=False
+    )
+    assert workspace.returncode != 0
+    assert "No result files found in workspace." in multi_missing
+    assert "No table files found in workspace." in multi_missing
+
+    # Combining an existing category (-c) with a missing category (-r)
+    # warns and prints the config file
+    partial_out = workspace("edit", "-c", "-r", "-p", global_args=ws_args)
+    assert "No result files found in workspace." in partial_out
+    assert ramble.workspace.config_file(ws.root) in partial_out
 
 
 def test_edit_fails_without_workspace():

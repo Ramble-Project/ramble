@@ -333,6 +333,113 @@ def all_template_paths(path):
     return templates
 
 
+def latest_result_files(path):
+    """Returns paths to latest result files in workspace"""
+    results_path = os.path.join(path, WORKSPACE_RESULTS_PATH)
+    if os.path.isdir(results_path):
+        files = sorted(
+            os.path.join(results_path, f)
+            for f in os.listdir(results_path)
+            if f.startswith("results.latest.") and os.path.isfile(os.path.join(results_path, f))
+        )
+        if files:
+            return files
+
+    if os.path.isdir(path):
+        return sorted(
+            os.path.join(path, f)
+            for f in os.listdir(path)
+            if f.startswith("results.latest.") and os.path.isfile(os.path.join(path, f))
+        )
+    return []
+
+
+def latest_table_files(path):
+    """Returns paths to latest table files in workspace"""
+    tables_path = os.path.join(path, WORKSPACE_TABLES_PATH)
+    if not os.path.isdir(tables_path):
+        return []
+
+    return sorted(
+        os.path.join(tables_path, f)
+        for f in os.listdir(tables_path)
+        if ".latest." in f and os.path.isfile(os.path.join(tables_path, f))
+    )
+
+
+def latest_log_files(path):
+    """Returns paths to latest pipeline log files in workspace"""
+    log_path = os.path.join(path, WORKSPACE_LOG_PATH)
+    if not os.path.isdir(log_path):
+        return []
+
+    return sorted(
+        os.path.join(log_path, f)
+        for f in os.listdir(log_path)
+        if f.endswith(".latest.out") and os.path.isfile(os.path.join(log_path, f))
+    )
+
+
+def all_auxiliary_software_files(path):
+    """Returns paths to all auxiliary software files in workspace config directory"""
+    aux_path = os.path.join(path, WORKSPACE_CONFIG_PATH, AUXILIARY_SOFTWARE_DIR_NAME)
+    if not os.path.isdir(aux_path):
+        return []
+
+    return sorted(
+        os.path.join(aux_path, f)
+        for f in os.listdir(aux_path)
+        if os.path.isfile(os.path.join(aux_path, f)) and not f.startswith(".")
+    )
+
+
+def included_config_files(path):
+    """Returns paths to all included configuration files in workspace"""
+    cfg_file = config_file(path)
+    if not cfg_file or not os.path.isfile(cfg_file):
+        return []
+
+    try:
+        with open(cfg_file, encoding="utf-8") as f:
+            yaml_data = syaml.load_config(f)
+        includes = config_dict(yaml_data).get(namespace.include, []) or []
+    except Exception:
+        return []
+
+    local_replacements = Workspace.get_workspace_paths(path)
+    expander = ramble.expander.Expander(local_replacements, None)
+    included_files = []
+
+    for full_config_path in includes:
+        config_path = full_config_path.rstrip("/")
+        config_path = substitute_path_variables(config_path, local_replacements=local_replacements)
+        config_path = expander.expand_var(config_path)
+
+        if not os.path.isabs(config_path):
+            config_path = os.path.normpath(os.path.realpath(os.path.join(path, config_path)))
+
+        if os.path.isdir(config_path):
+            included_files.extend(
+                sorted(
+                    os.path.join(config_path, f)
+                    for f in os.listdir(config_path)
+                    if f.endswith(".yaml") and os.path.isfile(os.path.join(config_path, f))
+                )
+            )
+        elif os.path.isfile(config_path):
+            included_files.append(config_path)
+
+    return included_files
+
+
+def all_experiments_file(path):
+    """Returns path to the root all_experiments file in workspace if it exists"""
+    exp_file = os.path.join(path, WORKSPACE_ALL_EXPERIMENTS_FILE)
+    if os.path.isfile(exp_file):
+        return [exp_file]
+    return []
+
+
 def is_workspace_dir(path):
     """Whether a directory contains a ramble workspace."""
     ret_val = os.path.isdir(path)

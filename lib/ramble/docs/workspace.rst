@@ -149,6 +149,29 @@ In the ``configs`` directory, the ``ramble.yaml`` file is the primary workspace
 configuration file. The definition for this file is documented in the
 :ref:`workspace config documentation<workspace-config>`
 
+^^^^^^^^^^^^^^^^^^^^^^^
+Editing Workspace Files
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``ramble workspace edit`` command opens workspace files in your configured
+editor. By default, it opens ``configs/ramble.yaml`` and all template
+(``*.tpl``) files in the workspace.
+
+You can also open specific configuration or auxiliary files using flags (which
+can be combined):
+
+  * ``-c`` / ``--config``: Open ``configs/ramble.yaml``
+  * ``-t`` / ``--templates``: Open all ``configs/*.tpl`` template files
+  * ``-l`` / ``--licenses``: Open ``configs/licenses.yaml``
+  * ``--all-configs`` / ``--all``: Open all ``*.yaml`` and ``*.tpl`` files in ``configs/``
+  * ``-r`` / ``--results``: Open the latest analysis result files (``results/results.latest.*``)
+  * ``--tables``: Open the latest generated table files (``tables/*.latest.*``)
+  * ``--logs``: Open the latest pipeline log files (``logs/*.latest.out``)
+  * ``--software-files`` / ``--auxiliary-software-files``: Open files in ``configs/auxiliary_software_files/``
+  * ``-i`` / ``--includes``: Open configuration files referenced in the ``include:`` section
+  * ``-e`` / ``--experiments-script``: Open the root ``all_experiments`` script
+  * ``-f <file>`` / ``--file <file>``: Open a specific file (supports workspace path variables such as ``{workspace_results}`` or ``$workspace_tables``)
+
 ^^^^^^^^^^^^^^^^^^^^^^^^
 Workspace Template Files
 ^^^^^^^^^^^^^^^^^^^^^^^^
