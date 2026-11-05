@@ -95,3 +95,29 @@ class TestPushDeploymentPipeline(unittest.TestCase):
 
         files = list(pipeline._deployment_files())
         self.assertEqual(files, [dummy_file])
+
+    def test_complete_uploads_files_with_upload_url(self):
+        remote_dir = os.path.join(self.test_dir, "remote_upload")
+        upload_url = f"file://{remote_dir}"
+
+        nested_rel = os.path.join(self.deployment_path.lstrip(os.sep), "sub", "file.txt")
+        dummy_file = os.path.join(self.deployment_path, nested_rel)
+        os.makedirs(os.path.dirname(dummy_file), exist_ok=True)
+        with open(dummy_file, "w", encoding="utf-8") as f:
+            f.write("data")
+
+        pipeline = PushDeploymentPipeline(
+            self.workspace,
+            filters=Filters([]),
+            deployment_name=self.deployment_name,
+            create_tar=False,
+            upload_url=upload_url,
+        )
+        pipeline._construct_experiment_hashes = lambda: False
+        with mock.patch("ramble.expander.Expander.expand_var", return_value=self.deployment_name):
+            pipeline._execute()
+        with mock.patch("ramble.pipeline._upload_file") as mock_upload:
+            pipeline._complete()
+
+        expected_dest = os.path.join(upload_url + "/" + self.deployment_name, nested_rel)
+        mock_upload.assert_any_call(dummy_file, expected_dest)
