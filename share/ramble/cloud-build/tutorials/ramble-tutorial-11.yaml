@@ -45,19 +45,19 @@ steps:
 
         ramble workspace setup --dry-run
 
-        grep "date +" internals_wrf/experiments/wrfv4/CONUS_12km/scaling_1/execute_experiment
+        grep "date +" internals_wrf/experiments/wrf/CONUS_12km/scaling_1/execute_experiment
 
         cp /workspace/examples/tutorial_11_exec_order_config.yaml internals_wrf/configs/ramble.yaml
 
         ramble workspace setup --dry-run
 
-        grep "date +" internals_wrf/experiments/wrfv4/CONUS_12km/scaling_1/execute_experiment
+        grep "date +" internals_wrf/experiments/wrf/CONUS_12km/scaling_1/execute_experiment
 
         cp /workspace/examples/tutorial_11_exec_injection_config.yaml internals_wrf/configs/ramble.yaml
 
         ramble workspace setup --dry-run
 
-        grep "date +" internals_wrf/experiments/wrfv4/CONUS_12km/scaling_1/execute_experiment
+        grep "date +" internals_wrf/experiments/wrf/CONUS_12km/scaling_1/execute_experiment
 
         ramble workspace deactivate
     id: ramble-tutorial-test

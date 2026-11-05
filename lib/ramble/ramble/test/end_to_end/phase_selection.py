@@ -46,9 +46,9 @@ ramble:
     n_ranks: '{processes_per_node}*{n_nodes}'
     n_threads: '1'
   applications:
-    wrfv4:
+    wrf:
       variables:
-        env_name: ['wrfv4', 'wrfv4-portable']
+        env_name: ['wrf', 'wrf-portable']
       workloads:
         CONUS_12km:
           experiments:
@@ -85,27 +85,27 @@ ramble:
       intel-mpi:
         pkg_spec: intel-oneapi-mpi@2021.13.1
         compiler: gcc
-      wrfv4:
+      wrf:
         pkg_spec: wrf@4.2 build_type=dm+sm compile_type=em_real nesting=basic ~chem ~pnetcdf
         compiler: gcc
-      wrfv4-portable:
+      wrf-portable:
         pkg_spec: 'wrf@4.2 build_type=dm+sm compile_type=em_real
           nesting=basic ~chem ~pnetcdf target=x86_64'
         compiler: gcc
     environments:
-      wrfv4:
+      wrf:
         packages:
-        - wrfv4
+        - wrf
         - intel-mpi
-      wrfv4-portable:
+      wrf-portable:
         packages:
-        - wrfv4-portable
+        - wrf-portable
         - intel-mpi
 """
 
     test_licenses = """
 licenses:
-  wrfv4:
+  wrf:
     set:
       WRF_LICENSE: port@server
 """

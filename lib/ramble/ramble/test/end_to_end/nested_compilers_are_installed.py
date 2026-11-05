@@ -40,7 +40,7 @@ ramble:
     n_ranks: '{processes_per_node}*{n_nodes}'
     n_threads: '1'
   applications:
-    wrfv4:
+    wrf:
       workloads:
         CONUS_12km:
           experiments:
@@ -64,7 +64,7 @@ ramble:
         pkg_spec: wrf@4.2 build_type=dm+sm compile_type=em_real nesting=basic ~chem ~pnetcdf
         compiler: gcc10
     environments:
-      wrfv4:
+      wrf:
         packages:
         - wrf
         - intel
