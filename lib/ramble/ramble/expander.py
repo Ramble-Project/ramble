@@ -26,6 +26,7 @@ import ramble.keywords
 from ramble.util import naming
 from ramble.util.logger import logger
 from ramble.util.path import substitute_config_variables
+from ramble.util.version import Version
 
 # Regex for detecting expressions that may be evaluated by perform_math_eval:
 # digits, quotes, parens/brackets, comparisons (<, >, ==, !=), or boolean/constant keywords.
@@ -130,6 +131,13 @@ def _str_replace(s, *args, **kwargs):
     return str(s).replace(*args, **kwargs)
 
 
+def _version(v):
+    try:
+        return Version(v)
+    except ValueError as e:
+        raise MathEvaluationError(str(e)) from None
+
+
 # TODO: These conditional defines should be removed when support for
 # older Python versions are dropped.
 if sys.version_info >= (3, 8):
@@ -203,6 +211,7 @@ supported_scalar_function_pointers: Dict[str, Callable[..., Any]] = {
     "str": str,
     "int": int,
     "float": float,
+    "version": _version,
     "max": max,
     "min": min,
     "ceil": math.ceil,
@@ -651,6 +660,7 @@ class Expander:
             self._no_expand_vars.copy(),
         )
 
+    ramble_version = _cached_keyword_property("ramble_version")
     application_name = _cached_keyword_property("application_name")
     application_spec = _cached_keyword_property("application_spec")
     application_version = _cached_keyword_property("application_version")
@@ -1237,7 +1247,9 @@ class Expander:
                     )
                 return val
         # TODO: Remove `or` logic after 3.6 & 3.7 series python are unsupported
-        elif isinstance(node.left, (_AST_CONSTANT, _AST_NAME_CONSTANT)) or _is_str_node(node.left):
+        elif isinstance(node.left, (_AST_CONSTANT, _AST_NAME_CONSTANT, ast.Call)) or _is_str_node(
+            node.left
+        ):
             lhs_value = self.eval_math(node.left, expansion_vars=expansion_vars)
 
             found = False
@@ -1247,11 +1259,17 @@ class Expander:
                         rhs_value = self.eval_math(elt, expansion_vars=expansion_vars)
                         if lhs_value == rhs_value:
                             found = True
-                elif isinstance(comp, (_AST_CONSTANT, _AST_NAME_CONSTANT)) or _is_str_node(comp):
+                elif isinstance(lhs_value, str) and (
+                    isinstance(comp, (_AST_CONSTANT, _AST_NAME_CONSTANT)) or _is_str_node(comp)
+                ):
                     # Attempt evaluating `"str" in "string"`
                     rhs_value = self.eval_math(comp, expansion_vars=expansion_vars)
                     if isinstance(rhs_value, str) and lhs_value in rhs_value:
                         found = True
+                else:
+                    self.__dbg_syntax_error(
+                        "Unsupported operand type in binary comparison operator", node
+                    )
             return found
 
         self.__raise_syntax_error(node)

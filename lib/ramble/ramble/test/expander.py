@@ -14,6 +14,7 @@ import ramble.variants
 
 def exp_dict():
     return {
+        "ramble_version": "0.7.0",
         "application_name": "foo",
         "application_spec": "foo@1.2",
         "workload_name": "bar",
@@ -532,3 +533,35 @@ def test_expand_var_name_bypasses_expansion_graph(monkeypatch):
     assert expander.expand_var_name("experiment_index") == "5"
     assert expander.expand_var_name("experiment_index", typed=True) == 5
     assert {"application_name", "experiment_index"}.issubset(expander._used_variables)
+
+
+@pytest.mark.parametrize(
+    "expr,expected_str,expected_typed",
+    [
+        ("{ramble_version}", "0.7.0", "0.7.0"),
+        ("version('{ramble_version}') <= '0.6.1'", "False", False),
+        ("'0.6.0' < version('{ramble_version}') <= version('0.10.0')", "True", True),
+        ("version('1.0.0-alpha.1') < '1.0.0-rc.1'", "True", True),
+        ("version('0.7.0') == 1", "False", False),
+        ("version('{ramble_version}') in ['0.6.1', '0.7.0']", "True", True),
+        ("version('not_a_version')", "version('not_a_version')", "version('not_a_version')"),
+        (
+            "version('0.7.0') <= 'not_a_version'",
+            "version('0.7.0') <= 'not_a_version'",
+            "version('0.7.0') <= 'not_a_version'",
+        ),
+        (
+            "version('0.7') in '0.70.0'",
+            "version('0.7') in '0.70.0'",
+            "version('0.7') in '0.70.0'",
+        ),
+    ],
+)
+def test_ramble_version_and_version_expansions(expr, expected_str, expected_typed):
+    expander = ramble.expander.Expander(exp_dict(), None)
+
+    assert expander.ramble_version == "0.7.0"
+    assert expander.expand_var(expr) == expected_str
+    assert expander.expand_var(expr, typed=True) == expected_typed
+    if isinstance(expected_typed, bool):
+        assert expander.evaluate_predicate(expr) is expected_typed
