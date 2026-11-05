@@ -26,6 +26,7 @@ class output_level(Enum):
 
 
 default_keys = {
+    "ramble_version": {"type": key_type.reserved, "level": output_level.variable},
     "workspace_name": {"type": key_type.reserved, "level": output_level.variable},
     "workspace": {"type": key_type.reserved, "level": output_level.variable},
     "workspace_root": {"type": key_type.reserved, "level": output_level.variable},

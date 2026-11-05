@@ -180,6 +180,7 @@ Supported functions are:
 * ``str()`` (explicit string cast)
 * ``int()`` (explicit integer cast)
 * ``float()`` (explicit float cast)
+* ``version()`` (explicit version cast for version comparisons, e.g. ``version('{ramble_version}') <= '0.6.1'``)
 * ``min()`` (minimum)
 * ``max()`` (maximum)
 * ``ceil()`` (ceiling of input)
@@ -1148,6 +1149,7 @@ Generated Variables
 
 Ramble automatically generates definitions for the following variables:
 
+* ``ramble_version`` - Set to the version of Ramble (e.g., ``0.7.0``)
 * ``workspace_name`` - Set to the name of the workspace
 * ``application_name`` - Set to the name of the application
 * ``application_namespace`` - Set to the namespace of the application
