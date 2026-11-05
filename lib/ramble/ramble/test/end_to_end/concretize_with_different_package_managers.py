@@ -33,7 +33,7 @@ ramble:
     n_ranks: '1'
     n_threads: '1'
   applications:
-    wrfv4:
+    wrf:
       variants:
         package_manager: 'spack-lightweight'
       workloads:
@@ -70,7 +70,7 @@ ramble:
 
         sw_dict = ramble.config.get(namespace.software)
 
-        assert "wrfv4" in sw_dict["environments"]
-        assert "wrfv4" in sw_dict["packages"]
+        assert "wrf" in sw_dict["environments"]
+        assert "wrfv4-{application::wrf::version}" in sw_dict["packages"]
         assert "gromacs" not in sw_dict["environments"]
         assert "gromacs" not in sw_dict["packages"]

@@ -41,9 +41,9 @@ ramble:
     n_ranks: '{processes_per_node}*{n_nodes}'
     n_threads: '1'
   applications:
-    wrfv4:
+    wrf:
       variables:
-        env_name: 'wrfv4'
+        env_name: 'wrf'
       workloads:
         CONUS_12km:
           experiments:

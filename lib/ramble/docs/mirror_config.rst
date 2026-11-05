@@ -66,7 +66,7 @@ Mirror Structure
 ----------------
 
 ``ramble workspace mirror`` creates ramble and spack mirrors with a structure
-similar to the following, which uses a mirror of wrfv3 as an example:
+similar to the following, which uses a mirror of wrf as an example:
 
 .. code-block:: console
 
@@ -76,7 +76,7 @@ similar to the following, which uses a mirror of wrfv3 as an example:
     │   │   └── archive
     │   │       └── 19
     │   │           └── 1919a0e0499057c1a570619d069817022bae95b17cf1a52bdaa174f8e8d11508.tar.bz2
-    │   └── wrfv3
+    │   └── wrf
     │       ├── bench_12km.tar.bz2
     │       └── bench_2.5km.tar.bz2
     └── software

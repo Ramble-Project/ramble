@@ -20,7 +20,7 @@ pytestmark = pytest.mark.usefixtures("mutable_config", "mutable_mock_workspace_p
 workspace = RambleCommand("workspace")
 
 
-def test_wrfv4_aps_test(mutable_config, mutable_mock_workspace_path, workspace_name):
+def test_wrf_aps_test(mutable_config, mutable_mock_workspace_path, workspace_name):
     test_config = """
 ramble:
   variants:
@@ -32,7 +32,7 @@ ramble:
     n_ranks: '{processes_per_node}*{n_nodes}'
     n_threads: '1'
   applications:
-    wrfv4:
+    wrf:
       workloads:
         CONUS_12km:
           experiments:
@@ -51,15 +51,15 @@ ramble:
       intel-mpi:
         pkg_spec: intel-oneapi-mpi@2021.13.1
         compiler: gcc
-      wrfv4:
+      wrf:
         pkg_spec: wrf@4.2 build_type=dm+sm compile_type=em_real nesting=basic ~chem ~pnetcdf
         compiler: gcc
       intel-oneapi-vtune:
         pkg_spec: intel-oneapi-vtune
     environments:
-      wrfv4:
+      wrf:
         packages:
-        - wrfv4
+        - wrf
         - intel-mpi
         - intel-oneapi-vtune
 """
@@ -78,14 +78,14 @@ ramble:
 
         software_path = os.path.join(
             glob.glob(os.path.join(ws1.software_dir, "spack*"))[0],
-            "wrfv4",
+            "wrf",
             "spack.yaml",
         )
         with open(software_path, encoding="utf-8") as f:
             assert "intel-oneapi-vtune" in f.read()
 
         execute_script = os.path.join(
-            ws1.experiment_dir, "wrfv4", "CONUS_12km", "modifier_test", "execute_experiment"
+            ws1.experiment_dir, "wrf", "CONUS_12km", "modifier_test", "execute_experiment"
         )
         with open(execute_script, encoding="utf-8") as f:
             data = f.read()

@@ -45,9 +45,9 @@ steps:
         ramble config add "variables:processes_per_node:4"
         ramble config add "variables:n_ranks:'{processes_per_node}*{n_nodes}'"
 
-        ramble info --attrs workloads wrfv4
+        ramble info --attrs workloads wrf@4.2
 
-        ramble workspace generate-config wrfv4 -e scaling_{n_nodes} -p spack --wf "CONUS_12km" -v "n_nodes=[1, 2]"
+        ramble workspace generate-config wrf@4.2 -e scaling_{n_nodes} -p spack --wf "CONUS_12km" -v "n_nodes=[1, 2]"
 
         set +e
         ramble workspace info

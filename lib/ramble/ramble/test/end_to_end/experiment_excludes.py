@@ -26,7 +26,7 @@ workspace = RambleCommand("workspace")
 
 @pytest.mark.long
 @patch.object(spack_lightweight, "SpackRunner", side_effect=MockSpackRunner)
-def test_wrfv4_exclusions(
+def test_wrf_exclusions(
     mock_spack_runner, mutable_config, mutable_mock_workspace_path, workspace_name
 ):
     test_config = """
@@ -41,9 +41,9 @@ ramble:
     n_ranks: '{processes_per_node}*{n_nodes}'
     n_threads: '1'
   applications:
-    wrfv4:
+    wrf:
       variables:
-        env_name: ['wrfv4', 'wrfv4-portable']
+        env_name: ['wrf', 'wrf-portable']
       workloads:
         CONUS_12km:
           experiments:
@@ -97,27 +97,27 @@ ramble:
       intel-mpi:
         pkg_spec: intel-oneapi-mpi@2021.13.1
         compiler: gcc
-      wrfv4:
+      wrf:
         pkg_spec: wrf@4.2 build_type=dm+sm compile_type=em_real nesting=basic ~chem ~pnetcdf
         compiler: gcc
-      wrfv4-portable:
+      wrf-portable:
         pkg_spec: 'wrf@4.2 build_type=dm+sm compile_type=em_real
           nesting=basic ~chem ~pnetcdf target=x86_64'
         compiler: gcc
     environments:
-      wrfv4:
+      wrf:
         packages:
-        - wrfv4
+        - wrf
         - intel-mpi
-      wrfv4-portable:
+      wrf-portable:
         packages:
-        - wrfv4-portable
+        - wrf-portable
         - intel-mpi
 """
 
     test_licenses = """
 licenses:
-  wrfv4:
+  wrf:
     set:
       WRF_LICENSE: port@server
 """
@@ -183,7 +183,7 @@ compilers:
         )
 
         # Test software directories
-        software_dirs = ["wrfv4", "wrfv4-portable"]
+        software_dirs = ["wrf", "wrf-portable"]
         software_base_dir = os.path.join(ws1.root, ramble.workspace.WORKSPACE_SOFTWARE_PATH)
         assert os.path.exists(software_base_dir)
         for software_dir in software_dirs:
@@ -200,38 +200,38 @@ compilers:
                     assert os.path.exists(file_path)
 
         expected_experiments = [
-            "scaling_2_part1_wrfv4",
-            "scaling_4_part1_wrfv4",
-            "scaling_8_part1_wrfv4",
-            "scaling_2_part2_wrfv4",
-            "scaling_4_part2_wrfv4",
-            "scaling_8_part2_wrfv4",
-            "scaling_2_part1_wrfv4-portable",
-            "scaling_4_part1_wrfv4-portable",
-            "scaling_8_part1_wrfv4-portable",
-            "scaling_2_part2_wrfv4-portable",
-            "scaling_4_part2_wrfv4-portable",
-            "scaling_8_part2_wrfv4-portable",
+            "scaling_2_part1_wrf",
+            "scaling_4_part1_wrf",
+            "scaling_8_part1_wrf",
+            "scaling_2_part2_wrf",
+            "scaling_4_part2_wrf",
+            "scaling_8_part2_wrf",
+            "scaling_2_part1_wrf-portable",
+            "scaling_4_part1_wrf-portable",
+            "scaling_8_part1_wrf-portable",
+            "scaling_2_part2_wrf-portable",
+            "scaling_4_part2_wrf-portable",
+            "scaling_8_part2_wrf-portable",
         ]
 
         excluded_experiments = [
-            "scaling_1_part1_wrfv4",
-            "scaling_16_part1_wrfv4",
-            "scaling_1_part2_wrfv4",
-            "scaling_16_part2_wrfv4",
-            "scaling_1_part1_wrfv4-portable",
-            "scaling_16_part1_wrfv4-portable",
-            "scaling_1_part2_wrfv4-portable",
-            "scaling_16_part2_wrfv4-portable",
+            "scaling_1_part1_wrf",
+            "scaling_16_part1_wrf",
+            "scaling_1_part2_wrf",
+            "scaling_16_part2_wrf",
+            "scaling_1_part1_wrf-portable",
+            "scaling_16_part1_wrf-portable",
+            "scaling_1_part2_wrf-portable",
+            "scaling_16_part2_wrf-portable",
         ]
 
         for exp in excluded_experiments:
-            exp_dir = os.path.join(ws1.root, "experiments", "wrfv4", "CONUS_12km", exp)
+            exp_dir = os.path.join(ws1.root, "experiments", "wrf", "CONUS_12km", exp)
             assert not os.path.isdir(exp_dir)
 
         # Test experiment directories
         for exp in expected_experiments:
-            exp_dir = os.path.join(ws1.root, "experiments", "wrfv4", "CONUS_12km", exp)
+            exp_dir = os.path.join(ws1.root, "experiments", "wrf", "CONUS_12km", exp)
             assert os.path.isdir(exp_dir)
             assert os.path.exists(os.path.join(exp_dir, "execute_experiment"))
             assert os.path.exists(os.path.join(exp_dir, "full_command"))
@@ -337,7 +337,7 @@ compilers:
 
         for exp in expected_experiments:
             exp_dir = os.path.join(
-                ws1.latest_archive_path, "experiments", "wrfv4", "CONUS_12km", exp
+                ws1.latest_archive_path, "experiments", "wrf", "CONUS_12km", exp
             )
             assert os.path.isdir(exp_dir)
             assert os.path.exists(os.path.join(exp_dir, "execute_experiment"))

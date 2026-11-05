@@ -11,6 +11,7 @@ import os
 import re
 from unittest.mock import patch
 
+import deprecation
 import pytest
 
 import ramble.workspace
@@ -42,9 +43,9 @@ ramble:
     n_ranks: '{processes_per_node}*{n_nodes}'
     n_threads: '1'
   applications:
-    wrfv4:
+    wrf:
       variables:
-        env_name: ['wrfv4', 'wrfv4-portable']
+        env_name: ['wrf', 'wrf-portable']
       workloads:
         CONUS_12km:
           experiments:
@@ -82,27 +83,27 @@ ramble:
       intel-mpi:
         pkg_spec: intel-oneapi-mpi@2021.11.0
         compiler: gcc
-      wrfv4:
+      wrf:
         pkg_spec: wrf@4.2 build_type=dm+sm compile_type=em_real nesting=basic ~chem ~pnetcdf
         compiler: gcc
-      wrfv4-portable:
+      wrf-portable:
         pkg_spec: 'wrf@4.2 build_type=dm+sm compile_type=em_real
           nesting=basic ~chem ~pnetcdf target=x86_64'
         compiler: gcc
     environments:
-      wrfv4:
+      wrf:
         packages:
-        - wrfv4
+        - wrf
         - intel-mpi
-      wrfv4-portable:
+      wrf-portable:
         packages:
-        - wrfv4-portable
+        - wrf-portable
         - intel-mpi
 """
 
     test_licenses = """
 licenses:
-  wrfv4:
+  wrf:
     set:
       WRF_LICENSE: port@server
       WRF_CERTIFICATE_PATH: '{lic_path}'
@@ -170,7 +171,7 @@ compilers:
         )
 
         # Test software directories
-        software_dirs = ["wrfv4", "wrfv4-portable"]
+        software_dirs = ["wrf", "wrf-portable"]
         software_base_dir = ws1.software_dir
         assert os.path.exists(software_base_dir)
         for software_dir in software_dirs:
@@ -187,36 +188,36 @@ compilers:
                     assert os.path.exists(file_path)
 
         expected_experiments = [
-            "scaling_1_part1_wrfv4",
-            "scaling_2_part1_wrfv4",
-            "scaling_4_part1_wrfv4",
-            "scaling_8_part1_wrfv4",
-            "scaling_16_part1_wrfv4",
-            "scaling_1_part2_wrfv4",
-            "scaling_2_part2_wrfv4",
-            "scaling_4_part2_wrfv4",
-            "scaling_8_part2_wrfv4",
-            "scaling_16_part2_wrfv4",
-            "scaling_1_part1_wrfv4-portable",
-            "scaling_2_part1_wrfv4-portable",
-            "scaling_4_part1_wrfv4-portable",
-            "scaling_8_part1_wrfv4-portable",
-            "scaling_16_part1_wrfv4-portable",
-            "scaling_1_part2_wrfv4-portable",
-            "scaling_2_part2_wrfv4-portable",
-            "scaling_4_part2_wrfv4-portable",
-            "scaling_8_part2_wrfv4-portable",
-            "scaling_16_part2_wrfv4-portable",
+            "scaling_1_part1_wrf",
+            "scaling_2_part1_wrf",
+            "scaling_4_part1_wrf",
+            "scaling_8_part1_wrf",
+            "scaling_16_part1_wrf",
+            "scaling_1_part2_wrf",
+            "scaling_2_part2_wrf",
+            "scaling_4_part2_wrf",
+            "scaling_8_part2_wrf",
+            "scaling_16_part2_wrf",
+            "scaling_1_part1_wrf-portable",
+            "scaling_2_part1_wrf-portable",
+            "scaling_4_part1_wrf-portable",
+            "scaling_8_part1_wrf-portable",
+            "scaling_16_part1_wrf-portable",
+            "scaling_1_part2_wrf-portable",
+            "scaling_2_part2_wrf-portable",
+            "scaling_4_part2_wrf-portable",
+            "scaling_8_part2_wrf-portable",
+            "scaling_16_part2_wrf-portable",
         ]
 
         # Test experiment directories
         for exp in expected_experiments:
-            exp_dir = os.path.join(ws1.root, "experiments", "wrfv4", "CONUS_12km", exp)
+            exp_dir = os.path.join(ws1.root, "experiments", "wrf", "CONUS_12km", exp)
             assert os.path.isdir(exp_dir)
             assert os.path.exists(os.path.join(exp_dir, "execute_experiment"))
             assert os.path.exists(os.path.join(exp_dir, "full_command"))
 
-            license_inc_path = os.path.join(ws1.root, "shared", "licenses", "wrfv4", "license.inc")
+            license_inc_path = os.path.join(ws1.root, "shared", "licenses", "wrf", "license.inc")
             with open(os.path.join(exp_dir, "full_command"), encoding="utf-8") as f:
                 data = f.read()
                 # Test the license exists
@@ -250,7 +251,7 @@ compilers:
 
             assert os.path.isdir(os.path.join(ws1.root, "shared"))
             assert os.path.isdir(os.path.join(ws1.root, "shared", "licenses"))
-            assert os.path.isdir(os.path.join(ws1.root, "shared", "licenses", "wrfv4"))
+            assert os.path.isdir(os.path.join(ws1.root, "shared", "licenses", "wrf"))
             assert os.path.exists(license_inc_path)
 
             with open(license_inc_path, encoding="utf-8") as f:
@@ -344,7 +345,7 @@ compilers:
 
         for exp in expected_experiments:
             exp_dir = os.path.join(
-                ws1.latest_archive_path, "experiments", "wrfv4", "CONUS_12km", exp
+                ws1.latest_archive_path, "experiments", "wrf", "CONUS_12km", exp
             )
             assert os.path.isdir(exp_dir)
             assert os.path.exists(os.path.join(exp_dir, "execute_experiment"))
@@ -365,9 +366,9 @@ ramble:
     n_ranks: '{processes_per_node}*{n_nodes}'
     n_threads: '1'
   applications:
-    wrfv4:
+    wrf:
       variables:
-        env_name: ['wrfv4', 'wrfv4-portable']
+        env_name: ['wrf', 'wrf-portable']
       workloads:
         CONUS_12km:
           experiments:
@@ -402,7 +403,7 @@ ramble:
 
     test_licenses = """
 licenses:
-  wrfv4:
+  wrf:
     set:
       WRF_LICENSE: port@server
 """
@@ -445,36 +446,36 @@ licenses:
         )
 
         expected_experiments = [
-            "scaling_1_part1_wrfv4",
-            "scaling_2_part1_wrfv4",
-            "scaling_4_part1_wrfv4",
-            "scaling_8_part1_wrfv4",
-            "scaling_16_part1_wrfv4",
-            "scaling_1_part2_wrfv4",
-            "scaling_2_part2_wrfv4",
-            "scaling_4_part2_wrfv4",
-            "scaling_8_part2_wrfv4",
-            "scaling_16_part2_wrfv4",
-            "scaling_1_part1_wrfv4-portable",
-            "scaling_2_part1_wrfv4-portable",
-            "scaling_4_part1_wrfv4-portable",
-            "scaling_8_part1_wrfv4-portable",
-            "scaling_16_part1_wrfv4-portable",
-            "scaling_1_part2_wrfv4-portable",
-            "scaling_2_part2_wrfv4-portable",
-            "scaling_4_part2_wrfv4-portable",
-            "scaling_8_part2_wrfv4-portable",
-            "scaling_16_part2_wrfv4-portable",
+            "scaling_1_part1_wrf",
+            "scaling_2_part1_wrf",
+            "scaling_4_part1_wrf",
+            "scaling_8_part1_wrf",
+            "scaling_16_part1_wrf",
+            "scaling_1_part2_wrf",
+            "scaling_2_part2_wrf",
+            "scaling_4_part2_wrf",
+            "scaling_8_part2_wrf",
+            "scaling_16_part2_wrf",
+            "scaling_1_part1_wrf-portable",
+            "scaling_2_part1_wrf-portable",
+            "scaling_4_part1_wrf-portable",
+            "scaling_8_part1_wrf-portable",
+            "scaling_16_part1_wrf-portable",
+            "scaling_1_part2_wrf-portable",
+            "scaling_2_part2_wrf-portable",
+            "scaling_4_part2_wrf-portable",
+            "scaling_8_part2_wrf-portable",
+            "scaling_16_part2_wrf-portable",
         ]
 
         # Test experiment directories
         for exp in expected_experiments:
-            exp_dir = os.path.join(ws1.root, "experiments", "wrfv4", "CONUS_12km", exp)
+            exp_dir = os.path.join(ws1.root, "experiments", "wrf", "CONUS_12km", exp)
             assert os.path.isdir(exp_dir)
             assert os.path.exists(os.path.join(exp_dir, "execute_experiment"))
             assert os.path.exists(os.path.join(exp_dir, "full_command"))
 
-            license_inc_path = os.path.join(ws1.root, "shared", "licenses", "wrfv4", "license.inc")
+            license_inc_path = os.path.join(ws1.root, "shared", "licenses", "wrf", "license.inc")
             with open(os.path.join(exp_dir, "full_command"), encoding="utf-8") as f:
                 data = f.read()
                 # Test the license exists
@@ -508,7 +509,7 @@ licenses:
 
             assert os.path.isdir(os.path.join(ws1.root, "shared"))
             assert os.path.isdir(os.path.join(ws1.root, "shared", "licenses"))
-            assert os.path.isdir(os.path.join(ws1.root, "shared", "licenses", "wrfv4"))
+            assert os.path.isdir(os.path.join(ws1.root, "shared", "licenses", "wrf"))
             assert os.path.exists(license_inc_path)
 
             with open(license_inc_path, encoding="utf-8") as f:
@@ -596,10 +597,39 @@ licenses:
 
         for exp in expected_experiments:
             exp_dir = os.path.join(
-                ws1.latest_archive_path, "experiments", "wrfv4", "CONUS_12km", exp
+                ws1.latest_archive_path, "experiments", "wrf", "CONUS_12km", exp
             )
             assert os.path.isdir(exp_dir)
             assert os.path.exists(os.path.join(exp_dir, "execute_experiment"))
             assert os.path.exists(os.path.join(exp_dir, "full_command"))
             assert os.path.exists(os.path.join(exp_dir, "rsl.out.base"))
             assert os.path.exists(os.path.join(exp_dir, "rsl.error.base"))
+
+
+@pytest.mark.parametrize("app_name,replacement", [("wrfv3", "wrf@3.9.1.1"), ("wrfv4", "wrf@4.2")])
+@deprecation.fail_if_not_removed
+def test_deprecated_wrf_apps(make_workspace_from_config, app_name, replacement):
+    test_config = f"""
+ramble:
+  variables:
+    mpi_command: 'mpirun -n {{n_ranks}}'
+    batch_submit: 'batch_submit {{execute_experiment}}'
+    processes_per_node: '1'
+    n_ranks: '1'
+    n_threads: '1'
+    wrf_path: '/not/a/real/path'
+  applications:
+    {app_name}:
+      workloads:
+        CONUS_12km:
+          experiments:
+            test_exp_{{n_nodes}}:
+              variables:
+                n_nodes: ['1', '2']
+              matrix:
+              - n_nodes
+"""
+    _, ws_name = make_workspace_from_config(test_config)
+    output = workspace("info", global_args=["-w", ws_name])
+    assert output.count(f"The '{app_name}' application is deprecated") == 1
+    assert replacement in output
