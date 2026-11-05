@@ -301,6 +301,13 @@ class ExperimentSet:
         )
         app_inst.define_variable(self.keywords.experiment_name, final_exp_name)
 
+        experiment_namespace = (
+            f"{app_inst.expander.application_spec}."
+            f"{app_inst.expander.workload_name}."
+            f"{app_inst.expander.experiment_name}"
+        )
+        app_inst.define_variable(self.keywords.experiment_namespace, experiment_namespace)
+
         app_inst.define_variable(
             self.keywords.log_file, os.path.join("{experiment_run_dir}", "{experiment_name}.out")
         )
@@ -329,9 +336,6 @@ class ExperimentSet:
             app_inst.define_variable(name, value)
 
         app_inst.define_variables_for_template_path()
-
-        experiment_namespace = app_inst.expander.experiment_namespace
-        app_inst.define_variable(self.keywords.experiment_namespace, experiment_namespace)
 
         return app_inst
 
