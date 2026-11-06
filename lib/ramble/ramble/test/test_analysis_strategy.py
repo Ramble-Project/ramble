@@ -202,3 +202,104 @@ def test_backwards_strategy_dynamic_foms_fallback(monkeypatch):
 
     strategy(MockWorkspace())
     assert called_forward
+
+
+def test_forward_strategy_ignores_unformatted_context_regex_groups(tmpdir):
+    import re
+    from unittest.mock import patch
+
+    import ramble.util.lock as lk
+
+    log_file = str(tmpdir.join("test.log"))
+    with open(log_file, "w", encoding="utf-8") as f:
+        f.write("size 64 val 1.5\n")
+        f.write("size 64 val 2.5\n")
+
+    shared_regex = re.compile(r"size (?P<size>\d+) val (?P<val>[\d.]+)")
+
+    class MockResult:
+        def __init__(self):
+            self.contexts = []
+            self.success_criteria = {}
+
+        def read_cache(self, workspace, app):
+            return False
+
+        def finalize(self, workspace):
+            pass
+
+    class MockApp:
+        def __init__(self):
+            self.success_list = None
+            self.get_status = lambda: None
+            self.set_status = lambda status: None
+            self.result = MockResult()
+            self.experiment_lock = lk.Lock(str(tmpdir.join("lock")))
+            self.workflow_manager = None
+            self.extract_inmem_foms = lambda *args: None
+
+        def analysis_dicts(self, criteria_list):
+            files = {log_file: {"contexts": {"size_ctx": ["val_fom"]}, "success_criteria": []}}
+            f_defs = {
+                "size_ctx": {
+                    "definition": {
+                        "regex": shared_regex,
+                        "format": "Size: {size}",
+                    },
+                    "foms": {
+                        "val_fom": {
+                            "regex": shared_regex,
+                            "group": "val",
+                            "fom_name_expanded": "Value",
+                            "units": "s",
+                            "units_expanded": "s",
+                            "origin": "test",
+                            "origin_type": "application",
+                            "fom_type": None,
+                            "contexts": ["size_ctx"],
+                        }
+                    },
+                }
+            }
+            return files, f_defs, {}
+
+    class MockWorkspace:
+        dry_run = False
+
+    app = MockApp()
+    strategy = ForwardAnalysisStrategy(app)
+    with patch("ramble.util.logger.logger.debug") as mock_debug:
+        strategy(MockWorkspace())
+        mock_debug.assert_any_call(
+            "Context 'Size: 64' (from 'size_ctx') matched multiple times; "
+            "earlier FOM values in this context may be overwritten."
+        )
+        mock_debug.assert_any_call(
+            " --- Overwriting FOM 'Value' in context 'Size: 64' (1.5 -> 2.5)"
+        )
+
+    assert len(app.result.contexts) == 1
+    assert app.result.contexts[0]["name"] == "Size: 64"
+    assert app.result.contexts[0]["context_vars"] == {"size": "64"}
+    assert app.result.contexts[0]["foms"][0]["value"] == "2.5"
+
+
+def test_hpl_problem_name_context_includes_tv():
+    import re
+
+    import ramble.repository
+
+    hpl_inst = ramble.repository.get("hpl")
+    ctx_def = hpl_inst.figure_of_merit_contexts[frozenset()]["problem-name"]
+    assert ctx_def["output_format"] == "T/V-N-NB-P-Q = {TV}-{N}-{NB}-{P}-{Q}"
+
+    line = "WR00L2L2        1000   128     1     1               0.00              4.442e+01"
+    match = re.match(ctx_def["regex"], line)
+    assert match is not None
+    assert match.groupdict() == {
+        "TV": "WR00L2L2",
+        "N": "1000",
+        "NB": "128",
+        "P": "1",
+        "Q": "1",
+    }

@@ -293,7 +293,7 @@ ramble:
               - name: 'target_gflops'
                 mode: 'fom_comparison'
                 fom_name: 'GFlops'
-                fom_context: 'N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}'
+                fom_context: 'T/V-N-NB-P-Q = *-{Ns}-{NBs}-{Ps}-{Qs}'
                 formula: '{value} > 1000'
         standard:
           experiments:
@@ -308,7 +308,7 @@ ramble:
               - name: 'target_gflops'
                 mode: 'fom_comparison'
                 fom_name: 'GFlops'
-                fom_context: 'N-NB-P-Q = {Optimal-N}-{NBs}-{Ps}-{Qs}'
+                fom_context: 'T/V-N-NB-P-Q = *-{Optimal-N}-{NBs}-{Ps}-{Qs}'
                 formula: '{value} > 1000'
 """
     ws, ws_name = make_workspace_from_config(test_config)

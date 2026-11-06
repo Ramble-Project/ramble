@@ -233,10 +233,10 @@ def test_success_criteria_fom_context_variable_expansion():
     app_inst.expander.evaluate_predicate.side_effect = evaluate_predicate
 
     fom_values = {
-        ("N-NB-P-Q = 1000-384-12-16", "problem-name"): {
+        ("T/V-N-NB-P-Q = WR00L2L2-1000-384-12-16", "problem-name"): {
             "GFlops": {"value": 100.0},
         },
-        ("N-NB-P-Q = 2000-384-12-16", "problem-name"): {
+        ("T/V-N-NB-P-Q = WR00L2L2-2000-384-12-16", "problem-name"): {
             "GFlops": {"value": 250.0},
         },
     }
@@ -245,7 +245,7 @@ def test_success_criteria_fom_context_variable_expansion():
     crit_pass = ramble.success_criteria.SuccessCriteria(
         name="hpl_target_pass",
         mode="fom_comparison",
-        fom_context="N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}",
+        fom_context="T/V-N-NB-P-Q = *-{Ns}-{NBs}-{Ps}-{Qs}",
         fom_name="GFlops",
         formula="{value} > 200.0",
     )
@@ -255,7 +255,7 @@ def test_success_criteria_fom_context_variable_expansion():
     crit_fail = ramble.success_criteria.SuccessCriteria(
         name="hpl_target_fail",
         mode="fom_comparison",
-        fom_context="N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}",
+        fom_context="T/V-N-NB-P-Q = *-{Ns}-{NBs}-{Ps}-{Qs}",
         fom_name="GFlops",
         formula="{value} > 300.0",
     )
@@ -266,7 +266,7 @@ def test_success_criteria_fom_context_variable_expansion():
     crit_no_match = ramble.success_criteria.SuccessCriteria(
         name="hpl_no_match",
         mode="fom_comparison",
-        fom_context="N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}",
+        fom_context="T/V-N-NB-P-Q = *-{Ns}-{NBs}-{Ps}-{Qs}",
         fom_name="GFlops",
         formula="{value} > 0",
     )
