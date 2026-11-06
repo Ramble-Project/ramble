@@ -3519,9 +3519,8 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         experiment_run_dir = self.expander.experiment_run_dir
         ws_archive_dir = workspace.latest_archive_path
 
-        archive_experiment_dir = experiment_run_dir.replace(
-            workspace.root, ws_archive_dir
-        )
+        rel_exp_dir = os.path.relpath(experiment_run_dir, workspace.root)
+        archive_experiment_dir = os.path.join(ws_archive_dir, rel_exp_dir)
 
         fs.mkdirp(archive_experiment_dir)
 
@@ -3546,8 +3545,9 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                     file = os.path.join(experiment_run_dir, exec_log)
 
                 if os.path.isfile(file):
+                    rel_path = os.path.relpath(file, workspace.root)
                     dest_dir = os.path.dirname(
-                        file.replace(workspace.root, ws_archive_dir)
+                        os.path.join(ws_archive_dir, rel_path)
                     )
                     fs.mkdirp(dest_dir)
                     shutil.copy(file, dest_dir)
@@ -3591,8 +3591,9 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                 if not os.path.isabs(exp_pattern):
                     exp_pattern = os.path.join(experiment_run_dir, exp_pattern)
                 for file in glob.glob(exp_pattern):
+                    rel_path = os.path.relpath(file, workspace.root)
                     dest_dir = os.path.dirname(
-                        file.replace(workspace.root, ws_archive_dir)
+                        os.path.join(ws_archive_dir, rel_path)
                     )
                     fs.mkdirp(dest_dir)
                     shutil.copy(file, dest_dir)

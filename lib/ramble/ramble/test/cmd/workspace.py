@@ -1730,6 +1730,13 @@ licenses:
         with open(new_archive_file, "w+", encoding="utf-8") as f:
             f.write("Test archive file")
 
+    nested_rel_dir = ws1.root.lstrip(os.sep)
+    nested_pattern_rel = os.path.join(nested_rel_dir, "nested_pattern.txt")
+    nested_archive_file = os.path.join(ws1.root, nested_pattern_rel)
+    fs.mkdirp(os.path.dirname(nested_archive_file))
+    with open(nested_archive_file, "w+", encoding="utf-8") as f:
+        f.write("Nested archive file")
+
     ws1._re_read()
 
     workspace("setup", "--dry-run", global_args=["-w", workspace_name])
@@ -1749,7 +1756,14 @@ licenses:
         f = open(new_file, "w+", encoding="utf-8")
         f.close()
 
-    workspace("archive", "--archive-pattern", "test_pattern*", global_args=["-w", workspace_name])
+    workspace(
+        "archive",
+        "--archive-pattern",
+        "test_pattern*",
+        "--archive-pattern",
+        nested_pattern_rel,
+        global_args=["-w", workspace_name],
+    )
 
     assert ws1.latest_archive
     assert os.path.exists(ws1.latest_archive_path)
@@ -1769,6 +1783,8 @@ licenses:
         assert os.path.isfile(archived_path)
         with open(archived_path, encoding="utf-8") as f:
             assert "Test archive file" in f.read()
+
+    assert os.path.isfile(os.path.join(ws1.latest_archive_path, nested_pattern_rel))
 
     assert not os.path.exists(
         os.path.join(

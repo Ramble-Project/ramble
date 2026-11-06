@@ -461,8 +461,9 @@ class ArchivePipeline(Pipeline):
             # Escape workspace root incase it contains glob characters.
             pattern_path = glob.escape(self.workspace.root) + os.sep + pattern
             for file in glob.glob(pattern_path):
+                rel_path = os.path.relpath(file, self.workspace.root)
                 dest_dir = os.path.dirname(
-                    file.replace(self.workspace.root, self.workspace.latest_archive_path)
+                    os.path.join(self.workspace.latest_archive_path, rel_path)
                 )
                 fs.mkdirp(dest_dir)
                 shutil.copy(file, dest_dir)
@@ -855,7 +856,7 @@ class PushDeploymentPipeline(Pipeline):
         deployment_index: Dict[str, List[str]] = {self.index_namespace: []}
         for file in self._deployment_files():
             deployment_index[self.index_namespace].append(
-                file.replace(self.workspace.named_deployment + os.path.sep, "")
+                os.path.relpath(file, self.workspace.named_deployment)
             )
         index_file = os.path.join(self.workspace.named_deployment, self.index_filename)
         with open(index_file, "w+", encoding="utf-8") as f:
@@ -873,7 +874,8 @@ class PushDeploymentPipeline(Pipeline):
             remote_base = self.upload_url + "/" + self.deployment_name
 
             for file in self._deployment_files():
-                dest = file.replace(self.workspace.named_deployment, remote_base)
+                rel_path = os.path.relpath(file, self.workspace.named_deployment)
+                dest = os.path.join(remote_base, rel_path)
                 _upload_file(file, dest)
 
             if self.create_tar:
