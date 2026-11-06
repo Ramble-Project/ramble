@@ -127,6 +127,35 @@ The ``formula`` attribute can access any variables defined within an
 experiment. Additionally, an extra ``value`` variable is defined, which takes
 the value of the FOM as extracted from the output.
 
+The ``fom_context`` attribute also supports variable expansion, allowing a
+criterion to dynamically target a specific context using experiment variables:
+
+.. code-block:: yaml
+
+    success_criteria:
+    - name: hpl_target_perf
+      mode: fom_comparison
+      fom_context: 'N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}'
+      fom_name: 'GFlops'
+      formula: '{value} > 12000.0'
+
+If a workload variable contains multiple values (for example, ``Ns: '1000 20000'``
+in HPL's ``standard`` workload), a separate variable can be defined to target
+the specific context of interest:
+
+.. code-block:: yaml
+
+    variables:
+      Ns: '1000 20000'
+      Optimal-N: 20000
+    success_criteria:
+    - name: hpl_target_perf
+      mode: fom_comparison
+      fom_context: 'N-NB-P-Q = {Optimal-N}-{NBs}-{Ps}-{Qs}'
+      fom_name: 'GFlops'
+      formula: '{value} > 12000.0'
+
+
 ^^^^^^^^^^^^^^^^^^^^
 Mode: String
 ^^^^^^^^^^^^^^^^^^^^
