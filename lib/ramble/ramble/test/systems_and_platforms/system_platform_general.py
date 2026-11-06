@@ -73,6 +73,7 @@ def test_system_platform_works(workspace_name, mock_platforms, mock_systems, ens
     assert "openmpi" in spack_config["spack"]["packages"]
     assert "buildable" in spack_config["spack"]["packages"]["openmpi"]
     assert "externals" in spack_config["spack"]["packages"]["openmpi"]
+    assert spack_config["spack"]["packages"]["all"]["target"] == ["zen5"]
 
     # Verify slurm portions of execute script (to show workflow was applied)
     exec_file = os.path.join(

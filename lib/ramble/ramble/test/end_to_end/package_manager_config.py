@@ -69,3 +69,58 @@ ramble:
             data = f.read()
             assert "config:" in data
             assert "debug: true" in data
+
+
+def test_package_manager_config_platform(
+    mock_applications, mock_platforms, workspace_name, ensure_spack_runner
+):
+    ws = ramble.workspace.create(workspace_name)
+    global_args = ["-w", workspace_name]
+
+    workspace(
+        "manage",
+        "experiments",
+        "zlib-configs",
+        "--wf",
+        "ensure_installed",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "processes_per_node=1",
+        "-V",
+        "package_manager=spack",
+        "-V",
+        "platform=mock-platform1",
+        "-V",
+        "validate_platform=false",
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "software",
+        "--pkg",
+        "zlib",
+        "--spec",
+        "zlib",
+        "--env",
+        "zlib-configs",
+        "--environment-packages",
+        "zlib",
+        global_args=global_args,
+    )
+    workspace("setup", "--dry-run", global_args=global_args)
+
+    spack_yaml = os.path.join(
+        glob.glob(os.path.join(ws.software_dir, "spack*"))[0],
+        "zlib-configs",
+        "spack.yaml",
+    )
+
+    assert os.path.isfile(spack_yaml)
+
+    with open(spack_yaml, encoding="utf-8") as f:
+        data = f.read()
+        assert "config:" in data
+        assert "packages:" in data
+        assert "target:" in data
+        assert "zen5" in data

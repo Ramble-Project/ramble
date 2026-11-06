@@ -190,16 +190,9 @@ class SpackLightweight(PackageManagerBase):
         else:
             workspace.add_to_cache(cache_tupl)
 
-        package_manager_config_dicts = [app_inst.package_manager_configs]
-        package_manager_config_dicts.extend(
-            mod_inst.package_manager_configs
-            for mod_inst in app_inst._modifier_instances
-        )
-
-        for config_dict in package_manager_config_dicts:
-            for config in config_dict.values():
-                keep_config = self.satisfy_when(config["when"])
-                if keep_config:
+        for _, obj in reversed(list(app_inst.objects())):
+            for config in obj.package_manager_configs.values():
+                if obj.satisfy_when(config["when"]):
                     self.runner.add_config(config["config"])
 
         try:

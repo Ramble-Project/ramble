@@ -37,6 +37,10 @@ class MockPlatform1(PlatformBase):
             src_path="packages.yaml.tpl",
             dest_path="packages.yaml",
         )
+        package_manager_config(
+            "platform_target",
+            "packages:all:target:[zen5]",
+        )
 
     variable(
         "max_memory_per_node",
