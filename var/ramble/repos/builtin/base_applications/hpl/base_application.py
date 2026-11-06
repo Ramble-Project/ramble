@@ -292,8 +292,8 @@ class Hpl(ExecutableApplication):
 
     figure_of_merit_context(
         "problem-name",
-        regex=r".*?\s+(?P<N>[0-9]+)\s+(?P<NB>[0-9]+)\s+(?P<P>[0-9]+)\s+(?P<Q>[0-9]+)\s+(?P<time>[0-9]+\.[0-9]+)\s+(?P<gflops>\S+)",
-        output_format="N-NB-P-Q = {N}-{NB}-{P}-{Q}",
+        regex=r"\s*(?P<TV>\S+)\s+(?P<N>[0-9]+)\s+(?P<NB>[0-9]+)\s+(?P<P>[0-9]+)\s+(?P<Q>[0-9]+)\s+[0-9]+\.[0-9]+\s+\S+",
+        output_format="T/V-N-NB-P-Q = {TV}-{N}-{NB}-{P}-{Q}",
     )
 
     # List of setting names for input
