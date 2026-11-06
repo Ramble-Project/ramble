@@ -20,9 +20,6 @@ from ramble.util.logger import logger
 
 import spack.extensions
 
-# cmd has a submodule called "list" so preserve the python list module
-python_list = list
-
 # Patterns to ignore in the commands directory when looking for commands.
 ignore_files = r"^\.|^__init__.py$|^#"
 

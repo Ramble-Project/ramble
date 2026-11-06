@@ -528,14 +528,14 @@ class TestStage:
         archive = mock_stage_archive()
         # If this is the only/first test that runs against the `self.stage_name`, then
         # a stage lock file will be present under the `stage_path` and cause the
-        # `_ensure_one_stage_entry` to fail. Set lock=False to prevent creating the lock,
+        # single-entry check to fail. Set lock=False to prevent creating the lock,
         # as the focus of this test is to verify the fetch behavior.
         with InputStage(
             archive.url, name=self.stage_name, path=archive.stage_path, keep=False, lock=False
         ) as stage:
             stage.fetch()
             stage_path = stage.path
-            ramble.fetch_strategy._ensure_one_stage_entry(stage_path)
+            assert len(os.listdir(stage_path)) == 1
         check_destroy(stage, self.stage_name)
 
     @pytest.mark.parametrize(

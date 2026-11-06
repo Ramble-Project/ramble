@@ -1469,7 +1469,7 @@ class ConfigFormatError(ConfigError):
                 location += f"\n{lines[mark.line]}"
 
         message = f"{location}\n{validation_error}"
-        super(ConfigError, self).__init__(message)
+        super().__init__(message)
 
     def _get_mark(self, validation_error, data):
         """Get the file/line mark for a validation error from a Ramble YAML file."""

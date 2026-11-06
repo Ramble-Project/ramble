@@ -100,13 +100,6 @@ def _needs_stage(fun):
     return wrapper
 
 
-def _ensure_one_stage_entry(stage_path):
-    """Ensure there is only one stage entry in the stage path."""
-    stage_entries = os.listdir(stage_path)
-    assert len(stage_entries) == 1
-    return os.path.join(stage_path, stage_entries[0])
-
-
 def fetcher(cls):
     """Decorator used to register fetch strategies."""
     all_strategies.append(cls)
