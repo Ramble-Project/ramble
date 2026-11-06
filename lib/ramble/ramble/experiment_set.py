@@ -88,6 +88,7 @@ class ExperimentSet:
         self.set_base_var(
             self.keywords.env_name, Expander.expansion_str(self.keywords.application_spec)
         )
+        self.set_base_var(self.keywords.ramble_version, ramble.ramble_version)
 
     def read_config_vars(self, workspace):
         global_context = ramble.context.Context()

@@ -6,12 +6,59 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import functools
 import os
 import re
-from typing import Optional
+from typing import Any, Optional
+
+from packaging.version import InvalidVersion
+from packaging.version import Version as PackagingVersion
 
 import ramble
 import ramble.paths
+
+
+@functools.total_ordering
+class Version:
+    """Wrapper around packaging.version.Version supporting rich comparisons with strings."""
+
+    raw: str
+    _version: PackagingVersion
+
+    def __init__(self, version: str):
+        if not isinstance(version, str):
+            raise ValueError(f"Invalid version: '{version}'")
+
+        raw = version.strip()
+        try:
+            self._version = PackagingVersion(raw)
+        except InvalidVersion as err:
+            raise ValueError(f"Invalid version: '{version}'") from err
+        self.raw = raw
+
+    @classmethod
+    def _coerce(cls, other: Any) -> Optional["Version"]:
+        if isinstance(other, cls):
+            return other
+        try:
+            return cls(other)
+        except ValueError:
+            return None
+
+    def __eq__(self, other: object) -> bool:
+        coerced = self._coerce(other)
+        if coerced is None:
+            return NotImplemented
+        return self._version == coerced._version
+
+    def __lt__(self, other: object) -> bool:
+        coerced = self._coerce(other)
+        if coerced is None:
+            return NotImplemented
+        return self._version < coerced._version
+
+    def __str__(self) -> str:
+        return self.raw
 
 
 def get_version() -> str:
