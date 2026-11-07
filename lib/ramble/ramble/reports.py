@@ -1391,7 +1391,6 @@ class ComparisonPlot(PlotGenerator):
 
 class MultiLinePlot(ScalingPlotGenerator):
     plot_type = "multi_line"
-    series_to_plot: List[str] = []
 
     def default_better(self):
         return BetterDirection.HIGHER

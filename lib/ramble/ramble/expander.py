@@ -653,7 +653,6 @@ class Expander:
 
     application_name = _cached_keyword_property("application_name")
     application_spec = _cached_keyword_property("application_spec")
-    application_version = _cached_keyword_property("application_version")
     workload_name = _cached_keyword_property("workload_name")
     experiment_name = _cached_keyword_property("experiment_name")
     application_namespace = _cached_keyword_property("application_namespace")
