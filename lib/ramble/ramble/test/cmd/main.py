@@ -10,6 +10,7 @@ import signal
 
 import pytest
 
+import ramble.error
 import ramble.main
 
 pytestmark = pytest.mark.usefixtures("mutable_config", "workspace_deactivate")
@@ -78,3 +79,18 @@ def test_keyboard_interrupt_exit_code(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert ret == ramble.main.POSIX_SIGNAL_EXIT_OFFSET + signal.SIGINT.value
     assert "Keyboard interrupt." in captured.err
+
+
+def test_ramble_error_debug(monkeypatch, capsys):
+    monkeypatch.setattr(ramble.error, "debug", True)
+
+    def mock_invoke(*args, **kwargs):
+        raise ramble.error.RambleError("test error", long_message="detailed info")
+
+    monkeypatch.setattr(ramble.main, "_invoke_command", mock_invoke)
+    with pytest.raises(SystemExit) as exc_info:
+        ramble.main.main(argv=["workspace", "list"])
+    assert exc_info.value.code == 1
+    captured = capsys.readouterr()
+    assert "test error" in captured.err
+    assert "detailed info" in captured.err
