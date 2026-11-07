@@ -27,10 +27,6 @@ class RambleError(Exception):
         self.message: str = message
         self._long_message: Optional[str] = long_message
 
-        # for exceptions raised from child build processes, we save the
-        # traceback as a string and print it in the parent.
-        self.traceback: Optional[str] = None
-
         # we allow exceptions to print debug info via print_context()
         # before they are caught at the top level. If they *haven't*
         # printed context early, we do it by default when die() is
@@ -60,13 +56,7 @@ class RambleError(Exception):
 
         # stack trace, etc. in debug mode.
         if debug:
-            if self.traceback:
-                # exception came from a build child, already got
-                # traceback in child, so print it.
-                sys.stderr.write(self.traceback)
-            else:
-                # run parent exception hook.
-                sys.excepthook(*sys.exc_info())
+            sys.excepthook(*sys.exc_info())
 
         sys.stderr.flush()
         self.printed = True
@@ -97,10 +87,6 @@ class RambleError(Exception):
 
 class DirectiveError(RambleError):
     """This is raised when something is wrong with a language directive."""
-
-
-class SpecError(RambleError):
-    """Superclass for all errors that occur while constructing specs."""
 
 
 class RambleCommandError(Exception):

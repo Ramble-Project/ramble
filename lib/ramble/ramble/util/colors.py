@@ -28,7 +28,6 @@ __all__ = [
     "auto_escape",
     "colorize",
     "cprint",
-    "cwrite",
     "escape_str",
     "level_func",
     "config_title",
@@ -98,15 +97,6 @@ def cprint(string, **kwargs):
     """
     string = auto_escape(string)
     llnl.util.tty.color.cprint(string, **kwargs)
-
-
-def cwrite(string, **kwargs):
-    """
-    Wrapper for llnl.util.tty.color.cwrite that automatically escapes `@`
-    characters in the string if they do not match valid color codes.
-    """
-    string = auto_escape(string)
-    llnl.util.tty.color.cwrite(string, **kwargs)
 
 
 def escape_str(s):

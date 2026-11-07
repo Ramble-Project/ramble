@@ -68,14 +68,6 @@ licensed_files = [
 ]
 
 
-#: licensed files that can have LGPL language in them
-#: so far, just this command -- so it can find LGPL things elsewhere
-lgpl_exceptions = [
-    r"lib/ramble/ramble/cmd/license.py",
-    r"lib/ramble/ramble/test/cmd/license.py",
-]
-
-
 def _get_modified_files(root):
     """Get a list of modified files in the current repository."""
     diff_args = ["-C", root, "diff", "HEAD", "--name-only"]

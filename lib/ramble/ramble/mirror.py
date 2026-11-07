@@ -17,7 +17,6 @@ to download inputs directly from a mirror (e.g., on an intranet).
 """
 
 import collections
-import operator
 import os.path
 
 import ruamel.yaml.error as yaml_error
@@ -27,7 +26,6 @@ from llnl.util.compat import Mapping
 import ramble.config
 import ramble.error
 import ramble.fetch_strategy as fs
-from ramble.util import json_util
 from ramble.util.logger import logger
 
 import spack.url
@@ -64,12 +62,6 @@ class Mirror:
     def __eq__(self, other):
         return self._fetch_url == other._fetch_url and self._push_url == other._push_url
 
-    def to_json(self, stream=None):
-        return json_util.dump(self.to_dict(), stream)
-
-    def to_yaml(self, stream=None):
-        return spack.util.spack_yaml.dump(self.to_dict(), stream)
-
     @staticmethod
     def from_yaml(stream, name=None):
         try:
@@ -77,19 +69,6 @@ class Mirror:
             return Mirror.from_dict(data, name)
         except yaml_error.MarkedYAMLError as e:
             raise MirrorError(f"error parsing YAML mirror: {e}") from e
-
-    @staticmethod
-    def from_json(stream, name=None):
-        try:
-            d = json_util.load(stream)
-            return Mirror.from_dict(d, name)
-        except Exception as e:
-            raise MirrorError(f"error parsing JSON mirror: {e}") from e
-
-    def to_dict(self):
-        return syaml_dict(
-            [("fetch", self._fetch_url), ("push", self._push_url or self._fetch_url)]
-        )
 
     @staticmethod
     def from_dict(d, name=None):
@@ -142,25 +121,11 @@ class Mirror:
     def fetch_url(self):
         return self._fetch_url if _is_string(self._fetch_url) else self._fetch_url["url"]
 
-    @fetch_url.setter
-    def fetch_url(self, url):
-        self._fetch_url["url"] = url
-        self._normalize()
-
     @property
     def push_url(self):
         if self._push_url is None:
             return self._fetch_url if _is_string(self._fetch_url) else self._fetch_url["url"]
         return self._push_url if _is_string(self._push_url) else self._push_url["url"]
-
-    @push_url.setter
-    def push_url(self, url):
-        self._push_url["url"] = url
-        self._normalize()
-
-    def _normalize(self):
-        if self._push_url is not None and self._push_url == self._fetch_url:
-            self._push_url = None
 
 
 class MirrorCollection(Mapping):
@@ -178,24 +143,6 @@ class MirrorCollection(Mapping):
 
     def __eq__(self, other):
         return self._mirrors == other._mirrors
-
-    def to_json(self, stream=None):
-        return json_util.dump(self.to_dict(True), stream)
-
-    def to_yaml(self, stream=None):
-        return spack.util.spack_yaml.dump(self.to_dict(True), stream)
-
-    def to_dict(self, recursive=False):
-        return syaml_dict(
-            sorted(
-                ((k, (v.to_dict() if recursive else v)) for (k, v) in self._mirrors.items()),
-                key=operator.itemgetter(0),
-            )
-        )
-
-    @staticmethod
-    def from_dict(d):
-        return MirrorCollection(d)
 
     def __getitem__(self, item):
         return self._mirrors[item]

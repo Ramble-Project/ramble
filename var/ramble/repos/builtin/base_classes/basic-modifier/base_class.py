@@ -20,4 +20,3 @@ class BasicModifier(ModifierBase):
     """
 
     name = "basic-modifier"
-    modifier_class = "BasicModifier"

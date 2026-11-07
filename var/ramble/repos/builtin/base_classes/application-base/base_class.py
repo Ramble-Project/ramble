@@ -209,7 +209,6 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             description="Index of this experiment, in repeat space",
         )
 
-        self._vars_are_expanded = False
         self.expander = None
         self._context_formatted_executables = {}
         self.variables = None
@@ -236,15 +235,11 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         self.experiment_tags = []
         self._modifier_instances = []
         self._input_fetchers = None
-        self.result = None
         self._phase_times = {}
         self._pipeline_graphs = None
         self.package_manager = None
         self.custom_executables = {}
         self.success_list = None
-        self._exp_lock = None
-        self._input_lock = None
-        self._software_lock = None
         # A dict storing fom values, currently it only stores inmem FOMs
         self._fom_map = {}
         self._fom_values = {}
@@ -261,8 +256,6 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             "modifier_artifacts": [],
         }
         self.experiment_hash = None
-
-        self.application_class = "ApplicationBase"
 
         self.license_path = ""
         self.license_file = ""
@@ -1662,11 +1655,6 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         if self._modifier_instances:
             self.clear_variant_cache()
             self.define_missing_variables()
-
-    @property
-    def inventory_file(self):
-        experiment_run_dir = self.expander.experiment_run_dir
-        return os.path.join(experiment_run_dir, self._inventory_file_name)
 
     def object_hashes(self, yield_all=True):
         for obj_type, obj in self.objects(yield_all=yield_all):
@@ -4432,10 +4420,6 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
 
         return self.variables[self.keywords.experiment_status]
 
-    def get_ramble_status(self):
-        """Get the RAMBLE_STATUS of this experiment (boolifyied status)"""
-        return self.variables[self.keywords.RAMBLE_STATUS]
-
     def set_ramble_status(self, status):
         """Set the RAMBLE_STATUS (boolifyied status) of this experiment"""
 
@@ -4892,24 +4876,6 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                     yield from _yield_registered(attr_val)
             else:
                 yield from _yield_registered(self)
-
-    def require_mpi_variables(self):
-        self.keywords.update_keys(
-            {
-                self.keywords.n_ranks: {
-                    "type": ramble.keywords.key_type.required,
-                    "level": ramble.keywords.output_level.key,
-                },
-                self.keywords.processes_per_node: {
-                    "type": ramble.keywords.key_type.required,
-                    "level": ramble.keywords.output_level.key,
-                },
-                self.keywords.n_nodes: {
-                    "type": ramble.keywords.key_type.required,
-                    "level": ramble.keywords.output_level.key,
-                },
-            }
-        )
 
     def is_mpi_required(self, workload_name):
         for exec_node in self.get_executable_graph(workload_name).walk():
