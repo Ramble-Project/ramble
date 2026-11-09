@@ -131,45 +131,23 @@ class ExitCode(BasicModifier):
         contexts=["Executable Exit Code"],
     )
 
-    register_phase(
-        "examine_all_exit_codes",
-        pipeline="analyze",
-        run_before=["analyze_experiments"],
+    figure_of_merit(
+        "Final exit code",
+        units="",
+        formula=lambda mod: max(
+            (
+                int(v)
+                for v in mod.get_fom_values(
+                    "Exit code", context="Executable Exit Code"
+                )
+            ),
+            default=None,
+        ),
     )
-
-    def _examine_all_exit_codes(self, workspace, app_inst=None):
-        """Determine the max value from all exit codes"""
-        import os
-        import re
-
-        log_file = get_file_path(
-            app_inst.expander.expand_var("{exit_code_log}"), workspace
-        )
-
-        exit_regex = re.compile(self.exit_code_regex)
-        final_regex = re.compile("Final exit code: (?P<exit_code>[0-9]+)")
-
-        max_code = 0
-        final_found = False
-
-        if os.path.exists(log_file):
-            with open(log_file, encoding="utf-8") as f:
-                for line in f:
-                    m = exit_regex.match(line)
-
-                    if m:
-                        max_code = max(max_code, int(m.group("exit_code")))
-
-                    if final_regex.match(line):
-                        final_found = True
-
-            if not final_found:
-                with open(log_file, "a", encoding="utf-8") as f:
-                    f.write(f"Final exit code: {max_code}")
 
     success_criteria(
         "Final Exit Code Zero",
-        mode="string",
-        match="Final exit code: 0",
-        file="{exit_code_log}",
+        mode="fom_comparison",
+        fom_name="Final exit code",
+        formula="{value} == 0",
     )

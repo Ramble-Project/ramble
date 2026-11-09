@@ -13,11 +13,7 @@ from ramble.experiment_result import ExperimentStatus
 from ramble.util import shell_utils
 from ramble.wmkit import *
 
-from spack.util.executable import (
-    CommandNotFoundError,
-    Executable,
-    ProcessError,
-)
+from spack.util.executable import Executable, ProcessError
 
 # Mapping from squeue/sacct status to Ramble status
 _STATUS_MAP = {
@@ -222,39 +218,6 @@ class Slurm(WorkflowManagerBase):
             "workflow_hostfile_cmd": self.runner.get_hostfile_cmd(),
         }
 
-    def _get_job_termination_overhead(self):
-        # Get the duration between script end time and job termination time.
-        run_dir = self.app_inst.expander.experiment_run_dir
-        end_time_file = os.path.join(run_dir, ".slurm_script_end_time")
-        job_id_file = os.path.join(run_dir, ".slurm_job")
-        if not (os.path.isfile(end_time_file) and os.path.isfile(job_id_file)):
-            return
-        try:
-            with open(end_time_file, encoding="utf-8") as f:
-                script_end_time = float(f.read().strip())
-
-            with open(job_id_file, encoding="utf-8") as f:
-                job_id = f.read().strip()
-            if not job_id:
-                logger.warn(f"Job ID file {job_id_file} is empty")
-                return
-
-            sacct_cmd = Executable("sacct")
-            job_end_time_str = sacct_cmd(
-                "-j", job_id, "-X", "-n", "--format=End", output=str
-            ).strip()
-            # sacct by default reports timestamp in local timezone
-            job_end_time = datetime.datetime.strptime(
-                job_end_time_str, "%Y-%m-%dT%H:%M:%S"
-            ).timestamp()
-            duration = int(job_end_time - script_end_time)
-        except (ProcessError, ValueError, OSError, CommandNotFoundError) as e:
-            logger.warn(f"Failed to get job end time with error {e}")
-        else:
-            self.add_inmem_fom_value(
-                "slurm-job-termination-overhead", duration
-            )
-
     def _prepare_analysis(self, workspace):
         if workspace.dry_run:
             return
@@ -266,7 +229,6 @@ class Slurm(WorkflowManagerBase):
         except (ProcessError, OSError) as e:
             # Only log a warning as this is not considered a critical step
             logger.warn(f"batch_query returns error {e}")
-        self._get_job_termination_overhead()
 
     def get_status(self, workspace):
         expander = self.app_inst.expander
@@ -321,10 +283,31 @@ class Slurm(WorkflowManagerBase):
         fom_type=FomType.TIME,
     )
 
+    def _calc_job_termination_overhead(wm):
+        # Get the duration between script end time and job termination time.
+        job_end_time_str = wm.get_fom_value("job-end")
+        if not job_end_time_str:
+            return None
+        run_dir = wm.app_inst.expander.experiment_run_dir
+        end_time_file = os.path.join(run_dir, ".slurm_script_end_time")
+        if not os.path.isfile(end_time_file):
+            return None
+        try:
+            with open(end_time_file, encoding="utf-8") as f:
+                script_end_time = float(f.read().strip())
+            # sacct by default reports timestamp in local timezone
+            job_end_time = datetime.datetime.strptime(
+                job_end_time_str.strip(), "%Y-%m-%dT%H:%M:%S"
+            ).timestamp()
+            return int(job_end_time - script_end_time)
+        except (ValueError, OSError) as e:
+            logger.warn(f"Failed to get job end time with error {e}")
+            return None
+
     figure_of_merit(
         "job-termination-overhead",
         units="s",
-        fom_map_key="slurm-job-termination-overhead",
+        formula=_calc_job_termination_overhead,
         fom_type=FomType.TIME,
     )
 
