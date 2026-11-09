@@ -3071,3 +3071,58 @@ ramble:
     assert list(exp_set.experiments.keys()) == ["zlib.ensure_installed.exp_keep_2"]
     rendered_envs = ws.software_environments._rendered_environments["spack"]
     assert list(rendered_envs.keys()) == ["env_keep"]
+
+
+def test_indirect_zip_and_matrix_do_not_mutate_across_experiments(make_workspace_from_config):
+    test_config = """
+ramble:
+  variables:
+    mpi_command: ''
+    batch_submit: '{execute_experiment}'
+    processes_per_node: 1
+  applications:
+    basic:
+      workloads:
+        test_wl:
+          zips:
+            s: ['{v}']
+          experiments:
+            exp_a_{{{v}}}:
+              matrix: [s]
+              variables:
+                n_nodes: 1
+                v: a
+                a: [1, 2]
+            exp_b_{{{v}}}:
+              matrix: [s]
+              variables:
+                n_nodes: 1
+                v: b
+                b: [10, 20]
+        test_wl2:
+          experiments:
+            scaling_{n_nodes}:
+              zips:
+                node_zip: ['{node_list}']
+              matrix: [node_zip]
+              variables:
+                valid_nodes: [1, 2, 4]
+                excluded_nodes: [2, 8]
+                node_list: valid_nodes
+                n_nodes: '{{{node_list}}}'
+              exclude:
+                matrix: [node_zip]
+                variables:
+                  node_list: excluded_nodes
+"""
+    ws, _ = make_workspace_from_config(test_config, activate=True)
+    exp_set = ws.build_experiment_set()
+
+    assert set(exp_set.experiments.keys()) == {
+        "basic.test_wl.exp_a_1",
+        "basic.test_wl.exp_a_2",
+        "basic.test_wl.exp_b_10",
+        "basic.test_wl.exp_b_20",
+        "basic.test_wl2.scaling_1",
+        "basic.test_wl2.scaling_4",
+    }

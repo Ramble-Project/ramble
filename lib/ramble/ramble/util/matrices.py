@@ -24,7 +24,7 @@ def extract_matrices(action, name, in_dict):
     matrices = []
 
     if namespace.matrix in in_dict:
-        matrices.append(in_dict[namespace.matrix])
+        matrices.append(list(in_dict[namespace.matrix]))
 
     if namespace.matrices in in_dict:
         for matrix in in_dict[namespace.matrices]:
@@ -37,7 +37,7 @@ def extract_matrices(action, name, in_dict):
                         "1 matrix in a matrices definition."
                     )
 
-                matrices.extend(matrix.values())
+                matrices.extend(list(val) for val in matrix.values())
             elif isinstance(matrix, list):
-                matrices.append(matrix)
+                matrices.append(list(matrix))
     return matrices
