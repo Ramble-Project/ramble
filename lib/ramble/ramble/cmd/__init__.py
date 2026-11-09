@@ -18,8 +18,6 @@ import ramble.workspace
 from ramble.error import RambleCommandError
 from ramble.util.logger import logger
 
-import spack.extensions
-
 # Patterns to ignore in the commands directory when looking for commands.
 ignore_files = r"^\.|^__init__.py$|^#"
 
@@ -92,10 +90,7 @@ def get_module(cmd_name):
     except ImportError as e:
         if getattr(e, "name", None) != module_name:
             raise
-        try:
-            module = spack.extensions.get_module(cmd_name)
-        except (AttributeError, spack.extensions.CommandNotFoundError):
-            raise RambleCommandError(f"Command {cmd_name} does not exist.") from None
+        raise RambleCommandError(f"Command {cmd_name} does not exist.") from None
 
     attr_setdefault(module, SETUP_PARSER, lambda *args: None)  # null-op
     attr_setdefault(module, DESCRIPTION, "")

@@ -433,21 +433,6 @@ class Indexer(metaclass=abc.ABCMeta):
     def _create(self):
         """Create an empty index and return it."""
 
-    def needs_update(self, pkg):
-        """Whether an update is needed when the application file hasn't changed.
-
-        Returns:
-            bool: ``True`` if this application needs its index updated, ``False`` otherwise.
-
-        We already automatically update indexes when object files
-        change, but other files (like patches) may change underneath the
-        object file. This method can be used to check additional
-        object-specific files whenever they're loaded, to tell the
-        RepoIndex to update the index *just* for that object.
-
-        """
-        return False
-
     @abc.abstractmethod
     def read(self, stream):
         """Read this index from a provided file object."""
@@ -679,10 +664,6 @@ class RepoPath:
             r |= set(repo.objects_with_tags(*tags))
         return sorted(r)
 
-    def all_objects(self):
-        for name in self.all_object_names():
-            yield self.get(name)
-
     def last_mtime(self):
         """Time a object file in this repo was last updated."""
         # Filter out repos that don't have any mtime values before calling max
@@ -736,15 +717,6 @@ class RepoPath:
     def get_obj_class(self, obj_name):
         """Find a class for the spec's object and return the class object."""
         return self.repo_for_obj(obj_name).get_obj_class(obj_name)
-
-    @autospec
-    def dump_provenance(self, spec, path):
-        """Dump provenance information for a spec to a particular path.
-
-        This dumps the object file and any associated patch files.
-        Raises UnknownObjectError if not found.
-        """
-        return self.repo_for_obj(spec).dump_provenance(spec, path)
 
     def dirname_for_object_name(self, obj_name):
         return self.repo_for_obj(obj_name).dirname_for_object_name(obj_name)
@@ -964,22 +936,6 @@ class Repo:
                 spec.fullname, *sys.exc_info(), object_type=self.object_type
             ) from e
 
-    @autospec
-    def dump_provenance(self, spec, path):
-        """Dump provenance information for a spec to a particular path.
-
-        This dumps the object file.
-        Raises UnknownObjectError if not found.
-        """
-        if spec.namespace and spec.namespace != self.namespace:
-            raise UnknownObjectError(
-                f"Repository {self.namespace} does not "
-                f"contain {self.object_type.name} {spec.fullname}."
-            )
-
-        # Install the object's .py file itself.
-        fs.install(self.filename_for_object_name(spec.name), path)
-
     @property
     def index(self):
         """Construct the index for this repo lazily."""
@@ -1050,15 +1006,6 @@ class Repo:
             v &= set(index[t])
 
         return sorted(v)
-
-    def all_objects(self):
-        """Iterator over all objects in the repository.
-
-        Use this with care, because loading objects is slow.
-
-        """
-        for name in self.all_object_names():
-            yield self.get(name)
 
     def exists(self, obj_name):
         """Whether a object with the supplied name exists."""

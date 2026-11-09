@@ -73,8 +73,6 @@ _OUTPUT_MAPPING = {
     "object_definitions": ResultKeys.OBJECT_DEFINITIONS,
 }
 
-OUTPUT_MAPPING = _OUTPUT_MAPPING
-
 
 # TODO: would be better to use dataclass after 3.6 support is dropped
 class ExperimentResult:

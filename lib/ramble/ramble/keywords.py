@@ -161,12 +161,6 @@ class Keywords:
                 return True
         return False
 
-    def is_required(self, key):
-        """Check if a key is required"""
-        if not self.is_valid(key):
-            return False
-        return self.keys[key]["type"] == key_type.required
-
     def is_key_level(self, key):
         """Check if key is part of the key level"""
         if not self.is_valid(key):

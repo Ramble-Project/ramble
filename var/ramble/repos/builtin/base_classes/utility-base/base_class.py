@@ -29,8 +29,6 @@ class UtilityBase(ObjectMixin, metaclass=DirectiveMeta):
         pipeline_enum.setup,
     ]
 
-    utility_class = "UtilityBase"
-
     #: Value of a utility's ``path`` variable meaning "use the system-installed copy"
     SYSTEM_PATH = "system"
 

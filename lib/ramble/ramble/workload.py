@@ -172,17 +172,6 @@ class Workload:
         """
         self.executables.append(executable)
 
-    def is_valid(self):
-        """Test if this workload is considered valid
-
-        Returns:
-            bool: ``True`` if workload is valid, ``False`` otherwise
-        """
-        if not self.executables:
-            return False
-
-        return True
-
     def find_executable(self, exec_name: str):
         """Find an executable in this workload
 

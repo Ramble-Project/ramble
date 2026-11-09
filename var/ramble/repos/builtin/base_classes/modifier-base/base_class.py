@@ -47,10 +47,6 @@ class ModifierBase(ObjectMixin, metaclass=DirectiveMeta):
         pipeline_enum.logs,
     ]
 
-    modifier_class = "ModifierBase"
-
-    disabled = False
-
     modifier_conflict(MODIFIER_CONFLICT.name_executables)
     mode("disabled", description="Mode to disable all modifier functionality")
 

@@ -44,14 +44,8 @@ class PackageManagerBase(ObjectMixin, metaclass=DirectiveMeta):
         pipeline_enum.logs,
     ]
 
-    _spec_groups = [
-        ("compilers", "Compilers"),
-        ("software_specs", "Software Specs"),
-    ]
-
     _spec_prefix = ""
 
-    package_manager_class = "PackageManagerBase"
     requires_software_environment = True
 
     def __init__(self, file_path):

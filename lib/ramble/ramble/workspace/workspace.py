@@ -20,7 +20,6 @@ from ruamel import yaml
 
 import llnl.util.filesystem as fs
 from llnl.util import tty
-from llnl.util.tty import log
 
 import ramble.config
 import ramble.context
@@ -29,7 +28,6 @@ import ramble.experiment_set
 import ramble.keywords
 import ramble.repository
 import ramble.results_table
-import ramble.schema.applications
 import ramble.schema.merged
 import ramble.schema.workspace
 import ramble.software_environments
@@ -118,12 +116,6 @@ WORKSPACE_ALL_EXPERIMENTS_FILE = "all_experiments"
 
 WORKSPACE_EXECUTION_SCRIPT = "execute_experiment"
 WORKSPACE_EXECUTION_TEMPLATE = WORKSPACE_EXECUTION_SCRIPT + TEMPLATE_EXTENSION
-
-#: Name of lockfile within a workspace
-LOCKFILE_NAME = "ramble.lock"
-
-#: Config schema for application files
-applications_schema = ramble.schema.applications.schema
 
 #: Config file information for workspaces.
 #: Keys are filenames, values are dictionaries describing the config files.
@@ -471,7 +463,6 @@ class Workspace:
         self.software_mirror_stats = None
         self.input_mirror_stats = None
         self.input_mirror_cache = None
-        self.software_mirror_cache = None
         self.software_environments = None
         self.metadata = syaml.syaml_dict()
         self.hash_inventory = {namespace.experiment: [], "versions": []}
@@ -512,9 +503,6 @@ class Workspace:
         self.experiments_script = []
 
         self._read()
-
-        # Create a logger to redirect certain prints from screen to log file
-        self.logger = log.log_output(echo=False, debug=tty.debug_level())
 
         self.deployment_name = self.name
 
@@ -1886,7 +1874,6 @@ cd "{experiment_run_dir}"
         self.software_mirror_stats = MirrorStats()
         self.input_mirror_stats = MirrorStats()
         self.input_mirror_cache = ramble.caches.MirrorCache(self.input_mirror_path)
-        self.software_mirror_cache = ramble.caches.MirrorCache(self.software_mirror_path)
 
     def simplify_variables(self):
         """Simplify variable sections in workspace configuration file"""
@@ -2106,12 +2093,6 @@ cd "{experiment_run_dir}"
             content = f.read()
         self._inmem_file_cache[file_path] = content
         return content
-
-    @property
-    def internal(self):
-        """Whether this workspace is managed by Ramble."""
-        wspaths = get_workspace_path()
-        return any(self.path.startswith(wspath) for wspath in wspaths)
 
     @property
     def name(self):
