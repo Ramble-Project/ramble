@@ -359,17 +359,46 @@ def latest_table_files(path):
     )
 
 
-def latest_log_files(path):
+def latest_log_files(path, pipelines=None):
     """Returns paths to latest pipeline log files in workspace"""
     log_path = os.path.join(path, WORKSPACE_LOG_PATH)
     if not os.path.isdir(log_path):
         return []
 
-    return sorted(
-        os.path.join(log_path, f)
-        for f in os.listdir(log_path)
-        if f.endswith(".latest.out") and os.path.isfile(os.path.join(log_path, f))
-    )
+    if pipelines:
+        target_pipelines = []
+        seen = set()
+        for p in pipelines:
+            if p not in seen:
+                seen.add(p)
+                target_pipelines.append(p)
+    else:
+        discovered = set()
+        for entry in os.listdir(log_path):
+            entry_path = os.path.join(log_path, entry)
+            if entry.endswith(".latest.out") and os.path.isfile(entry_path):
+                discovered.add(entry[: -len(".latest.out")])
+            elif entry.endswith(".latest") and os.path.isdir(entry_path):
+                discovered.add(entry[: -len(".latest")])
+        target_pipelines = sorted(discovered)
+
+    log_files = []
+    for pipeline in target_pipelines:
+        out_file = os.path.join(log_path, f"{pipeline}.latest.out")
+        if os.path.isfile(out_file):
+            log_files.append(out_file)
+
+        latest_dir = os.path.join(log_path, f"{pipeline}.latest")
+        if os.path.isdir(latest_dir):
+            log_files.extend(
+                sorted(
+                    os.path.join(latest_dir, f)
+                    for f in os.listdir(latest_dir)
+                    if os.path.isfile(os.path.join(latest_dir, f)) and not f.startswith(".")
+                )
+            )
+
+    return log_files
 
 
 def all_auxiliary_software_files(path):

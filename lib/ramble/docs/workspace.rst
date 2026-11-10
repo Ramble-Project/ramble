@@ -166,7 +166,7 @@ can be combined):
   * ``--all-configs`` / ``--all``: Open all ``*.yaml`` and ``*.tpl`` files in ``configs/``
   * ``-r`` / ``--results``: Open the latest analysis result files (``results/results.latest.*``)
   * ``--tables``: Open the latest generated table files (``tables/*.latest.*``)
-  * ``--logs``: Open the latest pipeline log files (``logs/*.latest.out``)
+  * ``--logs [pipeline ...]``: Open the latest pipeline log files (``logs/<pipeline>.latest.out`` and ``logs/<pipeline>.latest/*``, or all ``*.latest`` pipelines if omitted)
   * ``--software-files`` / ``--auxiliary-software-files``: Open files in ``configs/auxiliary_software_files/``
   * ``-i`` / ``--includes``: Open configuration files referenced in the ``include:`` section
   * ``-e`` / ``--experiments-script``: Open the root ``all_experiments`` script

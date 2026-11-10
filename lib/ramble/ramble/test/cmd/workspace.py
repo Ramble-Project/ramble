@@ -1344,10 +1344,56 @@ def test_edit_auxiliary_files(workspace_name, tmpdir):
     tables_out = workspace("edit", "--tables", "-p", global_args=ws_args).strip().splitlines()
     assert tables_out == [table_latest]
 
-    # Test --logs
+    # Test --logs (all latest pipeline logs and per-experiment logs)
     logs_out = workspace("edit", "--logs", "-p", global_args=ws_args).strip().splitlines()
-    assert os.path.join(ws.log_dir, "setup.latest.out") in logs_out
-    assert os.path.join(ws.log_dir, "analyze.latest.out") in logs_out
+    setup_summary_log = os.path.join(ws.log_dir, "setup.latest.out")
+    setup_exp_log = os.path.join(ws.log_dir, "setup.latest", "basic.test_wl.test_exp.out")
+    analyze_summary_log = os.path.join(ws.log_dir, "analyze.latest.out")
+    analyze_exp_log = os.path.join(ws.log_dir, "analyze.latest", "basic.test_wl.test_exp.out")
+    assert logs_out == [
+        analyze_summary_log,
+        analyze_exp_log,
+        setup_summary_log,
+        setup_exp_log,
+    ]
+
+    # Test --logs filtered by single pipeline
+    setup_logs_out = (
+        workspace("edit", "--logs", "setup", "-p", global_args=ws_args).strip().splitlines()
+    )
+    assert setup_logs_out == [setup_summary_log, setup_exp_log]
+
+    # Test --logs filtered by multiple pipelines (single flag and repeated flag)
+    ordered_logs_out = (
+        workspace("edit", "--logs", "setup", "analyze", "-p", global_args=ws_args)
+        .strip()
+        .splitlines()
+    )
+    assert ordered_logs_out == [
+        setup_summary_log,
+        setup_exp_log,
+        analyze_summary_log,
+        analyze_exp_log,
+    ]
+    repeated_logs_out = (
+        workspace("edit", "--logs", "setup", "--logs", "analyze", "-p", global_args=ws_args)
+        .strip()
+        .splitlines()
+    )
+    assert repeated_logs_out == ordered_logs_out
+
+    # Test --logs with an unrun pipeline combined with an existing pipeline
+    partial_logs_out = workspace("edit", "--logs", "setup", "archive", "-p", global_args=ws_args)
+    assert "No archive log files found in workspace." in partial_logs_out
+    assert setup_summary_log in partial_logs_out
+    assert setup_exp_log in partial_logs_out
+
+    # Test --logs with an invalid pipeline name
+    invalid_logs_out = workspace(
+        "edit", "--logs", "not_a_pipeline", "-p", global_args=ws_args, fail_on_error=False
+    )
+    assert workspace.returncode != 0
+    assert "Invalid pipeline 'not_a_pipeline' for --logs." in invalid_logs_out
 
     # Test --software-files / --auxiliary-software-files
     soft_out = (
@@ -1408,6 +1454,13 @@ def test_edit_missing_auxiliary_files(workspace_name):
         out = workspace("edit", flag, "-p", global_args=ws_args, fail_on_error=False)
         assert workspace.returncode != 0
         assert f"No {category} files found in workspace." in out
+
+    # Missing filtered pipeline logs should report the pipeline name
+    missing_setup_logs = workspace(
+        "edit", "--logs", "setup", "-p", global_args=ws_args, fail_on_error=False
+    )
+    assert workspace.returncode != 0
+    assert "No setup log files found in workspace." in missing_setup_logs
 
     # Multiple missing categories should warn and die
     multi_missing = workspace(

@@ -1357,8 +1357,11 @@ def workspace_edit_setup_parser(subparser):
     subparser.add_argument(
         "--logs",
         dest="logs",
-        action="store_true",
-        help="Open latest pipeline log files",
+        action="append",
+        nargs="*",
+        metavar="PIPELINE",
+        default=None,
+        help="Open latest pipeline log files (optionally filtered by pipeline name)",
         required=False,
     )
 
@@ -1436,7 +1439,7 @@ def workspace_edit(args, unknown_args):
             args.all_configs,
             args.results,
             args.tables,
-            args.logs,
+            args.logs is not None,
             args.software_files,
             args.includes,
             args.experiments_script,
@@ -1493,12 +1496,35 @@ def workspace_edit(args, unknown_args):
             else:
                 missing_categories.append("table")
 
-        if args.logs:
-            log_files = ramble.workspace.latest_log_files(ramble_ws)
-            if log_files:
-                edit_files.extend(log_files)
+        if args.logs is not None:
+            valid_pipelines = set(ramble.pipeline.pipelines)
+            requested_pipelines = []
+            seen_pipelines = set()
+            for group in args.logs:
+                for p in group:
+                    if p not in valid_pipelines:
+                        valid_str = ", ".join(sorted(valid_pipelines))
+                        logger.die(
+                            f"Invalid pipeline '{p}' for --logs. "
+                            f"Valid pipelines are: {valid_str}"
+                        )
+                    if p not in seen_pipelines:
+                        seen_pipelines.add(p)
+                        requested_pipelines.append(p)
+
+            if not requested_pipelines or any(len(group) == 0 for group in args.logs):
+                log_files = ramble.workspace.latest_log_files(ramble_ws)
+                if log_files:
+                    edit_files.extend(log_files)
+                else:
+                    missing_categories.append("log")
             else:
-                missing_categories.append("log")
+                for p in requested_pipelines:
+                    p_log_files = ramble.workspace.latest_log_files(ramble_ws, pipelines=[p])
+                    if p_log_files:
+                        edit_files.extend(p_log_files)
+                    else:
+                        missing_categories.append(f"{p} log")
 
         if args.software_files:
             software_files = ramble.workspace.all_auxiliary_software_files(ramble_ws)
