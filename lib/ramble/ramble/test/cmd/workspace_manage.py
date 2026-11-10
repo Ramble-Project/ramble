@@ -86,6 +86,52 @@ def test_manage_experiments_no_overwrite_wm_vars(workspace_name):
         assert "mpi_command" not in content
 
 
+def test_manage_experiments_include_default_variables(workspace_name):
+    ws = ramble.workspace.create(workspace_name)
+    global_args = ["-w", workspace_name]
+    workspace(
+        "manage",
+        "experiments",
+        "gromacs",
+        "--wf",
+        "water_bare",
+        "-i",
+        global_args=global_args,
+    )
+    with open(ws.config_file_path, encoding="utf-8") as f:
+        content = f.read()
+        assert "# Simulation steps" in content
+        assert "nsteps: '20000'" in content
+        assert "# Suggested values: ['pme', 'rf']" in content
+        assert "type: pme" in content
+
+
+def test_manage_experiments_include_default_variables_when_and_env_vars(
+    workspace_name, mutable_mock_apps_repo
+):
+    ws = ramble.workspace.create(workspace_name)
+    global_args = ["-w", workspace_name]
+    workspace(
+        "manage",
+        "experiments",
+        "when-directives",
+        "--wf",
+        "test_wl",
+        "-i",
+        "-V",
+        "workload_group_options=group2",
+        global_args=global_args,
+    )
+    with open(ws.config_file_path, encoding="utf-8") as f:
+        content = f.read()
+        assert "test_variable: Test" in content
+        assert "test_variable3: Var3" in content
+        assert "APP_ENV_VAR3: TEST_WL3_ENV_VAR" in content
+        assert "test_variable2" not in content
+        assert "APP_ENV_VAR2" not in content
+        assert "APP_ENV_VAR:" not in content
+
+
 _TEST_MODIFIERS = ["lscpu", "ethtool"]
 
 
