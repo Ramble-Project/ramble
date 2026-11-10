@@ -775,3 +775,42 @@ ramble:
     )
     warning_present = expected_msg in out
     assert warning_present == expect_warning
+
+
+def test_custom_workloads(mutable_mock_apps_repo):
+    app_inst = mutable_mock_apps_repo.get("basic")
+    expansion_vars = basic_exp_dict()
+    app_inst.expander = ramble.expander.Expander(expansion_vars, None)
+
+    existing_wl = ramble.workload.Workload(
+        "test_wl", executables=["foo"], inputs=["input"], tags=["orig_tag"]
+    )
+    app_inst.workloads[_FS] = {"test_wl": existing_wl}
+
+    app_inst.set_internals(
+        {
+            "custom_workloads": {
+                "test_wl": {
+                    "executables": "bar",
+                    "inputs": None,
+                },
+                "new_wl": {
+                    "executables": ["foo", "bar"],
+                    "tags": ["tag1", 2],
+                },
+            }
+        }
+    )
+
+    wl1 = app_inst.workloads[_FS]["test_wl"]
+    assert wl1.executables == ["bar"]
+    assert wl1.inputs == []
+    assert wl1.tags == ["orig_tag"]
+
+    wl2 = app_inst.workloads[_FS]["new_wl"]
+    assert wl2.executables == ["foo", "bar"]
+    assert wl2.inputs == []
+    assert wl2.tags == ["tag1", "2"]
+
+    app_inst.experiment_tags = ["tag1", "2"]
+    assert app_inst.has_tags(["tag1"])
