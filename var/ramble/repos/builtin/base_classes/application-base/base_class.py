@@ -685,32 +685,19 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                 self.phase_definitions.get(pipeline, {}), self
             )
 
-            for mod_inst in self._modifier_instances:
-                # Define phase nodes
-                for _, phase_node in mod_inst.all_pipeline_phases(pipeline):
-                    self._pipeline_graphs[pipeline].add_node(
-                        phase_node, obj_inst=mod_inst
-                    )
-
-                # Define phase edges
-                for _, phase_node in mod_inst.all_pipeline_phases(pipeline):
-                    self._pipeline_graphs[pipeline].define_edges(
-                        phase_node, internal_order=True
-                    )
-
+            assoc_objs = list(self._modifier_instances)
             if self.package_manager:
+                assoc_objs.append(self.package_manager)
+
+            for assoc_obj in assoc_objs:
                 # Define phase nodes
-                for _, phase_node in self.package_manager.all_pipeline_phases(
-                    pipeline
-                ):
+                for _, phase_node in assoc_obj.all_pipeline_phases(pipeline):
                     self._pipeline_graphs[pipeline].add_node(
-                        phase_node, obj_inst=self.package_manager
+                        phase_node, obj_inst=assoc_obj
                     )
 
                 # Define phase edges
-                for _, phase_node in self.package_manager.all_pipeline_phases(
-                    pipeline
-                ):
+                for _, phase_node in assoc_obj.all_pipeline_phases(pipeline):
                     self._pipeline_graphs[pipeline].define_edges(
                         phase_node, internal_order=True
                     )
@@ -794,13 +781,10 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         for _, obj in self.objects():
             self.keywords.update_keys(obj.required_variables)
 
-        base_chain = self.__class__.__mro__
-        for cls in base_chain:
-            if hasattr(cls, "name") and cls.name is not None:
-                self.object_variants.multi_value_variant(
-                    "application_name",
-                    value=self.expander.application_name,
-                )
+        self.object_variants.multi_value_variant(
+            "application_name",
+            value=self.expander.application_name,
+        )
 
         # Define workload_name variant as early as possible
         self.object_variants.default_variant(
@@ -1079,16 +1063,11 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             (bool): True if all tags are in this instance, False otherwise
         """
 
-        if tags and self.experiment_tags:
-            tag_set = set(tags)
-            exp_tag_set = set(self.experiment_tags)
-
-            for tag in tag_set:
-                if tag not in exp_tag_set:
-                    return False
-            return True
-
-        return False
+        return bool(
+            tags
+            and self.experiment_tags
+            and set(tags).issubset(self.experiment_tags)
+        )
 
     def experiment_log_file(self, logs_dir):
         """Returns an experiment log file path for the given logs directory"""
@@ -1941,6 +1920,18 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             if empty_when not in self.workloads:
                 self.workloads[empty_when] = {}
 
+            def _resolve_list_attr(attr_name, conf, existing_wl):
+                if attr_name in conf:
+                    val = conf[attr_name]
+                    if isinstance(val, (str, int, float)):
+                        return [str(val)]
+                    if val is None:
+                        return []
+                    return [str(x) for x in val]
+                if existing_wl:
+                    return getattr(existing_wl, attr_name).copy()
+                return []
+
             for name, conf in self.internals[
                 namespace.custom_workloads
             ].items():
@@ -1950,44 +1941,13 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                         existing_wl = self.workloads[when_set][name]
                         del self.workloads[when_set][name]
 
-                if namespace.executables in conf:
-                    executables = conf[namespace.executables]
-                    if isinstance(executables, (str, int, float)):
-                        executables = [str(executables)]
-                    elif executables is None:
-                        executables = []
-                    else:
-                        executables = [str(x) for x in executables]
-                elif existing_wl:
-                    executables = existing_wl.executables.copy()
-                else:
-                    executables = []
-
-                if namespace.inputs in conf:
-                    inputs = conf[namespace.inputs]
-                    if isinstance(inputs, (str, int, float)):
-                        inputs = [str(inputs)]
-                    elif inputs is None:
-                        inputs = []
-                    else:
-                        inputs = [str(x) for x in inputs]
-                elif existing_wl:
-                    inputs = existing_wl.inputs.copy()
-                else:
-                    inputs = []
-
-                if namespace.tags in conf:
-                    tags = conf[namespace.tags]
-                    if isinstance(tags, (str, int, float)):
-                        tags = [str(tags)]
-                    elif tags is None:
-                        tags = []
-                    else:
-                        tags = [str(x) for x in tags]
-                elif existing_wl:
-                    tags = existing_wl.tags.copy()
-                else:
-                    tags = []
+                executables = _resolve_list_attr(
+                    namespace.executables, conf, existing_wl
+                )
+                inputs = _resolve_list_attr(
+                    namespace.inputs, conf, existing_wl
+                )
+                tags = _resolve_list_attr(namespace.tags, conf, existing_wl)
 
                 custom_wl = ramble.workload.Workload(
                     name=name,
@@ -2685,17 +2645,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         ext_dep_paths = {}
         ext_dep_instances = {}
         ext_dep_versions = {}
-        objects_to_check = [self]
-        if hasattr(self, "package_manager") and self.package_manager:
-            objects_to_check.append(self.package_manager)
-        if hasattr(self, "system") and self.system:
-            objects_to_check.append(self.system)
-        if hasattr(self, "platform") and self.platform:
-            objects_to_check.append(self.platform)
-        if hasattr(self, "workflow_manager") and self.workflow_manager:
-            objects_to_check.append(self.workflow_manager)
-        if hasattr(self, "_modifier_instances") and self._modifier_instances:
-            objects_to_check.extend(self._modifier_instances)
+        objects_to_check = [obj for _, obj in reversed(list(self.objects()))]
 
         ws_ext_deps = (
             workspace._get_workspace_dict()
@@ -2831,16 +2781,6 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                         obj.variables[f"utility::{ext_dep_name}::path"] = (
                             ext_dep_paths[ext_dep_name]
                         )
-
-                        if not ramble.config.get(
-                            "config:bootstrap_utilities",
-                            True,
-                        ):
-                            logger.debug(
-                                f"External dependency bootstrapping is disabled globally. Using system {ext_dep_name}."
-                            )
-                            ext_dep_paths[ext_dep_name] = "system"
-                            continue
 
                         allow_external = fetch_kwargs.pop(
                             "allow_external", True
