@@ -155,11 +155,8 @@ class ModifierBase(ObjectMixin, metaclass=DirectiveMeta):
         value = None
         for when_set, conflict_value in self.modifier_conflicts.items():
             if self.expander.satisfies(when_set, self.object_variants):
-                if value is None:
+                if value is None or conflict_value.value < value.value:
                     value = conflict_value
-                else:
-                    if conflict_value.value < value.value:
-                        value = conflict_value
         return value
 
     def check_conflicts(self, existing_modifiers):
@@ -178,6 +175,18 @@ class ModifierBase(ObjectMixin, metaclass=DirectiveMeta):
             return
 
         self_idx = len(existing_modifiers)
+        on_executables = set(self._on_executables)
+
+        def _raise_conflict(mod_inst, mod_idx, reason, **cfg_kwargs):
+            comp_str = mod_inst.config_str(
+                index=mod_idx, indent=4, **cfg_kwargs
+            )
+            self_str = self.config_str(index=self_idx, indent=4, **cfg_kwargs)
+            raise ConflictingModifiersError(
+                f"Two modifier definitions conflict by having the same {reason}.\n"
+                f"Modifier 1:\n{comp_str}"
+                f"Modifier 2:\n{self_str}"
+            )
 
         for mod_idx, mod_inst in enumerate(existing_modifiers):
             if mod_inst is self:
@@ -188,102 +197,46 @@ class ModifierBase(ObjectMixin, metaclass=DirectiveMeta):
             if mod_inst.name != self.name:
                 continue
 
+            same_mode = mod_inst._usage_mode == self._usage_mode
+            overlapping_execs = bool(
+                on_executables.intersection(mod_inst._on_executables)
+            )
+
             if conflict_value == MODIFIER_CONFLICT.name_only:
-                comp_str = mod_inst.config_str(index=mod_idx, indent=4)
-                self_str = self.config_str(index=self_idx, indent=4)
-                raise ConflictingModifiersError(
-                    f"Two modifier definitions conflict by having the same name.\n"
-                    f"Modifier 1:\n"
-                    f"{comp_str}"
-                    f"Modifier 2:\n"
-                    f"{self_str}"
+                _raise_conflict(mod_inst, mod_idx, "name")
+            elif conflict_value == MODIFIER_CONFLICT.name_mode and same_mode:
+                _raise_conflict(
+                    mod_inst, mod_idx, "name and mode", include_mode=True
                 )
-
-            elif conflict_value == MODIFIER_CONFLICT.name_mode:
-                if (
-                    mod_inst.name == self.name
-                    and mod_inst._usage_mode == self._usage_mode
-                ):
-                    comp_str = mod_inst.config_str(
-                        index=mod_idx, include_mode=True, indent=4
-                    )
-                    self_str = self.config_str(
-                        index=self_idx, include_mode=True, indent=4
-                    )
-                    raise ConflictingModifiersError(
-                        "Two modifier definitions conflict by having the same "
-                        "name and mode.\n"
-                        f"Modifier 1:\n"
-                        f"{comp_str}"
-                        f"Modifier 2:\n"
-                        f"{self_str}"
-                    )
-
-            elif conflict_value == MODIFIER_CONFLICT.name_executables:
-                if mod_inst.name == self.name:
-                    compare_set = set(mod_inst._on_executables)
-                    self_set = set(self._on_executables)
-                    intersect = self_set.intersection(compare_set)
-                    if intersect:
-                        comp_str = mod_inst.config_str(
-                            index=mod_idx, include_executables=True, indent=4
-                        )
-                        self_str = self.config_str(
-                            index=self_idx, include_executables=True, indent=4
-                        )
-                        raise ConflictingModifiersError(
-                            "Two modifier definitions conflict by having the same "
-                            "name and overlapping on_executable.\n"
-                            f"Modifier 1:\n"
-                            f"{comp_str}"
-                            f"Modifier 2:\n"
-                            f"{self_str}"
-                        )
-
-            elif conflict_value == MODIFIER_CONFLICT.name_mode_executables:
-                if (
-                    mod_inst.name == self.name
-                    and mod_inst._usage_mode == self._usage_mode
-                ):
-                    compare_set = set(mod_inst._on_executables)
-                    self_set = set(self._on_executables)
-                    intersect = self_set.intersection(compare_set)
-                    if intersect:
-                        comp_str = mod_inst.config_str(
-                            index=mod_idx,
-                            include_mode=True,
-                            include_executables=True,
-                            indent=4,
-                        )
-                        self_str = self.config_str(
-                            index=self_idx,
-                            include_mode=True,
-                            include_executables=True,
-                            indent=4,
-                        )
-                        raise ConflictingModifiersError(
-                            "Two modifier definitions conflict by having the same "
-                            "name, mode, and overlapping on_executable.\n"
-                            f"Modifier 1:\n"
-                            f"{comp_str}"
-                            f"Modifier 2:\n"
-                            f"{self_str}"
-                        )
+            elif (
+                conflict_value == MODIFIER_CONFLICT.name_executables
+                and overlapping_execs
+            ):
+                _raise_conflict(
+                    mod_inst,
+                    mod_idx,
+                    "name and overlapping on_executable",
+                    include_executables=True,
+                )
+            elif (
+                conflict_value == MODIFIER_CONFLICT.name_mode_executables
+                and same_mode
+                and overlapping_execs
+            ):
+                _raise_conflict(
+                    mod_inst,
+                    mod_idx,
+                    "name, mode, and overlapping on_executable",
+                    include_mode=True,
+                    include_executables=True,
+                )
 
             if self.selected_version != mod_inst.selected_version:
-                comp_str = mod_inst.config_str(
-                    index=mod_idx, include_version=True, indent=4
-                )
-                self_str = self.config_str(
-                    index=self_idx, include_version=True, indent=4
-                )
-                raise ConflictingModifiersError(
-                    "Two modifier definitions conflict by having the same name "
-                    "and different version numbers.\n"
-                    f"Modifier 1:\n"
-                    f"{comp_str}"
-                    f"Modifier 2:\n"
-                    f"{self_str}"
+                _raise_conflict(
+                    mod_inst,
+                    mod_idx,
+                    "name and different version numbers",
+                    include_version=True,
                 )
 
     def config_str(
@@ -338,37 +291,34 @@ class ModifierBase(ObjectMixin, metaclass=DirectiveMeta):
         if extra_vars is None:
             extra_vars = {}
 
+        exp_variants = self.experiment_variants(allow_caching=False)
+
         for when_set, var_mod_dict in self.variable_modifications.items():
-            if self.expander.satisfies(
-                when_set, self.experiment_variants(allow_caching=False)
-            ):
-                for var, var_mods in var_mod_dict.items():
-                    for var_mod in var_mods:
-                        if var_mod.method in ["append", "prepend"]:
-                            if var in mods:
-                                prev_val = mods[var]
-                            elif var in extra_vars:
-                                prev_val = extra_vars[var]
-                            elif var in app.variables:
-                                prev_val = app.variables[var]
-                            else:
-                                prev_val = ""
+            if not self.expander.satisfies(when_set, exp_variants):
+                continue
 
-                            if prev_val:
-                                sep = var_mod.separator
-                            else:
-                                sep = ""
+            for var, var_mods in var_mod_dict.items():
+                for var_mod in var_mods:
+                    if var_mod.method in ["append", "prepend"]:
+                        if var in mods:
+                            prev_val = mods[var]
+                        elif var in extra_vars:
+                            prev_val = extra_vars[var]
+                        else:
+                            prev_val = app.variables.get(var, "")
 
-                            if var_mod.method == "append":
-                                mods[var] = (
-                                    f"{prev_val}{sep}{var_mod.modification}"
-                                )
-                            else:  # method == prepend
-                                mods[var] = (
-                                    f"{var_mod.modification}{sep}{prev_val}"
-                                )
-                        else:  # method == set
-                            mods[var] = var_mod.modification
+                        sep = var_mod.separator if prev_val else ""
+
+                        if var_mod.method == "append":
+                            mods[var] = (
+                                f"{prev_val}{sep}{var_mod.modification}"
+                            )
+                        else:  # method == prepend
+                            mods[var] = (
+                                f"{var_mod.modification}{sep}{prev_val}"
+                            )
+                    else:  # method == set
+                        mods[var] = var_mod.modification
 
         return mods
 
@@ -389,9 +339,7 @@ class ModifierBase(ObjectMixin, metaclass=DirectiveMeta):
         Returns:
             (bool): True if the executable modifier has been applied. False otherwise
         """
-        if exec_mod in self._executable_modification_applied:
-            return True
-        return False
+        return exec_mod in self._executable_modification_applied
 
     def executable_modifier_usage_filter(filter_name: str):
         """Decorator for registering a usage filter for executable modifiers"""
