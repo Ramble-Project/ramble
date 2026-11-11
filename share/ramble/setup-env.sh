@@ -50,6 +50,62 @@ fi
 export _rmb_initializing=true
 
 
+_ramble_scan_top_flags() {
+    _rmb_flags=""
+    _rmb_short_circuit=""
+    _rmb_shift_count=0
+    while [ ! -z ${1+x} ] && [ "${1#-}" != "${1}" ]; do
+        _rmb_flags="$_rmb_flags $1"
+        _rmb_shift_count=$((_rmb_shift_count + 1))
+        case "$1" in
+            -h|--help|-H|--all-help|-V|--version|-h*|-H*|-V*)
+                _rmb_short_circuit=1
+                ;;
+            --*|-w?*|-D?*|-c?*|-C?*) ;;
+            -*h*|-*H*|-*V*)
+                case "${1%%[wDcC]*}" in
+                    *h*|*H*|*V*) _rmb_short_circuit=1 ;;
+                esac
+                ;;
+        esac
+        case "$1" in
+            -w|--workspace|-D|--workspace-dir|-c|--config|-C|--config-scope|--color|--sorted-profile|--lines|--profile-restrictions)
+                shift
+                if [ ! -z ${1+x} ]; then
+                    _rmb_flags="$_rmb_flags $1"
+                    _rmb_shift_count=$((_rmb_shift_count + 1))
+                else
+                    break
+                fi
+                ;;
+        esac
+        shift
+    done
+    _rmb_subcommand=""
+    if [ ! -z ${1+x} ]; then
+        _rmb_subcommand="$1"
+    fi
+}
+
+_ramble_scan_cd_help() {
+    shift "$_rmb_shift_count"
+    shift
+    _rmb_cd_help=""
+    for _arg in "$@"; do
+        case "$_arg" in
+            --) break ;;
+            -h|--help|-h*) _rmb_cd_help=1; break ;;
+            --*|-w?*|-D?*|-i?*) ;;
+            -*h*)
+                case "${_arg%%[wDi]*}" in
+                    *h*) _rmb_cd_help=1; break ;;
+                esac
+                ;;
+        esac
+    done
+    unset _arg
+}
+
 _ramble_shell_wrapper() {
     # Store LD_LIBRARY_PATH variables from ramble shell function
     # This is necessary because MacOS System Integrity Protection clears
@@ -64,36 +120,24 @@ _ramble_shell_wrapper() {
         emulate -L sh
     fi
 
-    # accumulate flags meant for the main ramble command
-    # the loop condition is unreadable, but it means:
-    #     while $1 is set (while there are arguments)
-    #       and $1 starts with '-' (and the arguments are flags)
-    _rmb_flags=""
-    while [ ! -z ${1+x} ] && [ "${1#-}" != "${1}" ]; do
-        _rmb_flags="$_rmb_flags $1"
-        shift
-    done
+    # Scan leading top-level flags without mutating "$@" so commands that pass
+    # "$@" directly preserve spaces and quoting in flag values (e.g. -D "/a b").
+    _ramble_scan_top_flags "$@"
 
-    # h and V flags don't require further output parsing.
-    if [ -n "$_rmb_flags" ] && \
-       [ "${_rmb_flags#*h}" != "${_rmb_flags}" ] || \
-       [ "${_rmb_flags#*V}" != "${_rmb_flags}" ];
-    then
-        command ramble $_rmb_flags "$@"
+    # h, H, and V flags don't require further output parsing.
+    if [ -n "$_rmb_short_circuit" ]; then
+        unset _rmb_short_circuit _rmb_shift_count
+        command ramble "$@"
         return
     fi
+    unset _rmb_short_circuit
 
-    # set the subcommand if there is one (if $1 is set)
-    _rmb_subcommand=""
-    if [ ! -z ${1+x} ]; then
-        _rmb_subcommand="$1"
-        shift
-    fi
-
-    # Filter out use and unuse.  For any other commands, just run the
-    # command.
+    # Filter out workspace, repo, and cd. For any other commands, run directly.
     case $_rmb_subcommand in
         "workspace")
+            shift "$_rmb_shift_count"
+            shift
+            unset _rmb_shift_count
             _rmb_arg=""
             if [ -n "$1" ]; then
                 _rmb_arg="$1"
@@ -198,8 +242,38 @@ _ramble_shell_wrapper() {
             return
             ;;
 
+        "repo")
+            unset _rmb_shift_count
+            command ramble "$@"
+            _rs=$?
+            if [ $_rs -eq 0 ]; then
+                unset RAMBLE_REPOS
+            fi
+            return $_rs
+            ;;
+
+        "cd")
+            _ramble_scan_cd_help "$@"
+            unset _rmb_shift_count
+            if [ -n "$_rmb_cd_help" ]; then
+                unset _rmb_cd_help
+                command ramble "$@"
+            else
+                unset _rmb_cd_help
+                _cd_dir="$(_RAMBLE_CD_WRAPPER=1 command ramble "$@")"
+                _rs=$?
+                if [ $_rs -eq 0 ] && [ -n "$_cd_dir" ]; then
+                    cd "$_cd_dir" || { _rs=$?; unset _cd_dir; return $_rs; }
+                fi
+                unset _cd_dir
+                return $_rs
+            fi
+            return
+            ;;
+
         *)
-            command ramble $_rmb_flags $_rmb_subcommand "$@"
+            unset _rmb_shift_count
+            command ramble "$@"
             ;;
     esac
 }
@@ -333,6 +407,8 @@ eval "ramble() {
 if [ "$_rmb_shell" = bash ]; then
     export -f ramble
     export -f _ramble_shell_wrapper
+    export -f _ramble_scan_top_flags
+    export -f _ramble_scan_cd_help
 fi
 
 # Identify and lock the python interpreter

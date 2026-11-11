@@ -88,6 +88,16 @@ _bash_completion_ramble() {
     local index=0
     while [[ "$index" -lt "$COMP_CWORD" ]]
     do
+        case "${COMP_WORDS[$index]}" in
+            -w|--workspace|-D|--workspace-dir|--repo|-c|--config|-C|--config-scope|--fg|--filter-group|--efg|--exclude-filter-group|--where|--exclude-where|--filter-tags|-i|--index)
+                let index++
+                if [[ "$index" -lt "$COMP_CWORD" && "${COMP_WORDS[$index]}" != -* ]]
+                then
+                    let index++
+                fi
+                continue
+                ;;
+        esac
         if [[ "${COMP_WORDS[$index]}" == [a-z]* ]]
         then
             COMP_WORDS_NO_FLAGS+=("${COMP_WORDS[$index]}")
@@ -186,7 +196,7 @@ _all_applications() {
 _repos() {
     if [[ -z "${RAMBLE_REPOS:-}" ]]
     then
-        RAMBLE_REPOS="$(ramble repo list --format=compact | tail -n +2 | awk '{print $1}')"
+        RAMBLE_REPOS="$(ramble --color=never repo list --format=compact 2>/dev/null | tail -n +2 | awk '{print $1}')"
     fi
     RAMBLE_COMPREPLY="$RAMBLE_REPOS"
 }
@@ -221,6 +231,148 @@ _extensions() {
         RAMBLE_EXTENSIONS="$(ramble extensions)"
     fi
     RAMBLE_COMPREPLY="$RAMBLE_EXTENSIONS"
+}
+
+_location_targets() {
+    if test -n "${ZSH_VERSION:-}"
+    then
+        setopt local_options nonomatch
+    fi
+    local prev=""
+    if [[ "${COMP_CWORD:-0}" -gt 0 ]]
+    then
+        prev="${COMP_WORDS[$((COMP_CWORD - 1))]}"
+    fi
+    local eff_ws="${RAMBLE_WORKSPACE:-}"
+    local -a ws_flags=()
+    local static_flag=""
+    local idx=1
+    local ws_arg=""
+    while [[ "$idx" -lt "${COMP_CWORD:-0}" ]]
+    do
+        case "${COMP_WORDS[$idx]}" in
+            -r|--ramble-root|-m|--module-dir|--user-config|--builtin-repo|--repos-dir)
+                static_flag="${COMP_WORDS[$idx]}"
+                ;;
+            -W|--no-workspace)
+                eff_ws=""
+                ws_flags=(-W)
+                ;;
+            -D|--workspace-dir)
+                if [[ $((idx + 1)) -lt "${COMP_CWORD:-0}" ]]
+                then
+                    eff_ws="${COMP_WORDS[$((idx + 1))]}"
+                    ws_flags=(-D "${eff_ws}")
+                    let idx++
+                fi
+                ;;
+            --workspace-dir=*)
+                eff_ws="${COMP_WORDS[$idx]#--workspace-dir=}"
+                ws_flags=("${COMP_WORDS[$idx]}")
+                ;;
+            -w|--workspace)
+                if [[ $((idx + 1)) -lt "${COMP_CWORD:-0}" && "${COMP_WORDS[$((idx + 1))]}" != -* ]]
+                then
+                    ws_arg="${COMP_WORDS[$((idx + 1))]}"
+                    ws_flags=(-w "${ws_arg}")
+                    let idx++
+                    eff_ws="$(ramble location -w "${ws_arg}" 2>/dev/null)" || eff_ws=""
+                fi
+                ;;
+            --workspace=*)
+                ws_arg="${COMP_WORDS[$idx]#--workspace=}"
+                ws_flags=("${COMP_WORDS[$idx]}")
+                eff_ws="$(ramble location -w "${ws_arg}" 2>/dev/null)" || eff_ws=""
+                ;;
+        esac
+        let idx++
+    done
+    if [[ -n "${static_flag}" || "${cur:-}" == */* ]]
+    then
+        local base_dir="" prefix="" search_dir=""
+        if [[ -n "${static_flag}" ]]
+        then
+            base_dir="$(ramble location "${static_flag}" 2>/dev/null)" || base_dir=""
+            [[ "${cur:-}" == */* ]] && prefix="${cur%/*}"
+            search_dir="${base_dir}${prefix:+/${prefix}}"
+        else
+            local head="${cur%%/*}"
+            prefix="${cur%/*}"
+            if [[ -n "${eff_ws}" && -d "${eff_ws}/${head}" ]]
+            then
+                base_dir="${eff_ws}/${head}"
+            else
+                base_dir="$(ramble location --first ${ws_flags[@]+"${ws_flags[@]}"} "${head}" 2>/dev/null)" || base_dir=""
+            fi
+            search_dir="${base_dir}${prefix#"$head"}"
+        fi
+        local subpath_replies="" child child_name
+        if [[ -n "${base_dir}" && -d "${search_dir}" ]]
+        then
+            for child in "${search_dir}"/*
+            do
+                [[ -d "${child}" ]] || continue
+                child_name="${child##*/}"
+                [[ "${child_name}" != *[[:space:]]* ]] || continue
+                subpath_replies="${subpath_replies} ${prefix:+${prefix}/}${child_name}"
+            done
+        fi
+        RAMBLE_COMPREPLY="${subpath_replies}"
+        return
+    fi
+    if [[ "${prev}" == "-w" || "${prev}" == "--workspace" ]]
+    then
+        _workspaces
+        return
+    fi
+    if [[ "${prev}" == "--repo" ]]
+    then
+        _repos
+        return
+    fi
+    _repos
+    local repo_targets="$RAMBLE_COMPREPLY"
+    _workspaces
+    local keywords="root module lib user-config builtin repos"
+    local ws_targets=""
+    if [[ -n "${eff_ws}" && -d "${eff_ws}" ]]
+    then
+        local d
+        for d in configs experiments inputs logs software results tables shared archive deployments
+        do
+            if [[ -d "${eff_ws}/${d}" ]]
+            then
+                ws_targets="${ws_targets} ${d}"
+                if [[ "${d}" == "archive" ]]
+                then
+                    ws_targets="${ws_targets} archives"
+                fi
+            fi
+        done
+        if [[ -d "${eff_ws}/experiments" ]]
+        then
+            local app_path wl_path exp_path app_name wl_name exp_name
+            for app_path in "${eff_ws}/experiments"/*
+            do
+                [[ -d "${app_path}" ]] || continue
+                app_name="${app_path##*/}"
+                ws_targets="${ws_targets} ${app_name}"
+                for wl_path in "${app_path}"/*
+                do
+                    [[ -d "${wl_path}" ]] || continue
+                    wl_name="${wl_path##*/}"
+                    ws_targets="${ws_targets} ${wl_name} ${app_name}.${wl_name}"
+                    for exp_path in "${wl_path}"/*
+                    do
+                        [[ -d "${exp_path}" ]] || continue
+                        exp_name="${exp_path##*/}"
+                        ws_targets="${ws_targets} ${exp_name} ${app_name}.${wl_name}.${exp_name}"
+                    done
+                done
+            done
+        fi
+    fi
+    RAMBLE_COMPREPLY="$RAMBLE_COMPREPLY $repo_targets $ws_targets $keywords"
 }
 
 # Testing functions

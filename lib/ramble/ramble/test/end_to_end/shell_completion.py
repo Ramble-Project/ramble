@@ -69,29 +69,29 @@ def supported_shell(request):
     return shell
 
 
-def _completion_script(invocations):
+def _completion_script(invocations, setup_lines=None):
     """Build a shell script that sources ramble and echoes each completion result."""
     setup_env = os.path.join(paths.share_path, "setup-env.sh")
 
-    lines = [f'source "{setup_env}"']
+    lines = [f'source "{setup_env}"', *(setup_lines or [])]
     for index, invocation in enumerate(invocations):
         lines.append(f'echo "{_CASE_MARKER}{index}:$(_ramble_completions {invocation})"')
 
     return "\n".join(lines) + "\n"
 
 
-def _run_completions(tmpdir, invocations, shell="bash"):
+def _run_completions(tmpdir, invocations, shell="bash", setup_lines=None, env=None):
     """Run invocations under shell, returning {index: completion output}."""
     script_path = str(tmpdir.join(f"test_completion.{shell}"))
     with open(script_path, "w", encoding="utf-8") as f:
-        f.write(_completion_script(invocations))
+        f.write(_completion_script(invocations, setup_lines=setup_lines))
 
     process = subprocess.run(
         [shell, script_path],
         capture_output=True,
         text=True,
         cwd=str(tmpdir),
-        env=os.environ.copy(),
+        env=os.environ.copy() if env is None else env,
         check=False,
         timeout=600,
     )
@@ -226,3 +226,83 @@ ramble workspace remove -y {ws_name} > /dev/null 2>&1
     words = output.split()
     assert ws_name in words
     assert "Workspaces" not in words
+
+
+def test_cd_and_location_completion(tmpdir, supported_shell):
+    """Test completion of targets for ramble cd and ramble location."""
+    ws_dir = str(tmpdir.mkdir("ws_cd_comp"))
+    os.makedirs(os.path.join(ws_dir, "configs", "auxiliary_software_files"))
+    os.makedirs(os.path.join(ws_dir, "shared", "licenses"))
+    os.makedirs(os.path.join(ws_dir, "experiments", "basic", "test_wl", "scale_1"))
+
+    no_ws = _run_completions(
+        tmpdir,
+        ["ramble cd ''", f"ramble cd -D '{ws_dir}' ''"],
+        shell=supported_shell,
+        setup_lines=["unset RAMBLE_WORKSPACE"],
+    )
+    no_ws_words = {idx: val.split() for idx, val in no_ws.items()}
+    assert "root" in no_ws_words[0]
+    assert "configs" not in no_ws_words[0]
+    assert "configs" in no_ws_words[1]
+    assert "scale_1" in no_ws_words[1]
+
+    active_ws = _run_completions(
+        tmpdir,
+        [
+            "ramble cd ''",
+            "ramble location ''",
+            "ramble cd shared/",
+            "ramble location root/share/",
+            "ramble cd repos/",
+            "ramble cd -W ''",
+            "ramble cd -r share/",
+            "ramble cd --fg two-nodes ''",
+        ],
+        shell=supported_shell,
+        setup_lines=[f'export RAMBLE_WORKSPACE="{ws_dir}"'],
+    )
+    words = {idx: val.split() for idx, val in active_ws.items()}
+
+    # With an active workspace, existing subdirs and experiment targets are suggested
+    for idx in (0, 1):
+        assert {
+            "configs",
+            "experiments",
+            "basic",
+            "test_wl",
+            "basic.test_wl",
+            "scale_1",
+            "basic.test_wl.scale_1",
+        }.issubset(words[idx])
+        assert "deployments" not in words[idx]
+
+    # Subpath and scoped completions
+    assert "shared/licenses" in words[2]
+    assert "root/share/ramble" in words[3]
+    assert {"repos/builtin", "repos/builtin.mock"}.issubset(words[4])
+    assert "configs" not in words[5]
+    assert "scale_1" not in words[5]
+    assert "share/ramble" in words[6]
+    assert "scale_1" in words[7]
+
+
+def test_cd_custom_repo_completion(tmpdir, supported_shell):
+    """Test completion of custom registered repository namespaces and subpaths."""
+    custom_repo = str(tmpdir.join("custom_repo"))
+    env = {**os.environ, "HOME": str(tmpdir.mkdir("fake_home"))}
+
+    results = _run_completions(
+        tmpdir,
+        ["ramble cd ''", "ramble cd custom_lab_ns/"],
+        shell=supported_shell,
+        setup_lines=[
+            "unset RAMBLE_WORKSPACE RAMBLE_REPOS",
+            f'ramble repo create "{custom_repo}" custom_lab_ns > /dev/null 2>&1',
+            f'ramble repo add --scope user "{custom_repo}" > /dev/null 2>&1',
+        ],
+        env=env,
+    )
+
+    assert "custom_lab_ns" in results[0].split()
+    assert "custom_lab_ns/applications" in results[1].split()
