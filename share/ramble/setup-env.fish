@@ -184,34 +184,29 @@ function get_rmb_flags -d "return leading flags"
     # array: `__rmb_remaining_args` containing all unprocessed arguments.
     #
 
-    # initialize argument counter
     set -l i 1
+    set -l n (count $argv)
 
-    # iterate over elements (`elt`) in `argv` array
-    for elt in $argv
+    while test $i -le $n
+        set -l elt $argv[$i]
 
-        # match element `elt` of `argv` array to check if it has a leading dash
-        if echo $elt | string match -r -q "^-"
-            # by echoing the current `elt`, the calling stream accumulates list
-            # of valid flags. NOTE that this can also be done by adding to an
-            # array, but fish functions can only return integers, so this is the
-            # most elegant solution.
+        if echo "x$elt" | string match -r -q "^x-"
             echo $elt
+            switch "x$elt"
+                case "x-w" "x--workspace" "x-D" "x--workspace-dir" "x-c" "x--config" "x-C" "x--config-scope" "x--color" "x--sorted-profile" "x--lines" "x--profile-restrictions"
+                    set i (math $i+1)
+                    if test $i -le $n
+                        echo $argv[$i]
+                    end
+            end
         else
-            # bash compatibility: stop when the match first fails. Upon failure,
-            # we pack the remainder of `argv` into a global `__rmb_remaining_args`
-            # array (`i` tracks the index of the next element).
             set __rmb_remaining_args (stream_args $argv[$i..-1])
             return
         end
 
-        # increment argument counter: used in place of bash's `shift` command
-        set -l i (math $i+1)
-
+        set i (math $i+1)
     end
 
-    # if all elements in `argv` are matched, make sure that `__rmb_remaining_args`
-    # is deleted (this might be overkill...).
     set -e __rmb_remaining_args
 end
 
@@ -223,24 +218,22 @@ end
 #
 
 function check_rmb_flags -d "check ramble flags for h/V flags"
-    #
-    # Check if inputs contain h or V flags.
-    #
-
-    # combine argument array into single string (space separated), to be passed
-    # to regular expression matching (`string match -r`)
-    set -l _a "$argv"
-
-    # skip if called with blank input. Notes: [1] (cf. EOF)
-    if test -n "$_a"
-        if echo $_a | string match -r -q ".*h.*"
-            return 0
+    set -l skip_next 0
+    for f in $argv
+        if test $skip_next -eq 1
+            set skip_next 0
+            continue
         end
-        if echo $_a | string match -r -q ".*V.*"
-            return 0
+        switch "x$f"
+            case "x-h" "x--help" "x-H" "x--all-help" "x-V" "x--version" "x-h*" "x-H*" "x-V*"
+                return 0
+            case "x-w" "x--workspace" "x-D" "x--workspace-dir" "x-c" "x--config" "x-C" "x--config-scope" "x--color" "x--sorted-profile" "x--lines" "x--profile-restrictions"
+                set skip_next 1
+            case "x--*" "x-*[wDcC]*"
+            case "x-*h*" "x-*H*" "x-*V*"
+                return 0
         end
     end
-
     return 1
 end
 
@@ -538,6 +531,30 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
                         return $status
                 end
             end
+
+        case "cd"
+            if test -n "$__rmb_remaining_args"
+                for _arg in $__rmb_remaining_args
+                    switch "x$_arg"
+                        case "x--"
+                            break
+                        case "x-h" "x--help" "x-h*"
+                            command ramble $argv
+                            return $status
+                        case "x--*" "x-*[wDi]*h*"
+                        case "x-[esrmW]*h*"
+                            command ramble $argv
+                            return $status
+                    end
+                end
+            end
+            set -l rmb_loc (env _RAMBLE_CD_WRAPPER=1 ramble $argv)
+            set -l rmb_stat $status
+            if test $rmb_stat -eq 0 -a -n "$rmb_loc"
+                cd "$rmb_loc"
+                return $status
+            end
+            return $rmb_stat
 
         # CASE: Catch-all
 
