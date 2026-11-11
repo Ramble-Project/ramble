@@ -797,7 +797,7 @@ _ramble_workspace_manage() {
     then
         RAMBLE_COMPREPLY="-h --help --dry-run"
     else
-        RAMBLE_COMPREPLY="experiments software includes modifiers filter-groups"
+        RAMBLE_COMPREPLY="experiments software includes modifiers filter-groups success-criteria"
     fi
 }
 
@@ -845,4 +845,8 @@ _ramble_workspace_manage_filter_groups_list() {
 
 _ramble_workspace_manage_filter_groups_blame() {
     RAMBLE_COMPREPLY="-h --help"
+}
+
+_ramble_workspace_manage_success_criteria() {
+    RAMBLE_COMPREPLY="-h --help --list -l --add --remove --criteria-index -i --scope -s --name -n --mode -m --match --anti-match --file --fom-name --fom-context --formula --overwrite -o --dry-run"
 }

@@ -65,7 +65,14 @@ subcommands = [
     "manage",
 ]
 
-manage_commands = ["experiments", "software", "includes", "modifiers", "filter-groups"]
+manage_commands = [
+    "experiments",
+    "software",
+    "includes",
+    "modifiers",
+    "filter-groups",
+    "success-criteria",
+]
 
 
 def workspace_activate_setup_parser(subparser):
@@ -1987,6 +1994,217 @@ def workspace_manage_modifiers(args):
     elif args.list:
         with ws.read_transaction():
             ws.print_modifiers()
+
+
+def workspace_manage_success_criteria_setup_parser(subparser):
+    """manage workspace success criteria"""
+    actions = subparser.add_mutually_exclusive_group(required=True)
+    actions.add_argument(
+        "--list", "-l", action="store_true", help="whether to print existing success criteria"
+    )
+
+    actions.add_argument(
+        "--add",
+        action="store_true",
+        help="whether to add a new success criteria",
+    )
+
+    actions.add_argument(
+        "--remove",
+        action="store_true",
+        help="whether to remove an existing success criteria by index or pattern",
+    )
+
+    subparser.add_argument(
+        "--criteria-index",
+        "-i",
+        dest="remove_index",
+        default=None,
+        type=int,
+        metavar="INDEX",
+        help="index of success criteria to remove, only used with --remove",
+    )
+
+    subparser.add_argument(
+        "--scope",
+        "-s",
+        dest="scope",
+        metavar="SCOPE",
+        default=None,
+        help="scope of success criteria to manage. Can be a glob when removing. Of the form "
+        "<application_name>:<workload_name>:<experiment_name> or 'workspace' to "
+        "manage workspace success criteria.",
+    )
+
+    subparser.add_argument(
+        "--name",
+        "-n",
+        dest="name",
+        metavar="NAME",
+        default=None,
+        help="name of success criteria to manage. Can be a glob when removing, and defaults to "
+        "'*'.",
+    )
+
+    subparser.add_argument(
+        "--mode",
+        "-m",
+        dest="mode",
+        metavar="MODE",
+        default=None,
+        help="mode of success criteria to manage ('string', 'fom_comparison', or "
+        "'application_function'). Can be a glob when removing.",
+    )
+
+    subparser.add_argument(
+        "--match",
+        dest="match",
+        metavar="REGEX",
+        default=None,
+        help="regex pattern indicating success for mode='string'",
+    )
+
+    subparser.add_argument(
+        "--anti-match",
+        dest="anti_match",
+        metavar="REGEX",
+        default=None,
+        help="regex pattern indicating failure for mode='string'",
+    )
+
+    subparser.add_argument(
+        "--file",
+        dest="file",
+        metavar="FILE",
+        default=None,
+        help="file path to evaluate for mode='string'",
+    )
+
+    subparser.add_argument(
+        "--fom-name",
+        dest="fom_name",
+        metavar="FOM_NAME",
+        default=None,
+        help="name (or glob) of FOM for mode='fom_comparison'",
+    )
+
+    subparser.add_argument(
+        "--fom-context",
+        dest="fom_context",
+        metavar="FOM_CONTEXT",
+        default=None,
+        help="context (or glob) of FOM for mode='fom_comparison'",
+    )
+
+    subparser.add_argument(
+        "--formula",
+        dest="formula",
+        metavar="FORMULA",
+        default=None,
+        help="comparison formula (e.g. '{value} > 0') for mode='fom_comparison'",
+    )
+
+    subparser.add_argument(
+        "--overwrite",
+        "-o",
+        dest="overwrite",
+        action="store_true",
+        help="whether to overwrite an existing success criteria with the same name",
+    )
+
+    subparser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="whether to print the config without editing it, or to edit it directly.",
+    )
+
+
+def workspace_manage_success_criteria(args):
+    """Execute workspace manage success-criteria command"""
+
+    if args.add and (args.name is None or args.mode is None):
+        logger.die(
+            "ramble workspace manage success-criteria --add requires --name and --mode. "
+            "See `ramble workspace manage success-criteria -h`."
+        )
+
+    if args.remove and args.remove_index is not None:
+        conflicting = [
+            flag
+            for flag, value in (
+                ("--scope", args.scope),
+                ("--name", args.name),
+                ("--mode", args.mode),
+            )
+            if value is not None
+        ]
+        if conflicting:
+            logger.die(
+                "ramble workspace manage success-criteria --remove accepts --criteria-index or "
+                f"{'/'.join(conflicting)}, but not both. "
+                "See `ramble workspace manage success-criteria -h`."
+            )
+
+    ws = ramble.cmd.require_active_workspace(cmd_name="workspace manage success-criteria")
+
+    if args.remove:
+        remove_index = None
+        if args.remove_index is not None:
+            remove_index = args.remove_index
+
+        with ws.write_transaction():
+            removed = ws.remove_success_criteria(
+                remove_index=remove_index,
+                scope_pattern=args.scope,
+                name_pattern=args.name,
+                mode_pattern=args.mode,
+                dry_run=args.dry_run,
+            )
+
+            if args.dry_run:
+                ws.print_config()
+
+            if removed > 1:
+                logger.msg(f"Removed {removed} success criteria from workspace.")
+            elif removed == 1:
+                logger.msg(f"Removed {removed} success criteria from workspace.")
+            else:
+                logger.msg(
+                    "No success criteria matched criteria. "
+                    "0 success criteria removed from workspace."
+                )
+
+    elif args.add:
+        with ws.write_transaction():
+            added = ws.add_success_criteria(
+                name=args.name,
+                mode=args.mode,
+                scope=args.scope,
+                match=args.match,
+                anti_match=args.anti_match,
+                file=args.file,
+                fom_name=args.fom_name,
+                fom_context=args.fom_context,
+                formula=args.formula,
+                overwrite=args.overwrite,
+                dry_run=args.dry_run,
+            )
+
+            if args.dry_run:
+                ws.print_config()
+
+            if added > 1:
+                logger.msg(f"Added {added} success criteria to workspace.")
+            elif added == 1:
+                logger.msg(f"Added {added} success criteria to workspace.")
+            else:
+                logger.msg(
+                    "No success criteria matched criteria. "
+                    "0 success criteria added to workspace."
+                )
+    elif args.list:
+        with ws.read_transaction():
+            ws.print_success_criteria()
 
 
 def workspace_manage_filter_groups_setup_parser(subparser):
