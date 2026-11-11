@@ -71,7 +71,7 @@ class Spack(SpackLightweight):
         <ramble.yaml>
         spack:
           applications:
-            wrfv4:
+            wrf:
               wrf:
                 base: wrf
                 version: 4.2.2

@@ -24,7 +24,7 @@ ramble:
                 processes_per_node: [16, 32]
                 #^-- (partition, processes_per_node) -> (part1, 16), (part2, 32)
                 n_nodes: [2, 4]
-                wrf_path: execute_experiment in wrfv4.CONUS_2p5km.new_test
+                wrf_path: execute_experiment in wrf.CONUS_2p5km.new_test
               matrices:
                 - - n_nodes
                 #^-- (partition, processes_per_node, n_nodes) ->
