@@ -374,3 +374,314 @@ def test_remove_modifier_mode_pattern_filters_correctly(workspace_name):
     remaining = ws.index_modifiers()
     assert len(remaining) == 1
     assert remaining[0][1]["name"] == "ethtool"
+
+
+def test_manage_success_criteria_scopes_and_modes(workspace_name):
+    """Add, list, and remove success criteria across scopes and modes."""
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    global_args = ["-w", workspace_name]
+
+    workspace(
+        "manage",
+        "experiments",
+        "hostname",
+        "--wf",
+        "local",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        global_args=global_args,
+    )
+
+    # 1. workspace scope (mode=string, match + file)
+    workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--name",
+        "ws_match",
+        "--mode",
+        "string",
+        "--match",
+        ".*",
+        "--file",
+        "{log_file}",
+        global_args=global_args,
+    )
+
+    # 2. application scope (mode=string, anti_match)
+    workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--scope",
+        "hostname",
+        "--name",
+        "app_anti",
+        "--mode",
+        "string",
+        "--anti-match",
+        "ERROR",
+        global_args=global_args,
+    )
+
+    # 3. workload scope (mode=fom_comparison)
+    workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--scope",
+        "hostname:local",
+        "--name",
+        "wl_fom",
+        "--mode",
+        "fom_comparison",
+        "--fom-name",
+        "possible hostname",
+        "--fom-context",
+        "null",
+        "--formula",
+        "'{value}' != ''",
+        global_args=global_args,
+    )
+
+    # 4. experiment scope (mode=application_function)
+    workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--scope",
+        "hostname:local:generated",
+        "--name",
+        "exp_func",
+        "--mode",
+        "application_function",
+        global_args=global_args,
+    )
+
+    ramble.workspace.activate(ws)
+    ws._re_read()
+    indexed = ws.index_success_criteria()
+    assert len(indexed) == 4
+    assert [item[0] for item in indexed] == [
+        "workspace",
+        "hostname",
+        "hostname:local",
+        "hostname:local:generated",
+    ]
+    assert [item[1]["name"] for item in indexed] == [
+        "ws_match",
+        "app_anti",
+        "wl_fom",
+        "exp_func",
+    ]
+
+    list_out = workspace("manage", "success-criteria", "--list", global_args=global_args)
+    assert "Workspace contains 4 success criteria." in list_out
+    assert "0: Name: ws_match -- Mode: string" in list_out
+    assert "2: Name: wl_fom -- Mode: fom_comparison" in list_out
+
+    # Remove by index (-i 0)
+    workspace("manage", "success-criteria", "--remove", "-i", "0", global_args=global_args)
+    ramble.workspace.activate(ws)
+    ws._re_read()
+    assert [item[1]["name"] for item in ws.index_success_criteria()] == [
+        "app_anti",
+        "wl_fom",
+        "exp_func",
+    ]
+
+    # Remove by mode pattern
+    workspace(
+        "manage",
+        "success-criteria",
+        "--remove",
+        "-s",
+        "*",
+        "-m",
+        "fom_comparison",
+        global_args=global_args,
+    )
+    ramble.workspace.activate(ws)
+    ws._re_read()
+    assert [item[1]["name"] for item in ws.index_success_criteria()] == [
+        "app_anti",
+        "exp_func",
+    ]
+
+    # Remove remaining all by scope glob
+    workspace("manage", "success-criteria", "--remove", "-s", "*", global_args=global_args)
+    ramble.workspace.activate(ws)
+    ws._re_read()
+    assert ws.index_success_criteria() == []
+    with open(ws.config_file_path, encoding="utf-8") as f:
+        assert "success_criteria" not in f.read()
+
+
+def test_manage_success_criteria_overwrite_and_dry_run(workspace_name):
+    """Duplicate names error without --overwrite, and replace in-place with --overwrite."""
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    global_args = ["-w", workspace_name]
+
+    workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--name",
+        "check_pass",
+        "--mode",
+        "string",
+        "--match",
+        "OLD",
+        global_args=global_args,
+    )
+
+    # Without --overwrite, adding the same name in the same scope fails
+    with pytest.raises(
+        ramble.workspace.RambleWorkspaceError,
+        match=r"already exists in scope 'workspace'.*--overwrite",
+    ):
+        workspace(
+            "manage",
+            "success-criteria",
+            "--add",
+            "--name",
+            "check_pass",
+            "--mode",
+            "string",
+            "--match",
+            "NEW",
+            global_args=global_args,
+        )
+
+    ws._re_read()
+    assert ws.index_success_criteria() == [
+        ("workspace", {"name": "check_pass", "mode": "string", "match": "OLD"})
+    ]
+
+    # With --overwrite and --dry-run, config is printed but file on disk is unchanged
+    dry_out = workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--name",
+        "check_pass",
+        "--mode",
+        "string",
+        "--match",
+        "NEW",
+        "--overwrite",
+        "--dry-run",
+        global_args=global_args,
+    )
+    assert "NEW" in dry_out
+    ws._re_read()
+    assert ws.index_success_criteria() == [
+        ("workspace", {"name": "check_pass", "mode": "string", "match": "OLD"})
+    ]
+
+    # With --overwrite, existing entry is replaced in-place
+    workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--name",
+        "check_pass",
+        "--mode",
+        "string",
+        "--match",
+        "NEW",
+        "--overwrite",
+        global_args=global_args,
+    )
+    ws._re_read()
+    assert ws.index_success_criteria() == [
+        ("workspace", {"name": "check_pass", "mode": "string", "match": "NEW"})
+    ]
+
+
+def test_manage_success_criteria_validation_errors(workspace_name):
+    """CLI and API validation guards reject invalid add/remove arguments cleanly."""
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    global_args = ["-w", workspace_name]
+
+    # CLI: --add requires both --name and --mode
+    with pytest.raises(ramble.error.RambleCommandError, match="requires --name and --mode"):
+        workspace(
+            "manage",
+            "success-criteria",
+            "--add",
+            "--name",
+            "only_name",
+            global_args=global_args,
+        )
+
+    # CLI: --remove cannot combine --criteria-index with pattern flags
+    with pytest.raises(ramble.error.RambleCommandError, match="not both"):
+        workspace(
+            "manage",
+            "success-criteria",
+            "--remove",
+            "--criteria-index",
+            "0",
+            "--scope",
+            "workspace",
+            global_args=global_args,
+        )
+
+    # API: add_success_criteria preconditions and per-mode validation
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="without a name"):
+        ws.add_success_criteria(name="", mode="string", match="ok")
+
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="is not valid"):
+        ws.add_success_criteria(name="bad_mode", mode="invalid_mode")
+
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="requires exactly one"):
+        ws.add_success_criteria(name="str_none", mode="string")
+
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="requires exactly one"):
+        ws.add_success_criteria(name="str_both", mode="string", match="a", anti_match="b")
+
+    with pytest.raises(
+        ramble.workspace.RambleWorkspaceError, match="only valid for mode='fom_comparison'"
+    ):
+        ws.add_success_criteria(name="str_fom", mode="string", match="a", fom_name="f")
+
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="requires both"):
+        ws.add_success_criteria(name="fom_missing", mode="fom_comparison", fom_name="f")
+
+    with pytest.raises(
+        ramble.workspace.RambleWorkspaceError, match="only valid for mode='string'"
+    ):
+        ws.add_success_criteria(
+            name="fom_match", mode="fom_comparison", fom_name="f", formula="{value} > 0", match="a"
+        )
+
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="does not accept"):
+        ws.add_success_criteria(name="app_fn_extra", mode="application_function", match="a")
+
+    # Failed adds must leave ramble.yaml completely untouched
+    ws._re_read()
+    assert ws.index_success_criteria() == []
+    with open(ws.config_file_path, encoding="utf-8") as f:
+        assert "success_criteria" not in f.read()
+
+    # API: remove_success_criteria guards
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="not both"):
+        ws.remove_success_criteria(remove_index=0, scope_pattern="workspace")
+
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="integer index"):
+        ws.remove_success_criteria(remove_index=True)
+
+    with pytest.raises(
+        ramble.workspace.RambleWorkspaceError, match="contains no success criteria"
+    ):
+        ws.remove_success_criteria(remove_index=0)
+
+    ws.add_success_criteria(name="one_item", mode="string", match="ok")
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match=r"Valid index is 0\."):
+        ws.remove_success_criteria(remove_index=1)
