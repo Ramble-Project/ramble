@@ -168,37 +168,8 @@ def find_workspace(args):
     Returns:
         (ramble.workspace.Workspace): a found workspace, or ``None``
     """
-
-    # treat workspace as a name
-    ws = args.workspace
-    if ws:
-        if ramble.workspace.exists(ws):
-            return ramble.workspace.read(ws)
-
-    else:
-        # if workspace was specified, see if it is a directory otherwise, look
-        # at workspace_dir (workspace and workspace_dir are mutually exclusive)
-        ws = args.workspace_dir
-
-        # if no argument, look for the environment variable
-        if not ws:
-            ws = os.environ.get(ramble.workspace.RAMBLE_WORKSPACE_VAR)
-
-            # nothing was set; there's no active environment
-            if not ws:
-                return None
-            elif not ramble.workspace.is_workspace_dir(ws):
-                env_var = ramble.workspace.RAMBLE_WORKSPACE_VAR
-                raise ramble.workspace.RambleActiveWorkspaceError(
-                    f"The environment variable {env_var} refers to an invalid ramble workspace."
-                )
-
-    # if we get here, ws isn't the name of a ramble workspace; it has
-    # to be a path to a workspace, or there is something wrong.
-    if ramble.workspace.is_workspace_dir(ws):
-        return ramble.workspace.Workspace(ws)
-
-    raise ramble.workspace.RambleWorkspaceError(f"No workspace in {ws}")
+    ws_path = find_workspace_path(args)
+    return ramble.workspace.Workspace(ws_path) if ws_path else None
 
 
 def find_workspace_path(args):
@@ -208,7 +179,7 @@ def find_workspace_path(args):
         1. via ``ramble -w WRKSPC`` or ``ramble -D DIR`` (arguments)
         2. via a path in the ramble.workspace.RAMBLE_WORKSPACE_VAR environment variable.
 
-    If a workspace is found, return it's path.  If not, return None.
+    If a workspace is found, return its path.  If not, return None.
 
     Arguments:
         args (argparse.Namespace): argparse namespace with command arguments
@@ -235,6 +206,11 @@ def find_workspace_path(args):
             # nothing was set; there's no active environment
             if not ws:
                 return None
+            elif not ramble.workspace.is_workspace_dir(ws):
+                env_var = ramble.workspace.RAMBLE_WORKSPACE_VAR
+                raise ramble.workspace.RambleActiveWorkspaceError(
+                    f"The environment variable {env_var} refers to an invalid ramble workspace."
+                )
 
     # if we get here, ws isn't the name of a ramble workspace; it has
     # to be a path to a workspace, or there is something wrong.
