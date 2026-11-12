@@ -361,3 +361,51 @@ ramble:
     # Analyze should complete without crashing due to empty or invalid files
     out = workspace("analyze", "-p", global_args=["-D", ws.root])
     assert "Status = FAILED" in out
+
+
+def test_slurm_job_termination_overhead_fom(workspace_name):
+    import datetime
+
+    global_args = ["-w", workspace_name]
+    with ramble.workspace.create(workspace_name) as ws:
+        workspace(
+            "manage",
+            "experiments",
+            "hostname",
+            "--wf",
+            "local",
+            "-e",
+            "test",
+            "-v",
+            "n_nodes=1",
+            "-v",
+            "processes_per_node=1",
+            "-V",
+            "workflow_manager=slurm",
+            global_args=global_args,
+        )
+        workspace("setup", "--dry-run", global_args=global_args)
+
+        experiment_dir = os.path.join(
+            ws.experiment_dir, "hostname", "local", "test"
+        )
+        end_dt = datetime.datetime(2026, 11, 9, 12, 0, 30)
+        script_end_ts = end_dt.timestamp() - 12
+
+        with open(
+            os.path.join(experiment_dir, ".slurm_script_end_time"),
+            "w",
+            encoding="utf-8",
+        ) as f:
+            f.write(f"{int(script_end_ts)}\n")
+
+        with open(
+            os.path.join(experiment_dir, ".slurm_job_info"),
+            "w",
+            encoding="utf-8",
+        ) as f:
+            f.write("  job_status: COMPLETE\n")
+            f.write("  job_end: 2026-11-09T12:00:30\n")
+
+        out = workspace("analyze", "-p", global_args=global_args)
+        assert "job-termination-overhead = 12 s" in out

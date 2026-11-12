@@ -8,7 +8,6 @@
 
 
 import os
-import re
 
 from ramble.appkit import *
 
@@ -130,11 +129,22 @@ class PyNemo(ExecutableApplication):
         group_name="elapsed_time",
         log_file="{processed_log_file}",
     )
+
+    def _calc_elapsed_seconds(app):
+        timestamp = app.get_fom_value("Final Elapsed Time")
+        if not timestamp:
+            return None
+        elapsed_s = 0
+        mult = 1
+        for part in reversed(timestamp.split(":")):
+            elapsed_s += int(part) * mult
+            mult *= 60
+        return elapsed_s
+
     figure_of_merit(
         "Final Elapsed Seconds",
-        fom_regex=r"Elapsed seconds: (?P<seconds>[0-9]+)",
-        group_name="seconds",
-        log_file="{experiment_run_dir}/elapsed_seconds",
+        formula=_calc_elapsed_seconds,
+        units="s",
     )
     figure_of_merit(
         "Final Remaining Time",
@@ -322,10 +332,6 @@ class PyNemo(ExecutableApplication):
             workspace,
         )
 
-        elapsed_s = 0
-
-        final_regex = re.compile(self.final_epoch_regex)
-
         if os.path.exists(log_file):
             with open(log_file, encoding="ISO-8859-1") as f:
                 data = f.read()
@@ -340,25 +346,3 @@ class PyNemo(ExecutableApplication):
                     .replace("\x96\x88", "")
                     .replace("â", "")
                 )
-
-            with open(processed_log, encoding="utf-8") as f:
-                for line in f:
-                    m = final_regex.match(line)
-
-                    if m:
-                        timestamp = m.group("elapsed_time")
-
-                        time_parts = timestamp.split(":")
-
-                        part_s = 0
-                        mult = 1
-                        for part in reversed(time_parts):
-                            part_s += int(part) * mult
-                            mult = mult * 60
-                        elapsed_s += part_s
-
-            sec_file_path = self.expander.expand_var(
-                "{experiment_run_dir}/elapsed_seconds"
-            )
-            with open(sec_file_path, "w+", encoding="utf-8") as f:
-                f.write(f"Elapsed seconds: {elapsed_s}")

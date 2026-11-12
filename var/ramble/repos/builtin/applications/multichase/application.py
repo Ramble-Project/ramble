@@ -96,23 +96,16 @@ class Multichase(ExecutableApplication):
             group_name="latency",
             units="ns",
         )
-        figure_of_merit(
-            "Array Size",
-            fom_map_key="array_size_bytes",
-            units="bytes",
-        )
 
-    def _prepare_analysis(self, workspace, app_inst=None):
-        def _parse_size_bytes(size_str):
-            s = str(size_str).strip().lower()
+        def _parse_array_size(app):
+            s = str(app.expander.expand_var("{array_size}")).strip().lower()
             units = {"k": 1024, "m": 1024**2, "g": 1024**3, "t": 1024**4}
             if s and s[-1] in units:
                 return int(float(s[:-1]) * units[s[-1]])
             return int(float(s))
 
-        array_size_str = self.expander.expand_var("{array_size}")
-        try:
-            array_size_bytes = _parse_size_bytes(array_size_str)
-            self.add_inmem_fom_value("array_size_bytes", array_size_bytes)
-        except ValueError:
-            pass
+        figure_of_merit(
+            "Array Size",
+            formula=_parse_array_size,
+            units="bytes",
+        )
