@@ -201,13 +201,13 @@ class Lammps(ExecutableApplication):
         "configure-timestep-variables-warmup",
         file_path="input.txt",
         match=r"w index .*[0-9]+",
-        replace="t index {warmup_timesteps}",
+        replace="w index {warmup_timesteps}",
     )
     edit_file(
         "configure-timestep-variables-multiplier",
         file_path="input.txt",
         match=r"m index .*[0-9]+",
-        replace="t index {timestep_multiplier}",
+        replace="m index {timestep_multiplier}",
     )
 
     exec_path = os.path.join("{lammps_path}", "bin", "lmp")
