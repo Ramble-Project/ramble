@@ -113,10 +113,11 @@ end
 function stream_args -d "echos args as a stream"
     # return the elements of `$argv` as an array
     #  -> since we want to be able to call it as part of `set x (shift_args
-    #     $x)`, we return these one-at-a-time using echo... this means that the
+    #     $x)`, we return these one-at-a-time using printf... this means that the
     #     sub-command stream will correctly concatenate the output into an array
+    #     without interpreting leading dashes (e.g. `-n`, `-e`, `-s`).
     for elt in $argv
-        echo $elt
+        printf '%s\n' "$elt"
     end
 end
 
@@ -130,15 +131,15 @@ function shift_args -d "simulates bash shift"
 
     if test -z "$argv[2]"
         # there are no more element, returning the empty string
-        echo ""
+        printf '\n'
     else
         # return the next elements `$argv[2..-1]` as an array
         #  -> since we want to be able to call it as part of `set x (shift_args
-        #     $x)`, we return these one-at-a-time using echo... this means that
+        #     $x)`, we return these one-at-a-time using printf... this means that
         #     the sub-command stream will correctly concatenate the output into
         #     an array
         for elt in $argv[2..-1]
-            echo $elt
+            printf '%s\n' "$elt"
         end
     end
 
@@ -184,34 +185,29 @@ function get_rmb_flags -d "return leading flags"
     # array: `__rmb_remaining_args` containing all unprocessed arguments.
     #
 
-    # initialize argument counter
     set -l i 1
+    set -l n (count $argv)
 
-    # iterate over elements (`elt`) in `argv` array
-    for elt in $argv
+    while test $i -le $n
+        set -l elt $argv[$i]
 
-        # match element `elt` of `argv` array to check if it has a leading dash
-        if echo $elt | string match -r -q "^-"
-            # by echoing the current `elt`, the calling stream accumulates list
-            # of valid flags. NOTE that this can also be done by adding to an
-            # array, but fish functions can only return integers, so this is the
-            # most elegant solution.
-            echo $elt
+        if echo "x$elt" | string match -r -q "^x-"
+            printf '%s\n' "$elt"
+            switch "x$elt"
+                case "x-w" "x--workspace" "x-D" "x--workspace-dir" "x-c" "x--config" "x-C" "x--config-scope" "x--color" "x--sorted-profile" "x--lines" "x--profile-restrictions"
+                    set i (math $i+1)
+                    if test $i -le $n
+                        printf '%s\n' "$argv[$i]"
+                    end
+            end
         else
-            # bash compatibility: stop when the match first fails. Upon failure,
-            # we pack the remainder of `argv` into a global `__rmb_remaining_args`
-            # array (`i` tracks the index of the next element).
             set __rmb_remaining_args (stream_args $argv[$i..-1])
             return
         end
 
-        # increment argument counter: used in place of bash's `shift` command
-        set -l i (math $i+1)
-
+        set i (math $i+1)
     end
 
-    # if all elements in `argv` are matched, make sure that `__rmb_remaining_args`
-    # is deleted (this might be overkill...).
     set -e __rmb_remaining_args
 end
 
@@ -223,24 +219,20 @@ end
 #
 
 function check_rmb_flags -d "check ramble flags for h/V flags"
-    #
-    # Check if inputs contain h or V flags.
-    #
-
-    # combine argument array into single string (space separated), to be passed
-    # to regular expression matching (`string match -r`)
-    set -l _a "$argv"
-
-    # skip if called with blank input. Notes: [1] (cf. EOF)
-    if test -n "$_a"
-        if echo $_a | string match -r -q ".*h.*"
+    set -l skip_next 0
+    for f in $argv
+        if test $skip_next -eq 1
+            set skip_next 0
+            continue
+        end
+        if string match -r -q '^x(--(help|all-help|version)$|-[^wDcC-]*[hHV])' "x$f"
             return 0
         end
-        if echo $_a | string match -r -q ".*V.*"
-            return 0
+        switch "x$f"
+            case "x-w" "x--workspace" "x-D" "x--workspace-dir" "x-c" "x--config" "x-C" "x--config-scope" "x--color" "x--sorted-profile" "x--lines" "x--profile-restrictions"
+                set skip_next 1
         end
     end
-
     return 1
 end
 
@@ -396,8 +388,8 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
     #
 
     if check_rmb_flags $rmb_flags
-        command ramble $rmb_flags $__rmb_remaining_args
-        return 0
+        command ramble $argv
+        return $status
     end
 
 
@@ -440,7 +432,8 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
             # Notes: [2] (cf. EOF)
             if test "x$rmb_arg" = "x-h"; or test "x$rmb_arg" = "x--help"
                 # nothing more needs to be done for `-h` or `--help`
-                command ramble workspace -h
+                command ramble $argv
+                return $status
             else
                 switch $rmb_arg
                     case "activate"
@@ -448,7 +441,7 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
 
                         if check_workspace_activate_flags $_a
                             # no args or args contain -h/--help, --sh, or --csh: just execute
-                            command ramble workspace activate $_a
+                            command ramble $argv
                             return $status
                         else
                             # actual call to activate: source the output
@@ -472,7 +465,7 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
 
                         if check_workspace_deactivate_flags $_a
                             # just  execute the command if --sh, --csh, or --fish are provided
-                            command ramble workspace deactivate $_a
+                            command ramble $argv
                             return $status
 
                         # Test of further (unparsed arguments). Any other
@@ -481,7 +474,7 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
                         #    for compatibility with setup-env.sh
                         # -> Notes: [1] (cf. EOF).
                         else if test -n "$__rmb_remaining_args"
-                            command ramble workspace deactivate -h
+                            command ramble $rmb_flags workspace deactivate -h
                             return $status
                         else
                             # no args: source the output of the command
@@ -522,22 +515,35 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
                             end
                             return $__rmb_stat
                         else
-                            command ramble workspace create $_a
+                            command ramble $argv
                             return $status
                         end
 
                     case "*"
-                        # if $__rmb_remaining_args is empty, then don't include it
-                        # as argument (otherwise it will be confused as a blank
-                        # string input!)
-                        if test -n "$__rmb_remaining_args"
-                            command ramble workspace $rmb_arg $__rmb_remaining_args
-                        else
-                            command ramble workspace $rmb_arg
-                        end
+                        command ramble $argv
                         return $status
                 end
             end
+
+        case "cd"
+            if test -n "$__rmb_remaining_args"
+                for _arg in $__rmb_remaining_args
+                    if test "x$_arg" = "x--"
+                        break
+                    end
+                    if string match -r -q '^x(--help$|-[^wDi-]*h)' "x$_arg"
+                        command ramble $argv
+                        return $status
+                    end
+                end
+            end
+            set -l rmb_loc (env _RAMBLE_CD_WRAPPER=1 ramble $argv)
+            set -l rmb_stat $status
+            if test $rmb_stat -eq 0 -a -n "$rmb_loc"
+                cd "$rmb_loc"
+                return $status
+            end
+            return $rmb_stat
 
         # CASE: Catch-all
 

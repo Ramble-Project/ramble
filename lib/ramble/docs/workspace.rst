@@ -226,6 +226,37 @@ A filter group can also be persistently activated for a workspace session by pas
 This will export the ``RAMBLE_ACTIVE_FILTER_GROUP`` environment variable to the shell, which will be used by subsequent workspace commands as the default filter group. Deactivating the workspace will unset this variable.
 
 
+---------------------
+Navigating Workspaces
+---------------------
+
+When shell support is sourced (``share/ramble/setup-env.sh``, ``setup-env.csh``,
+or ``setup-env.fish``), ``ramble cd`` navigates directly to workspaces,
+workspace subdirectories, experiments, software environments, input
+directories, and repositories. Its companion command ``ramble location`` prints
+the resolved directory path(s) to standard output for use in scripts:
+
+.. code-block:: console
+
+    $ ramble cd                      # active workspace root (or $RAMBLE_ROOT if none active)
+    $ ramble cd configs              # active workspace configs/ directory
+    $ ramble cd my_experiment        # experiment, workload, or application run directory
+    $ ramble cd -i 2                 # primary experiment with experiment_index 2
+    $ ramble cd -s                   # package-manager software environment directory
+    $ ramble cd --input-dir          # workload or application input directory
+    $ ramble cd -w other_ws/shared   # subdirectory inside another workspace
+    $ ramble cd --repo my_repo       # registered object repository
+
+``ramble location`` accepts the same flags and targets, returns all matching
+paths (one per line) without requiring them to already exist on disk, and
+supports ``--first`` and ``--existing`` when filtering scripted output:
+
+.. code-block:: console
+
+    $ ramble location '*scale*'
+    $ ramble location --first --existing '*scale*'
+
+
 ------------------------------
 Printing Workspace Information
 ------------------------------
