@@ -65,3 +65,10 @@ def test_workspace_cache():
     assert obj.cached_method(1, 2, env={"PATH": "/bin"}) == 5
     assert obj.cached_method(1, 2, env={"PATH": "/bin"}) == 5
     assert obj.call_count == 5
+
+
+def test_satisfy_when_without_expander():
+    obj = TestObject()
+    assert obj.satisfy_when("any_condition") is True
+    obj.app_inst = None
+    assert obj.satisfy_when("any_condition") is True

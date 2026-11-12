@@ -31,7 +31,7 @@ replacements = {
 }
 
 
-def substitute_config_variables(path, local_replacements):
+def substitute_config_variables(path, local_replacements=None):
     """Substitute placeholders into paths.
 
     Ramble allows paths in configs to have some placeholders, as follows:
@@ -39,6 +39,9 @@ def substitute_config_variables(path, local_replacements):
     - $ramble    The ramble instance's prefix
     - $user      The current user's username
     - $tempdir   Default temporary directory returned by tempfile.gettempdir()
+
+    If a workspace is active, workspace path variables (such as $workspace_root,
+    $workspace_configs, etc.) are also substituted.
 
     These are substituted case-insensitively into the path, and users can
     use either ``$var`` or ``${var}`` syntax for the variables.
@@ -48,11 +51,25 @@ def substitute_config_variables(path, local_replacements):
     if "$" not in path:
         return path
 
+    if local_replacements is None:
+        local_replacements = {}
+
+    import ramble.workspace
+
+    ws = ramble.workspace.active_workspace()
+    ws_replacements = ws.workspace_paths() if ws else {}
+
     # Look up replacements for re.sub in the replacements dict.
     def repl(match):
         m = match.group(0).strip("${}")
         lower_key = m.lower()
-        return replacements.get(lower_key, local_replacements.get(lower_key, match.group(0)))
+        return replacements.get(
+            lower_key,
+            local_replacements.get(
+                lower_key,
+                ws_replacements.get(lower_key, match.group(0)),
+            ),
+        )
 
     # Replace $var or ${var}.
     return _PATH_VAR_RE.sub(repl, path)
