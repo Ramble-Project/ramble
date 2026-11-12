@@ -1213,7 +1213,7 @@ def workspace_list(args):
 
         # say how many there are if writing to a tty
         if sys.stdout.isatty():
-            logger.msg(f"{len(names)} workspaces")
+            logger.msg(string.plural(len(names), "workspace"))
 
         colify(color_names, indent=4)
         return 0
@@ -1229,13 +1229,23 @@ def workspace_list(args):
         else:
             wspaths = ramble.workspace.get_workspace_path()
 
-        total_workspaces = 0
-        for i, wspath in enumerate(wspaths):
+        ws_by_dir = [
+            (wspath, ramble.workspace.all_workspace_names(parent_dir=wspath)) for wspath in wspaths
+        ]
+        total_workspaces = sum(len(names) for _, names in ws_by_dir)
+
+        if total_workspaces == 0:
+            logger.warn("No workspaces found.")
+            return 0
+
+        for i, (wspath, names) in enumerate(ws_by_dir):
             if i > 0:
                 color.cprint("")
             color.cprint(color.section_title("Workspaces from dir:") + " " + wspath)
-            names = ramble.workspace.all_workspace_names(parent_dir=wspath)
-            total_workspaces += len(names)
+
+            # say how many there are if writing to a tty, or always when dir is empty
+            if sys.stdout.isatty() or not names:
+                logger.msg(string.plural(len(names), "workspace"))
 
             color_names = []
             for name in names:
@@ -1243,14 +1253,7 @@ def workspace_list(args):
                     name = color.colorize(f"@*g{{{name}}}")
                 color_names.append(name)
 
-            # say how many there are if writing to a tty
-            if sys.stdout.isatty() and names:
-                logger.msg(f"{len(names)} workspaces")
-
             colify(color_names, indent=4)
-
-        if total_workspaces == 0:
-            logger.warn("No workspaces found.")
 
         return 0
 
