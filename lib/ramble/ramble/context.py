@@ -129,9 +129,10 @@ class Context:
         if in_context.exclude:
             self.exclude = in_context.exclude
         if in_context.zips:
-            self.zips.update(in_context.zips)
+            for zip_name, zip_def in in_context.zips.items():
+                self.zips[zip_name] = list(zip_def)
         if in_context.matrices:
-            self.matrices = in_context.matrices
+            self.matrices = [list(matrix) for matrix in in_context.matrices]
         if in_context.tags:
             self.tags.extend(in_context.tags)
         if in_context.n_repeats != 0:
@@ -234,7 +235,9 @@ def create_context_from_dict(context_name, in_dict):
         new_context.exclude = in_dict[namespace.exclude]
 
     if namespace.zips in in_dict:
-        new_context.zips = in_dict[namespace.zips]
+        new_context.zips = {
+            zip_name: list(zip_def) for zip_name, zip_def in in_dict[namespace.zips].items()
+        }
 
     if namespace.tables in in_dict:
         new_context.tables = in_dict[namespace.tables].copy()
