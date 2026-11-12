@@ -7,6 +7,7 @@
 # except according to those terms.
 
 import os
+import pathlib
 from typing import Callable, Dict
 
 import llnl.util.filesystem as fs
@@ -153,9 +154,22 @@ def deployment_pull(args):
         with open(local_index_path, encoding="utf-8") as f:
             index_data = json_util.load(f)
 
+        real_ws_root = os.path.realpath(ws.root)
+
         for file in index_data[push_cls.index_namespace]:
-            src = surl.join(deployment_path, file)
             dest = os.path.join(ws.root, file)
+            real_dest = os.path.realpath(dest)
+            if (
+                os.path.isabs(file)
+                or ".." in pathlib.PurePath(file).parts
+                or os.path.commonpath([real_ws_root, real_dest]) != real_ws_root
+                or real_dest == real_ws_root
+            ):
+                logger.die(
+                    f"Deployment file '{file}' resolves outside of the workspace root '{ws.root}'."
+                )
+
+            src = surl.join(deployment_path, file)
             if os.path.exists(dest):
                 fs.force_remove(dest)
 

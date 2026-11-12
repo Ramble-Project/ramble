@@ -13,8 +13,10 @@ import pytest
 
 import ramble.config
 import ramble.paths
+import ramble.pipeline
 import ramble.workspace
-from ramble.main import RambleCommand
+from ramble.main import RambleCommand, RambleCommandError
+from ramble.util import json_util
 
 deployment = RambleCommand("deployment")
 workspace = RambleCommand("workspace")
@@ -166,3 +168,69 @@ def test_tar_deployment(mutable_config, mutable_mock_workspace_path, workspace_n
         deployment_dir = os.path.join(ws.root, "deployments")
         tar_path = os.path.join(deployment_dir, f"{workspace_name}.tar.gz")
         assert os.path.isfile(tar_path)
+
+
+@pytest.mark.parametrize(
+    "malicious_entry_kind",
+    [
+        "relative_parent",
+        "relative_nested_parent",
+        "relative_bounce_back",
+        "absolute_outside",
+        "absolute_inside",
+        "symlink_escape",
+    ],
+)
+def test_deployment_pull_rejects_path_traversal(tmpdir, workspace_name, malicious_entry_kind):
+    outside_dir = tmpdir.mkdir("outside")
+    victim_file = outside_dir.join("victim.txt")
+    victim_file.write("original content")
+
+    deploy_dir = tmpdir.mkdir("malicious_deployment")
+    push_cls = ramble.pipeline.PushDeploymentPipeline
+
+    with ramble.workspace.create(workspace_name) as ws:
+        ws.write()
+
+        if malicious_entry_kind == "relative_parent":
+            entry = "../victim.txt"
+            target_check_path = os.path.normpath(os.path.join(ws.root, entry))
+            with open(target_check_path, "w", encoding="utf-8") as f:
+                f.write("original content")
+        elif malicious_entry_kind == "relative_nested_parent":
+            entry = "configs/../../victim.txt"
+            target_check_path = os.path.normpath(os.path.join(ws.root, entry))
+            with open(target_check_path, "w", encoding="utf-8") as f:
+                f.write("original content")
+        elif malicious_entry_kind == "relative_bounce_back":
+            entry = f"../{os.path.basename(ws.root)}/configs/ramble.yaml"
+            target_check_path = str(victim_file)
+        elif malicious_entry_kind == "absolute_outside":
+            entry = str(victim_file)
+            target_check_path = str(victim_file)
+        elif malicious_entry_kind == "absolute_inside":
+            entry = os.path.join(ws.root, "configs", "ramble.yaml")
+            target_check_path = str(victim_file)
+        elif malicious_entry_kind == "symlink_escape":
+            os.symlink(str(outside_dir), os.path.join(ws.root, "escaped_link"))
+            entry = "escaped_link/victim.txt"
+            target_check_path = str(victim_file)
+
+        index_path = os.path.join(str(deploy_dir), push_cls.index_filename)
+        with open(index_path, "w", encoding="utf-8") as f:
+            f.write(json_util.dumps({push_cls.index_namespace: [entry]}))
+
+        with pytest.raises(
+            RambleCommandError,
+            match="resolves outside of the workspace root",
+        ):
+            deployment(
+                "pull",
+                "-p",
+                str(deploy_dir),
+                global_args=["-w", workspace_name],
+            )
+
+        assert os.path.isfile(target_check_path)
+        with open(target_check_path, encoding="utf-8") as f:
+            assert f.read() == "original content"
