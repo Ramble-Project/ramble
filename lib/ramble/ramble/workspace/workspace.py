@@ -1487,7 +1487,7 @@ cd "{experiment_run_dir}"
             # This is mutually exclusive with workload_name_variable
             if include_default_variables:
                 if default_vars:
-                    first_var = True
+                    first_var = len(vars_dict) == 0
                     for var in default_vars.values():
                         keep_var = False
                         for var_filter in variable_filters:
@@ -1504,24 +1504,22 @@ cd "{experiment_run_dir}"
                                 first_var = False
                             else:
                                 yaml_add_comment_before_key(
-                                    vars_dict, var.name, "", column=17, start_char=""
+                                    vars_dict, var.name, "", column=0, start_char=""
                                 )
                             if var.description:
                                 yaml_add_comment_before_key(
-                                    vars_dict, var.name, var.description, column=17
+                                    vars_dict, var.name, var.description, column=16
                                 )
                             if var.values and (len(var.values) > 1 or var.values[0] is not None):
                                 yaml_add_comment_before_key(
                                     vars_dict,
                                     var.name,
                                     f"Suggested values: {var.values}",
-                                    column=17,
+                                    column=16,
                                 )
 
                 if default_env_vars:
-                    if namespace.env_var not in exps_dict[experiment_name]:
-                        exp_dict[namespace.env_var] = syaml.syaml_dict()
-
+                    exp_dict[namespace.env_var] = syaml.syaml_dict()
                     env_vars_dict = exp_dict[namespace.env_var]
 
                     for env_var in default_env_vars.values():

@@ -3922,6 +3922,8 @@ def test_workspace_manage_experiments_include_default_variables(workspace_name):
             "n_nodes=1",
             global_args=global_args,
         )
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            assert "\n                # Example var\n" in f.read()
 
         # 2. Test variables with suggested values (values=[...]) and workload_defaults.
         workspace(
@@ -3939,6 +3941,11 @@ def test_workspace_manage_experiments_include_default_variables(workspace_name):
             "processes_per_node=2",
             global_args=global_args,
         )
+        expected_suggested = (
+            "\n                # Suggested values: ['choice1', 'choice2', 'choice3']\n"
+        )
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            assert expected_suggested in f.read()
 
         # 3. Test when-conditioned variables and environment variables.
         workspace(
@@ -3962,9 +3969,9 @@ def test_workspace_manage_experiments_include_default_variables(workspace_name):
         with open(ws.config_file_path, encoding="utf-8") as f:
             content = f.read()
 
-        # Verify comments and suggested values in raw YAML
-        assert "# Example var" in content
-        assert "# Suggested values: ['choice1', 'choice2', 'choice3']" in content
+        # Verify comments in raw YAML are aligned at 16 spaces with clean blank lines
+        assert "\n                # Variable to print for testing\n" in content
+        assert "\n                 \n" not in content
 
         parsed = syaml.load(content)
         apps = parsed["ramble"]["applications"]
@@ -4003,3 +4010,12 @@ def test_workspace_manage_experiments_include_default_variables(workspace_name):
         assert "validation.test_validation_workload_var.generated" in info_out
         assert "when-directives.test_wl.generated" in info_out
         workspace("setup", "--dry-run", global_args=global_args)
+
+        # Ensure append/prepend env_vars written by -i are not duplicated in execute_experiment
+        basic_script = os.path.join(
+            ws.experiment_dir, "basic", "test_wl", "generated", "execute_experiment"
+        )
+        with open(basic_script, encoding="utf-8") as f:
+            script_content = f.read()
+        assert 'export TEST_APPEND_ENV="${TEST_APPEND_ENV},3";' in script_content
+        assert 'export TEST_PREPEND_ENV="4:${TEST_PREPEND_ENV}";' in script_content
