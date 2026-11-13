@@ -1071,15 +1071,6 @@ def validate(data, schema, filename=None):
     # This allows us to round-trip data without adding to it.
     test_data = copy.deepcopy(data)
 
-    if isinstance(test_data, yaml.comments.CommentedMap):
-        # HACK to fully copy ruamel CommentedMap that doesn't provide copy
-        # method. Especially necessary for workspaces
-        setattr(
-            test_data,
-            yaml.comments.Comment.attrib,
-            getattr(data, yaml.comments.Comment.attrib, yaml.comments.Comment()),
-        )
-
     try:
         ramble.schema.Validator(schema).validate(test_data)
     except jsonschema.ValidationError as e:
