@@ -161,8 +161,8 @@ class Lammps(ExecutableApplication):
     edit_file(
         "configure-reaxff-timesteps",
         file_path="input.txt",
-        match=r"y index .*",
-        replace="y index {timesteps}",
+        match=r"t index .*",
+        replace="t index {timesteps}",
     )
 
     edit_file(
