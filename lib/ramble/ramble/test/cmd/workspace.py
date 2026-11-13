@@ -3897,3 +3897,125 @@ def test_workspace_create_no_comments(tmpdir, mutable_mock_workspace_path):
         cfg_no_comments_content = f.read()
     assert "# This is a ramble workspace config file." not in cfg_no_comments_content
     assert cfg_no_comments_content.startswith("ramble:\n")
+
+
+def test_workspace_manage_experiments_include_default_variables(workspace_name):
+    global_args = ["-w", workspace_name]
+
+    with ramble.workspace.create(workspace_name) as ws:
+        ws.write()
+
+        # 1. Test variable filtering (--vf), variables without values (values=None),
+        #    and environment variables with set, append, and prepend methods.
+        workspace(
+            "manage",
+            "experiments",
+            "basic",
+            "--wf",
+            "test_wl",
+            "-i",
+            "--vf",
+            "my*",
+            "-v",
+            "n_ranks=1",
+            "-v",
+            "n_nodes=1",
+            global_args=global_args,
+        )
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            assert "\n                # Example var\n" in f.read()
+
+        # 2. Test variables with suggested values (values=[...]) and workload_defaults.
+        workspace(
+            "manage",
+            "experiments",
+            "validation",
+            "--wf",
+            "test_validation_workload_var",
+            "-i",
+            "-v",
+            "n_ranks=2",
+            "-v",
+            "n_nodes=1",
+            "-v",
+            "processes_per_node=2",
+            global_args=global_args,
+        )
+        expected_suggested = (
+            "\n                # Suggested values: ['choice1', 'choice2', 'choice3']\n"
+        )
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            assert expected_suggested in f.read()
+
+        # 3. Test when-conditioned variables and environment variables.
+        workspace(
+            "manage",
+            "experiments",
+            "when-directives",
+            "--wf",
+            "test_wl",
+            "-i",
+            "-V",
+            "workload_group_options=group2",
+            "-V",
+            "app_env_var_included=True",
+            "-v",
+            "n_ranks=1",
+            "-v",
+            "n_nodes=1",
+            global_args=global_args,
+        )
+
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            content = f.read()
+
+        # Verify comments in raw YAML are aligned at 16 spaces with clean blank lines
+        assert "\n                # Variable to print for testing\n" in content
+        assert "\n                 \n" not in content
+
+        parsed = syaml.load(content)
+        apps = parsed["ramble"]["applications"]
+
+        # Verify basic.test_wl.generated
+        basic_exp = apps["basic"]["workloads"]["test_wl"]["experiments"]["generated"]
+        assert basic_exp["variables"]["my_base_var"] == "0.0"
+        assert basic_exp["variables"]["my_var"] == "1.0"
+        assert "foo.bar" not in basic_exp["variables"]
+        assert basic_exp["env_vars"]["set"]["TEST_ENV"] == "1"
+        assert basic_exp["env_vars"]["append"] == [
+            {"var-separator": ",", "vars": {"TEST_APPEND_ENV": "3"}}
+        ]
+        assert basic_exp["env_vars"]["prepend"] == [{"paths": {"TEST_PREPEND_ENV": "4"}}]
+
+        # Verify validation.test_validation_workload_var.generated
+        val_exp = apps["validation"]["workloads"]["test_validation_workload_var"]["experiments"][
+            "generated"
+        ]
+        assert val_exp["variables"]["loose_multi_choice_var"] == "choice-1"
+        assert val_exp["variables"]["multi_choice_var"] == "choice1"
+        assert val_exp["variables"]["multi_choice_var2"] == "choice2"
+
+        # Verify when-directives.test_wl.generated respects variant when conditions
+        when_exp = apps["when-directives"]["workloads"]["test_wl"]["experiments"]["generated"]
+        assert when_exp["variables"]["test_variable"] == "Test"
+        assert when_exp["variables"]["test_variable3"] == "Var3"
+        assert "test_variable2" not in when_exp["variables"]
+        assert when_exp["env_vars"]["set"]["APP_ENV_VAR3"] == "TEST_WL3_ENV_VAR"
+        assert when_exp["env_vars"]["set"]["APP_ENV_VAR"] == "APP_ENV_VAR_SET"
+        assert "APP_ENV_VAR2" not in when_exp["env_vars"]["set"]
+
+        # Verify workspace info and dry-run setup succeed on the generated config
+        info_out = workspace("info", global_args=global_args)
+        assert "basic.test_wl.generated" in info_out
+        assert "validation.test_validation_workload_var.generated" in info_out
+        assert "when-directives.test_wl.generated" in info_out
+        workspace("setup", "--dry-run", global_args=global_args)
+
+        # Ensure append/prepend env_vars written by -i are not duplicated in execute_experiment
+        basic_script = os.path.join(
+            ws.experiment_dir, "basic", "test_wl", "generated", "execute_experiment"
+        )
+        with open(basic_script, encoding="utf-8") as f:
+            script_content = f.read()
+        assert 'export TEST_APPEND_ENV="${TEST_APPEND_ENV},3";' in script_content
+        assert 'export TEST_PREPEND_ENV="4:${TEST_PREPEND_ENV}";' in script_content
