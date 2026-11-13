@@ -32,6 +32,7 @@ import ramble.schema.merged
 import ramble.schema.workspace
 import ramble.software_environments
 import ramble.spec
+import ramble.success_criteria
 import ramble.util.hashing
 import ramble.util.install_cache
 import ramble.util.lock as lk
@@ -2684,6 +2685,307 @@ cd "{experiment_run_dir}"
         if not dry_run:
             self.write_config(CONFIG_SECTION)
         return added
+
+    def index_success_criteria(self):
+        """Construct a list of all success criteria in this workspace, and their associated scope.
+
+        Returns:
+            list[tuple]: List of tuples, of the form (scope, criteria_definition)
+        """
+        base_section = self._get_scope_section("workspace")
+        ws_criteria = base_section.get(namespace.success, [])
+
+        # Add workspace success criteria
+        criteria_list = [("workspace", sc) for sc in ws_criteria]
+
+        # Define scoped success criteria
+        for workloads, application_context in self.all_applications():
+            app_context = f"{application_context.context_name}"
+            criteria_list.extend(
+                (f"{app_context}", sc) for sc in application_context.success_criteria
+            )
+
+            for experiments, workload_context in self.all_workloads(workloads):
+                wl_context = f"{app_context}:{workload_context.context_name}"
+                criteria_list.extend(
+                    (f"{wl_context}", sc) for sc in workload_context.success_criteria
+                )
+
+                for _, experiment_context in self.all_experiments(experiments):
+                    exp_context = f"{wl_context}:{experiment_context.context_name}"
+                    criteria_list.extend(
+                        (f"{exp_context}", sc) for sc in experiment_context.success_criteria
+                    )
+
+        return criteria_list
+
+    def print_success_criteria(self):
+        """Print an indexed list of all success criteria in this workspace"""
+        criteria_list = self.index_success_criteria()
+
+        logger.all_msg(f"Workspace contains {len(criteria_list)} success criteria.")
+        logger.all_msg("Additional success criteria may come from scopes outside of workspace")
+        logger.all_msg("To see a complete list of these, use:")
+        logger.all_msg("   ramble config get success_criteria\n\n")
+
+        prev_scope = None
+        for idx, conf in enumerate(criteria_list):
+            scope = conf[0]
+            entry = conf[1]
+            if scope != prev_scope:
+                if prev_scope is not None:
+                    logger.all_msg("")
+                logger.all_msg(f"Success criteria scope: {scope}")
+                prev_scope = scope
+            name = entry["name"]
+            mode_str = ""
+            if "mode" in entry and entry["mode"] is not None:
+                mode_str = f" -- Mode: {entry['mode']}"
+
+            out_str = f"Name: {name}{mode_str}"
+
+            logger.all_msg(f"{idx}: {out_str}")
+
+    def remove_success_criteria(
+        self,
+        remove_index: Optional[int] = None,
+        scope_pattern: Optional[str] = None,
+        name_pattern: Optional[str] = None,
+        mode_pattern: Optional[str] = None,
+        dry_run: bool = False,
+    ):
+        """Remove an arbitrary number of success criteria from this workspace
+        based on some input arguments.
+
+        Success criteria are selected either by index or by pattern, never both.
+
+        Args:
+            remove_index: Index of success criteria to remove. Indices match
+                          ordering from the output of print_success_criteria.
+                          Cannot be combined with the pattern arguments.
+            scope_pattern: Pattern to select which scopes to remove success
+                           criteria from.
+            name_pattern: Pattern to select which success criteria names should
+                          be removed.
+            mode_pattern: Pattern to select which modes should be removed.
+            dry_run: Whether to print the config instead of editing it, or to
+                     edit it directly.
+
+        Returns:
+            int: Number of success criteria removed
+        """
+        given_patterns = [
+            arg_name
+            for arg_name, pattern in (
+                ("scope_pattern", scope_pattern),
+                ("name_pattern", name_pattern),
+                ("mode_pattern", mode_pattern),
+            )
+            if pattern is not None
+        ]
+
+        if remove_index is not None and given_patterns:
+            raise RambleWorkspaceError(
+                "Success criteria can be removed by index or by pattern, but not both. "
+                f"Given index {remove_index!r} along with {', '.join(given_patterns)}."
+            )
+
+        criteria_list = self.index_success_criteria()
+        to_remove = []
+
+        if remove_index is not None:
+            if isinstance(remove_index, bool) or not isinstance(remove_index, int):
+                raise RambleWorkspaceError(
+                    "Cannot remove a success criteria without an integer index. "
+                    f"Given index was {remove_index!r}"
+                )
+
+            if not criteria_list:
+                raise RambleWorkspaceError(
+                    f"Cannot remove success criteria index {remove_index}. "
+                    "This workspace contains no success criteria."
+                )
+
+            if remove_index < 0 or remove_index >= len(criteria_list):
+                valid_str = (
+                    "Valid index is 0."
+                    if len(criteria_list) == 1
+                    else f"Valid indices are 0-{len(criteria_list) - 1}."
+                )
+                raise RambleWorkspaceError(
+                    f"Success criteria index {remove_index} is outside of the range "
+                    f"of success criteria. {valid_str} "
+                    "Use `ramble workspace manage success-criteria --list` to see indices."
+                )
+
+            to_remove.append(criteria_list[remove_index])
+
+        if scope_pattern is not None:
+            if name_pattern is None:
+                name_pattern = "*"
+            if mode_pattern is None:
+                mode_pattern = "*"
+
+            for sc_tup in criteria_list:
+                scope = sc_tup[0]
+                sc_conf = sc_tup[1]
+                if fnmatch.fnmatch(scope, scope_pattern):
+                    if fnmatch.fnmatch(sc_conf["name"], name_pattern):
+                        sc_mode = sc_conf.get("mode")
+                        if mode_pattern == "*" or (
+                            sc_mode is not None and fnmatch.fnmatch(sc_mode, mode_pattern)
+                        ):
+                            to_remove.append(sc_tup)
+
+        removed = 0
+
+        for sc_tup in to_remove:
+            base_section = self._get_scope_section(sc_tup[0])
+
+            if base_section is not None:
+                base_criteria = base_section[namespace.success]
+                remove_index = -1
+                for idx, ws_sc in enumerate(base_criteria):
+                    if ws_sc == sc_tup[1]:
+                        remove_index = idx
+                        break
+                if remove_index != -1:
+                    removed += 1
+                    del base_criteria[remove_index]
+
+                if not base_section[namespace.success]:
+                    del base_section[namespace.success]
+
+                if not dry_run:
+                    self.write_config(CONFIG_SECTION)
+
+        return removed
+
+    def add_success_criteria(
+        self,
+        name: str,
+        mode: str,
+        scope: Optional[str] = None,
+        match: Optional[str] = None,
+        anti_match: Optional[str] = None,
+        file: Optional[str] = None,
+        fom_name: Optional[str] = None,
+        fom_context: Optional[str] = None,
+        formula: Optional[str] = None,
+        overwrite: bool = False,
+        dry_run: bool = False,
+    ):
+        """Add a success criteria to this workspace within a single scope
+
+        Args:
+            name: Name of the success criteria to add.
+            mode: Mode of the success criteria ('string', 'fom_comparison',
+                  or 'application_function').
+            scope: Scope to add the success criteria within. Defaults to 'workspace'.
+            match: Regex pattern to match for mode='string'.
+            anti_match: Regex pattern that must not match for mode='string'.
+            file: Target file path for mode='string'.
+            fom_name: FOM name pattern for mode='fom_comparison'.
+            fom_context: FOM context pattern for mode='fom_comparison'.
+            formula: Comparison formula for mode='fom_comparison'.
+            overwrite: Whether to overwrite an existing criterion with the same name
+                       in the target scope.
+            dry_run: Whether to print the config instead of editing it, or to edit it directly.
+
+        Returns:
+            int: Number of success criteria added to workspace
+        """
+        if not isinstance(name, str) or not name:
+            raise RambleWorkspaceError(
+                f"Cannot add a success criteria without a name. Given name was {name!r}."
+            )
+
+        valid_modes = ramble.success_criteria.SuccessCriteria._valid_modes
+        if not isinstance(mode, str) or mode not in valid_modes:
+            raise RambleWorkspaceError(
+                f"Mode {mode!r} is not valid. Valid values are {valid_modes}."
+            )
+
+        if mode == "string":
+            if any(opt is not None for opt in (fom_name, fom_context, formula)):
+                raise RambleWorkspaceError(
+                    "fom_name, fom_context, and formula are only valid for mode='fom_comparison'."
+                )
+            if (match is None and anti_match is None) or (
+                match is not None and anti_match is not None
+            ):
+                raise RambleWorkspaceError(
+                    "Success criteria with mode='string' requires exactly one of "
+                    "'match' or 'anti_match'."
+                )
+        elif mode == "fom_comparison":
+            if any(opt is not None for opt in (match, anti_match, file)):
+                raise RambleWorkspaceError(
+                    "match, anti_match, and file are only valid for mode='string'."
+                )
+            if fom_name is None or formula is None:
+                raise RambleWorkspaceError(
+                    "Success criteria with mode='fom_comparison' requires both "
+                    "'fom_name' and 'formula'."
+                )
+        elif mode == "application_function":
+            if any(
+                opt is not None
+                for opt in (match, anti_match, file, fom_name, fom_context, formula)
+            ):
+                raise RambleWorkspaceError(
+                    "Mode 'application_function' does not accept match, anti_match, file, "
+                    "fom_name, fom_context, or formula."
+                )
+
+        if scope is None:
+            scope = "workspace"
+
+        base_section = self._get_scope_section(scope)
+
+        if base_section is None:
+            raise RambleWorkspaceError(
+                f"No scope matches requested scope of {scope}. "
+                "This workspace does not define any applications."
+            )
+
+        existing_list = base_section.get(namespace.success, [])
+        existing_idx = None
+        for idx, entry in enumerate(existing_list):
+            if entry.get("name") == name:
+                existing_idx = idx
+                break
+
+        if existing_idx is not None and not overwrite:
+            raise RambleWorkspaceError(
+                f"Success criteria '{name}' already exists in scope '{scope}'. "
+                "To overwrite, use '--overwrite'."
+            )
+
+        sc_def = syaml.syaml_dict()
+        sc_def["name"] = name
+        sc_def["mode"] = mode
+        for key, val in (
+            ("match", match),
+            ("anti_match", anti_match),
+            ("file", file),
+            ("fom_name", fom_name),
+            ("fom_context", fom_context),
+            ("formula", formula),
+        ):
+            if val is not None:
+                sc_def[key] = val
+
+        if existing_idx is not None:
+            base_section[namespace.success][existing_idx] = sc_def
+        else:
+            if namespace.success not in base_section:
+                base_section[namespace.success] = syaml.syaml_list()
+            base_section[namespace.success].append(sc_def)
+
+        if not dry_run:
+            self.write_config(CONFIG_SECTION)
+        return 1
 
     def add_include(self, new_include):
         """Add a new include to this workspace"""
