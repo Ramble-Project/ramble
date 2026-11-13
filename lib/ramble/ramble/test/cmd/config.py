@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import copy
 import functools
 import os
 
@@ -622,6 +623,11 @@ ramble:  # comment
 
 """
     assert output == expected
+
+    # Verify copy.deepcopy preserves comments on nested CommentedMaps
+    parsed = syaml.load_config(expected)
+    copied = copy.deepcopy(parsed)
+    assert syaml.dump_config(copied, default_flow_style=False) == expected
 
 
 def test_config_add_to_workspace_preserve_multiline_str(
