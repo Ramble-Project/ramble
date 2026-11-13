@@ -1480,11 +1480,11 @@ cd "{experiment_run_dir}"
 
             # Only extract variable defaults if requested.
             # This is mutually exclusive with workload_name_variable
-            if include_default_variables:
-                workload = exp_inst.get_workloads()
-                if workload.variables:
+            if include_default_variables and exp_list:
+                selected_vars = exp_inst.selected_variables
+                if selected_vars:
                     first_var = True
-                    for var in workload.variables.values():
+                    for var in selected_vars.values():
                         keep_var = False
                         for var_filter in variable_filters:
                             if fnmatch.fnmatch(var.name, var_filter):
@@ -1506,7 +1506,7 @@ cd "{experiment_run_dir}"
                                 yaml_add_comment_before_key(
                                     vars_dict, var.name, var.description, column=17
                                 )
-                            if len(var.values) > 1 or var.values[0] is not None:
+                            if var.values:
                                 yaml_add_comment_before_key(
                                     vars_dict,
                                     var.name,
@@ -1514,14 +1514,15 @@ cd "{experiment_run_dir}"
                                     column=17,
                                 )
 
-                if workload.environment_variables:
+                selected_env_vars = exp_inst.selected_environment_variables
+                if selected_env_vars:
                     if namespace.env_var not in exps_dict[experiment_name]:
                         exp_dict[namespace.env_var] = syaml.syaml_dict()
                         exp_dict[namespace.env_var]["set"] = syaml.syaml_dict()
 
                     env_vars_dict = exp_dict[namespace.env_var]["set"]
 
-                    for env_var in workload.environment_variables.values():
+                    for env_var in selected_env_vars.values():
                         env_vars_dict[env_var.name] = env_var.value
 
             # Add any variables that are defined to the variables dict
