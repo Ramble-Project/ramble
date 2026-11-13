@@ -408,32 +408,23 @@ class ExperimentSet:
 
             # Skip explicitly excluded experiments
             if final_exp_name not in excluded_experiments:
-                active = True
-                if namespace.where in final_context.exclude:
-                    for expression in final_context.exclude[namespace.where]:
-                        if app_inst.expander.evaluate_predicate(expression):
-                            active = False
-                            break
-
-                if active:
+                exclude_where = final_context.exclude.get(namespace.where, [])
+                if not any(app_inst.expander.evaluate_predicate(expr) for expr in exclude_where):
                     wl_stats[wl_name]["passed_global"] += 1
                     wl_inst = app_inst.get_workload()
-                    if wl_inst:
-                        for expression in wl_inst.where:
-                            if not app_inst.expander.evaluate_predicate(expression):
-                                active = False
-                                wl_stats[wl_name]["dropped_wl"] += 1
-                                break
-                        if active:
-                            for expression in wl_inst.exclude_where:
-                                if app_inst.expander.evaluate_predicate(expression):
-                                    active = False
-                                    wl_stats[wl_name]["dropped_wl"] += 1
-                                    break
-
-                if active:
-                    app_inst.read_status()
-                    processed_experiments.append((app_inst, final_exp_namespace, n == 0))
+                    if wl_inst and (
+                        not all(
+                            app_inst.expander.evaluate_predicate(expr) for expr in wl_inst.where
+                        )
+                        or any(
+                            app_inst.expander.evaluate_predicate(expr)
+                            for expr in wl_inst.exclude_where
+                        )
+                    ):
+                        wl_stats[wl_name]["dropped_wl"] += 1
+                    else:
+                        app_inst.read_status()
+                        processed_experiments.append((app_inst, final_exp_namespace, n == 0))
         return processed_experiments, wl_stats
 
     def render_experiment_set(
@@ -899,8 +890,7 @@ class ExperimentSet:
         all_tags = set()
         for _, inst, _ in self.all_experiments():
             if inst.experiment_tags:
-                for tag in inst.experiment_tags:
-                    all_tags.add(tag)
+                all_tags.update(inst.experiment_tags)
         return all_tags
 
     def all_experiments(self):
@@ -930,10 +920,7 @@ class ExperimentSet:
 
     def num_experiments(self):
         """Return the number of total experiments in this set"""
-        count = 0
-        for _, _, _ in self.all_experiments():
-            count += 1
-        return count
+        return sum(1 for _ in self.all_experiments())
 
     def num_filtered_experiments(self, filters):
         """Return the number of filtered experiments in this set"""
@@ -966,32 +953,23 @@ class ExperimentSet:
 
         filtered_list = []
         for exp, inst, idx in self.all_experiments():
-            active = True
-
             if inst.repeats.is_repeat_base:
                 inst.read_status()
 
-            if filters.include_where:
-                for expression in filters.include_where:
-                    if not inst.expander.evaluate_predicate(expression):
-                        active = False
-                        break
-            if not active:
+            if filters.include_where and not all(
+                inst.expander.evaluate_predicate(expr) for expr in filters.include_where
+            ):
                 continue
 
-            if filters.exclude_where:
-                for expression in filters.exclude_where:
-                    if inst.expander.evaluate_predicate(expression):
-                        active = False
-                        break
-            if not active:
+            if filters.exclude_where and any(
+                inst.expander.evaluate_predicate(expr) for expr in filters.exclude_where
+            ):
                 continue
 
-            if filters.tags:
-                if not inst.has_tags(filters.tags):
-                    active = False
+            if filters.tags and not inst.has_tags(filters.tags):
+                continue
 
-            if active and inst.is_actionable:
+            if inst.is_actionable:
                 filtered_list.append((exp, inst, idx))
 
         self._filtered_experiments_cache[cache_key] = filtered_list
