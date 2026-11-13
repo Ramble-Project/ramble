@@ -528,12 +528,7 @@ def workspace_bootstrap(args):
     current_pipeline = ramble.pipeline.pipelines.bootstrap
     ws = ramble.cmd.require_active_workspace(cmd_name="workspace bootstrap")
 
-    filters = ramble.filters.Filters(
-        phase_filters=["bootstrap_utilities"],
-        include_where_filters=getattr(args, "where", None),
-        exclude_where_filters=getattr(args, "exclude_where", None),
-        tags=getattr(args, "filter_tags", None),
-    )
+    filters = ramble.filters.Filters.from_args(args, phase_filters=["bootstrap_utilities"])
 
     pipeline_cls = ramble.pipeline.pipeline_class(current_pipeline)
     pipeline = pipeline_cls(ws, filters)
@@ -603,14 +598,7 @@ def workspace_setup(args):
     current_pipeline = ramble.pipeline.pipelines.setup
     ws = ramble.cmd.require_active_workspace("workspace setup", args.dry_run)
 
-    args.where = ramble.filters.resolve_and_apply_filter_groups(args, args.where)
-
-    filters = ramble.filters.Filters(
-        phase_filters=args.phases,
-        include_where_filters=args.where,
-        exclude_where_filters=args.exclude_where,
-        tags=args.filter_tags,
-    )
+    filters = ramble.filters.Filters.from_args(args)
 
     pipeline_cls = ramble.pipeline.pipeline_class(current_pipeline)
 
@@ -689,14 +677,7 @@ def workspace_analyze(args):
     ws = ramble.cmd.require_active_workspace("workspace analyze", args.dry_run)
     ws.repeat_success_strict = ramble.config.get("config:repeat_success_strict")
 
-    args.where = ramble.filters.resolve_and_apply_filter_groups(args, args.where)
-
-    filters = ramble.filters.Filters(
-        phase_filters=args.phases,
-        include_where_filters=args.where,
-        exclude_where_filters=args.exclude_where,
-        tags=args.filter_tags,
-    )
+    filters = ramble.filters.Filters.from_args(args)
 
     if args.fom_origin_types:
         fom_origin_types = [item for sublist in args.fom_origin_types for item in sublist]
@@ -724,12 +705,7 @@ def workspace_push_to_cache(args):
     current_pipeline = ramble.pipeline.pipelines.pushtocache
     ws = ramble.cmd.require_active_workspace("workspace push-to-cache", args.dry_run)
 
-    filters = ramble.filters.Filters(
-        phase_filters=ramble.filters.ALL_PHASES,
-        include_where_filters=args.where,
-        exclude_where_filters=args.exclude_where,
-        tags=args.filter_tags,
-    )
+    filters = ramble.filters.Filters.from_args(args)
     pipeline_cls = ramble.pipeline.pipeline_class(current_pipeline)
 
     pipeline = pipeline_cls(ws, filters, spack_cache_path=args.cache_path)
@@ -890,7 +866,7 @@ def workspace_info(args):
 
     ws = ramble.cmd.require_active_workspace("workspace info", args.dry_run)
 
-    args.where = ramble.filters.resolve_and_apply_filter_groups(args, args.where)
+    filters = ramble.filters.Filters.from_args(args, phase_filters=[])
 
     # Enable verbose mode
     if args.verbose >= 1:
@@ -977,14 +953,6 @@ def workspace_info(args):
                 experiment_template_name,
             )
             experiment_index_map[key].append(exp_name)
-
-    # Construct filters here...
-    filters = ramble.filters.Filters(
-        phase_filters=[],
-        include_where_filters=args.where,
-        exclude_where_filters=args.exclude_where,
-        tags=args.filter_tags,
-    )
 
     for workloads, application_context in ws.all_applications():
         for experiments, workload_context in ws.all_workloads(workloads):
@@ -1636,11 +1604,7 @@ def workspace_archive(args):
     current_pipeline = ramble.pipeline.pipelines.archive
     ws = ramble.cmd.require_active_workspace("workspace archive", args.dry_run)
 
-    filters = ramble.filters.Filters(
-        phase_filters=args.phases,
-        include_where_filters=args.where,
-        exclude_where_filters=args.exclude_where,
-    )
+    filters = ramble.filters.Filters.from_args(args)
 
     archive_patterns = (
         list(itertools.chain.from_iterable(args.archive_patterns)) if args.archive_patterns else []
@@ -1692,11 +1656,7 @@ def workspace_mirror(args):
     current_pipeline = ramble.pipeline.pipelines.mirror
     ws = ramble.cmd.require_active_workspace("workspace mirror", args.dry_run)
 
-    filters = ramble.filters.Filters(
-        phase_filters=args.phases,
-        include_where_filters=args.where,
-        exclude_where_filters=args.exclude_where,
-    )
+    filters = ramble.filters.Filters.from_args(args)
     pipeline_cls = ramble.pipeline.pipeline_class(current_pipeline)
 
     pipeline = pipeline_cls(ws, filters, mirror_path=args.mirror_path)
@@ -2294,18 +2254,13 @@ def workspace_experiment_logs(args):
     ws = ramble.cmd.require_active_workspace("workspace experiment-logs", args.dry_run)
 
     first_only = args.limit_one or args.first_failed
-    where_filter = args.where.copy() if args.where else []
     exclude_filter = args.exclude_where.copy() if args.exclude_where else []
     only_failed = args.first_failed or args.failed
 
     if only_failed:
         exclude_filter.append(["'{experiment_status}' == 'SUCCESS'"])
 
-    filters = ramble.filters.Filters(
-        include_where_filters=where_filter,
-        exclude_where_filters=exclude_filter,
-        tags=args.filter_tags,
-    )
+    filters = ramble.filters.Filters.from_args(args, exclude_where_filters=exclude_filter)
 
     pipeline_cls = ramble.pipeline.pipeline_class(current_pipeline)
     pipeline = pipeline_cls(ws, filters, first_only=first_only)

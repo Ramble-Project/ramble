@@ -45,6 +45,19 @@ class Filters:
         if tags:
             self.tags = set(itertools.chain.from_iterable(tags))
 
+    @classmethod
+    def from_args(cls, args, **kwargs) -> "Filters":
+        """Construct a filter instance from CLI arguments."""
+        where = resolve_and_apply_filter_groups(args, getattr(args, "where", None))
+        filter_kwargs = {
+            "phase_filters": getattr(args, "phases", None),
+            "include_where_filters": where,
+            "exclude_where_filters": getattr(args, "exclude_where", None),
+            "tags": getattr(args, "filter_tags", None),
+            **kwargs,
+        }
+        return cls(**filter_kwargs)
+
 
 def translate_group_to_predicate(group_def: dict) -> str:
     """Translate a filter group definition into a predicate string"""
