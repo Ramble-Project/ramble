@@ -135,7 +135,7 @@ criterion to dynamically target a specific context using experiment variables:
     success_criteria:
     - name: hpl_target_perf
       mode: fom_comparison
-      fom_context: 'N-NB-P-Q = {Ns}-{NBs}-{Ps}-{Qs}'
+      fom_context: 'T/V-N-NB-P-Q = *-{Ns}-{NBs}-{Ps}-{Qs}'
       fom_name: 'GFlops'
       formula: '{value} > 12000.0'
 
@@ -151,7 +151,7 @@ the specific context of interest:
     success_criteria:
     - name: hpl_target_perf
       mode: fom_comparison
-      fom_context: 'N-NB-P-Q = {Optimal-N}-{NBs}-{Ps}-{Qs}'
+      fom_context: 'T/V-N-NB-P-Q = *-{Optimal-N}-{NBs}-{Ps}-{Qs}'
       fom_name: 'GFlops'
       formula: '{value} > 12000.0'
 

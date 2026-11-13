@@ -118,6 +118,12 @@ class AnalysisStrategyBase(metaclass=ApplicationMeta):
 
         if fom_context not in fom_values:
             fom_values[fom_context] = {}
+        elif fom_name in fom_values[fom_context]:
+            prev_val = fom_values[fom_context][fom_name]["value"]
+            logger.debug(
+                f" --- Overwriting FOM '{fom_name}' in context '{fom_context[0]}' "
+                f"({prev_val} -> {fom_val})"
+            )
         fom_values[fom_context][fom_name] = {
             "value": fom_val,
             "units": fom_unit,

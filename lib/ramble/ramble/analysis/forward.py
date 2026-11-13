@@ -9,6 +9,7 @@
 """Define the forward-reading analysis strategy"""
 
 import os
+import string
 
 import ramble.util.lock as lk
 from ramble.analysis.base import AnalysisStrategyBase
@@ -54,6 +55,17 @@ class ForwardAnalysisStrategy(AnalysisStrategyBase):
                     context_pre_filter = (
                         context_def.get("pre_filter", "") if context_def is not None else ""
                     )
+                    format_fields = (
+                        tuple(
+                            field_name
+                            for _, field_name, _, _ in string.Formatter().parse(
+                                context_def["format"]
+                            )
+                            if field_name
+                        )
+                        if context_def is not None and isinstance(context_def.get("format"), str)
+                        else ()
+                    )
                     context_foms = f_defs[context]["foms"]
                     fom_entries = [
                         (
@@ -64,7 +76,9 @@ class ForwardAnalysisStrategy(AnalysisStrategyBase):
                         )
                         for fom in foms
                     ]
-                    context_entries.append((context, context_def, context_pre_filter, fom_entries))
+                    context_entries.append(
+                        (context, context_def, context_pre_filter, format_fields, fom_entries)
+                    )
 
                 with open(file, encoding="utf-8", errors="replace") as f:
                     for line in f:
@@ -78,14 +92,19 @@ class ForwardAnalysisStrategy(AnalysisStrategyBase):
                             context,
                             context_conf,
                             context_pre_filter,
+                            format_fields,
                             fom_entries,
                         ) in context_entries:
                             if context_conf is not None and context_pre_filter in line:
                                 context_match = context_conf["regex"].match(line)
 
                                 if context_match:
-                                    context_vars = context_match.groupdict()
-                                    context_name = context_conf["format"].format(**context_vars)
+                                    context_vars = {k: context_match[k] for k in format_fields}
+                                    context_name = (
+                                        context_conf["format"].format(**context_vars)
+                                        if isinstance(context_conf.get("format"), str)
+                                        else str(context_conf.get("format"))
+                                    )
                                     logger.debug(f"Line was: {line}")
                                     logger.debug(f" Context match {context} -- {context_name}")
 
@@ -104,6 +123,12 @@ class ForwardAnalysisStrategy(AnalysisStrategyBase):
                                             "def_name": context,
                                             "vars": context_vars,
                                         }
+                                    else:
+                                        logger.debug(
+                                            f"Context '{context_name}' (from '{context}') "
+                                            "matched multiple times; earlier FOM values in this "
+                                            "context may be overwritten."
+                                        )
 
                             for fom, fom_conf, pre_filter, has_contexts in fom_entries:
                                 if pre_filter not in line:
