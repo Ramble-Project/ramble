@@ -15,7 +15,7 @@ class CpuPlatform(PlatformBase):
     name = "cpu-platform"
 
     variable(
-        "max_accelerators_per_platform",
+        "max_accelerators_per_node",
         default="0",
         description="CPU nodes are expected to have no accelerators",
     )
