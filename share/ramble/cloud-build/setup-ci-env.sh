@@ -15,11 +15,6 @@ esac
 
 cd /workspace
 
-# Ensure develop branch exists for comparison in PR builds
-if ! git rev-parse --verify develop >/dev/null 2>&1; then
-  git branch develop origin/develop 2>/dev/null || true
-fi
-
 # Pre-seed cache from container image if available to avoid cloning over network.
 # This must happen BEFORE sourcing setup-env.sh, as setup-env.sh invokes spack.
 if [ -d /root/.spack ]; then
@@ -50,7 +45,11 @@ if [ $spack_loaded -eq 0 ] || ! command -v pip >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! pip install -r /workspace/requirements-pinned.txt; then
+if cmp -s /workspace/requirements.txt /opt/requirements.txt && \
+   cmp -s /workspace/requirements-dev.txt /opt/requirements-dev.txt && \
+   cmp -s /workspace/requirements-pinned.txt /opt/requirements-pinned.txt; then
+  echo "Requirements match container image; skipping pip install."
+elif ! pip install -r /workspace/requirements-pinned.txt; then
   echo "FATAL: Failed to install pinned requirements via pip."
   exit 1
 fi

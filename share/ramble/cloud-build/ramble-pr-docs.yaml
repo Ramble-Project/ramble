@@ -22,40 +22,27 @@ steps:
       - 'BUILD_ID=$BUILD_ID'
       - 'PROJECT_ID=$PROJECT_ID'
       - 'LOCATION=$LOCATION'
-  - name: gcr.io/cloud-builders/git
-    args:
-      - fetch
-      - '--unshallow'
-    id: ramble-clone
-  - name: us-central1-docker.pkg.dev/$PROJECT_ID/ramble-repo/ramble-${_BASE_IMG}-${_BASE_VER}-spack${_SPACK_REF}-python${_PYTHON_VER}:latest
+  - name: us-central1-docker.pkg.dev/$PROJECT_ID/ramble-repo/ramble-docs:latest
     args:
       - '-c'
       - |
         set -e
-        . /workspace/share/ramble/cloud-build/setup-ci-env.sh
+        if cmp -s /workspace/requirements.txt /opt/ramble/requirements.txt && \
+           cmp -s /workspace/lib/ramble/docs/requirements.txt /opt/ramble/lib/ramble/docs/requirements.txt; then
+          echo "Doc requirements match container image; skipping pip install."
+        else
+          python -m pip install --exists-action=w --no-cache-dir -r /workspace/lib/ramble/docs/requirements.txt
+        fi
 
-        # Isolate doc build from pre-installed dev dependencies in the CI image
-        python -m venv /tmp/docs-venv
-        . /tmp/docs-venv/bin/activate
-        unset PYTHONPATH
         export RAMBLE_PYTHON="$(which python3)"
-        unset _RAMBLE_PYTHON _rmb_initializing
         . /workspace/share/ramble/setup-env.sh
 
-        cd lib/ramble/docs
+        cd /workspace/lib/ramble/docs
 
-        python -m pip install --upgrade --no-cache-dir pip setuptools
-        python -m pip install --upgrade --no-cache-dir sphinx
-        python -m pip install --exists-action=w --no-cache-dir -r requirements.txt
         mkdir -p test_docs/html
         python -m sphinx -T -W --keep-going -b html -d _build/doctrees -D language=en . test_docs/html
         rm -r test_docs
     id: ramble-docs-test
     entrypoint: /bin/bash
-substitutions:
-  _SPACK_REF: v1.2.2
-  _PYTHON_VER: 3.13.5
-  _BASE_IMG: rockylinux
-  _BASE_VER: '8'
 timeout: 600s
 queueTtl: 7200s
