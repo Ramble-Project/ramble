@@ -27,8 +27,8 @@ steps:
       - '-c'
       - |
         set -e
-        if cmp -s /workspace/requirements.txt /opt/ramble/requirements.txt && \
-           cmp -s /workspace/lib/ramble/docs/requirements.txt /opt/ramble/lib/ramble/docs/requirements.txt; then
+        if git diff --quiet --no-index /workspace/requirements.txt /opt/ramble/requirements.txt 2>/dev/null && \
+           git diff --quiet --no-index /workspace/lib/ramble/docs/requirements.txt /opt/ramble/lib/ramble/docs/requirements.txt 2>/dev/null; then
           echo "Doc requirements match container image; skipping pip install."
         else
           python -m pip install --exists-action=w --no-cache-dir -r /workspace/lib/ramble/docs/requirements.txt

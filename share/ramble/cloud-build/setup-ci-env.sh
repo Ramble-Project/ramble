@@ -45,9 +45,9 @@ if [ $spack_loaded -eq 0 ] || ! command -v pip >/dev/null 2>&1; then
   exit 1
 fi
 
-if cmp -s /workspace/requirements.txt /opt/requirements.txt && \
-   cmp -s /workspace/requirements-dev.txt /opt/requirements-dev.txt && \
-   cmp -s /workspace/requirements-pinned.txt /opt/requirements-pinned.txt; then
+if git diff --quiet --no-index /workspace/requirements.txt /opt/requirements.txt 2>/dev/null && \
+   git diff --quiet --no-index /workspace/requirements-dev.txt /opt/requirements-dev.txt 2>/dev/null && \
+   git diff --quiet --no-index /workspace/requirements-pinned.txt /opt/requirements-pinned.txt 2>/dev/null; then
   echo "Requirements match container image; skipping pip install."
 elif ! pip install -r /workspace/requirements-pinned.txt; then
   echo "FATAL: Failed to install pinned requirements via pip."
