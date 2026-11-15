@@ -63,10 +63,11 @@ class RenderGroup:
             self.variables.update(in_group.variables)
 
         if in_group.zips:
-            self.zips.update(in_group.zips)
+            for zip_name, zip_def in in_group.zips.items():
+                self.zips[zip_name] = list(zip_def)
 
         if in_group.matrices:
-            self.matrices.extend(in_group.matrices)
+            self.matrices.extend(list(matrix) for matrix in in_group.matrices)
 
         if in_group.used_variables:
             self.used_variables = in_group.used_variables.copy()
@@ -98,7 +99,8 @@ class RenderGroup:
             extracted = True
 
         if namespace.zips in in_dict:
-            self.zips.update(in_dict[namespace.zips])
+            for zip_name, zip_def in in_dict[namespace.zips].items():
+                self.zips[zip_name] = list(zip_def)
             extracted = True
 
         self.matrices = ramble.util.matrices.extract_matrices(
@@ -585,8 +587,8 @@ class Renderer:
         #   matrix:
         #   - '{my_vec_ref}'
         # ```
-        zips = render_group.zips.copy()
-        matrices = render_group.matrices
+        zips = {zip_name: list(zip_def) for zip_name, zip_def in render_group.zips.items()}
+        matrices = [list(matrix) for matrix in render_group.matrices]
         self._expand_zip_and_matrix_members(matrices, zips, expander)
 
         if ignore_used:

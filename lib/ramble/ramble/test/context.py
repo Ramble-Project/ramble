@@ -99,3 +99,22 @@ class TestContext(unittest.TestCase):
         c2 = Context()
         with self.assertRaises(ContextError):
             c2.merge_context(c1)
+
+    def test_zips_and_matrices_are_copied(self):
+        from ramble.context import create_context_from_dict
+
+        raw_dict = {
+            "zips": {"my_zip": ["{var_ref}"]},
+            "matrix": ["{mat_ref}"],
+        }
+        c1 = create_context_from_dict("c1", raw_dict)
+        c2 = Context()
+        c2.merge_context(c1)
+
+        c2.zips["my_zip"][0] = "mutated_zip_var"
+        c2.matrices[0][0] = "mutated_mat_var"
+
+        self.assertEqual(raw_dict["zips"]["my_zip"], ["{var_ref}"])
+        self.assertEqual(raw_dict["matrix"], ["{mat_ref}"])
+        self.assertEqual(c1.zips["my_zip"], ["{var_ref}"])
+        self.assertEqual(c1.matrices, [["{mat_ref}"]])
