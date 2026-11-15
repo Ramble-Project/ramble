@@ -398,7 +398,7 @@ class Openfoam(ExecutableApplication):
 
     figure_of_merit(
         "snappyHexMesh Ranks",
-        fom_map_key="snappy-hex-ranks",
+        formula="{n_ranks_hex}",
         units="",
     )
 
@@ -415,7 +415,7 @@ class Openfoam(ExecutableApplication):
 
     figure_of_merit(
         "simpleFoam Ranks",
-        fom_map_key="simple-foam-ranks",
+        formula="{n_ranks}",
         units="",
     )
 
@@ -429,7 +429,7 @@ class Openfoam(ExecutableApplication):
 
     figure_of_merit(
         "potentialFoam Ranks",
-        fom_map_key="potential-foam-ranks",
+        formula="{n_ranks}",
         units="",
     )
 
@@ -467,11 +467,6 @@ class Openfoam(ExecutableApplication):
         )
 
     def _prepare_analysis(self, workspace, app_inst=None):
-        hex_ranks = self.expander.expand_var("{n_ranks_hex}")
-        simple_ranks = self.expander.expand_var("{n_ranks}")
-        self.add_inmem_fom_value("snappy-hex-ranks", hex_ranks)
-        self.add_inmem_fom_value("simple-foam-ranks", simple_ranks)
-        self.add_inmem_fom_value("potential-foam-ranks", simple_ranks)
 
         sf_log = self.expander.expand_var(
             "{experiment_run_dir}" + os.sep + "log.simpleFoam"

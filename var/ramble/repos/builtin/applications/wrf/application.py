@@ -10,7 +10,6 @@ import os
 import re
 
 from ramble.appkit import *
-from ramble.expander import Expander
 
 from spack.util.executable import Executable, ProcessError
 
@@ -359,65 +358,49 @@ class Wrf(ExecutableApplication):
     archive_pattern("{experiment_run_dir}/rsl.out.*")
     archive_pattern("{experiment_run_dir}/rsl.error.*")
 
-    log_str = os.path.join(
-        Expander.expansion_str("experiment_run_dir"), "stats.out"
-    )
-
     figure_of_merit(
         "Average Timestep Time",
-        log_file=log_str,
-        fom_regex=r"Average time:\s+(?P<avg_time>[0-9]+\.[0-9]*)",
-        group_name="avg_time",
+        formula="{Cumulative Timestep Time} / {Number of timesteps}",
         units="s",
         fom_type=FomType.TIME,
     )
 
     figure_of_merit(
         "Cumulative Timestep Time",
-        log_file=log_str,
-        fom_regex=r"Cumulative time:\s+(?P<total_time>[0-9]+\.[0-9]*)",
-        group_name="total_time",
+        fom_map_key="sum_time",
         units="s",
         fom_type=FomType.TIME,
     )
 
     figure_of_merit(
         "Minimum Timestep Time",
-        log_file=log_str,
-        fom_regex=r"Min time:\s+(?P<min_time>[0-9]+\.[0-9]*)",
-        group_name="min_time",
+        fom_map_key="min_time",
         units="s",
         fom_type=FomType.TIME,
     )
 
     figure_of_merit(
         "Maximum Timestep Time",
-        log_file=log_str,
-        fom_regex=r"Max time:\s+(?P<max_time>[0-9]+\.[0-9]*)",
-        group_name="max_time",
+        fom_map_key="max_time",
         units="s",
         fom_type=FomType.TIME,
     )
 
     figure_of_merit(
         "Number of timesteps",
-        log_file=log_str,
-        fom_regex=r"Number of times:\s+(?P<count>[0-9]+)",
-        group_name="count",
+        fom_map_key="count",
         units="",
         fom_type=FomType.MEASURE,
     )
 
     figure_of_merit(
         "Avg. Max Ratio Time",
-        log_file=log_str,
-        fom_regex=r"Avg time / Max time:\s+(?P<avg_max_ratio>[0-9]+\.[0-9]*)",
-        group_name="avg_max_ratio",
+        formula="{Average Timestep Time} / {Maximum Timestep Time}",
         units="",
         fom_type=FomType.MEASURE,
     )
 
-    def _analyze_experiments(self, workspace, app_inst=None):
+    def _prepare_analysis(self, workspace, app_inst=None):
         experiment_dir = self.expander.expand_var_name("experiment_run_dir")
 
         tar_file = os.path.join(experiment_dir, "rsl_logs.tgz")
@@ -435,7 +418,6 @@ class Wrf(ExecutableApplication):
             timing_regex = re.compile(
                 r"Timing for main.*:\s+(?P<main_time>[0-9]+\.[0-9]*).*"
             )
-            avg_time = 0.0
             min_time = float("inf")
             max_time = float("-inf")
             sum_time = 0.0
@@ -450,21 +432,8 @@ class Wrf(ExecutableApplication):
                         min_time = min(min_time, time)
                         max_time = max(max_time, time)
 
-            avg_time = sum_time / max(count, 1)
-
-            stats_path = os.path.join(
-                self.expander.expand_var_name("experiment_run_dir"),
-                "stats.out",
-            )
-            with open(stats_path, "w+", encoding="utf-8") as f:
-                f.write("Average time: %s s\n" % (avg_time))
-                f.write("Cumulative time: %s s\n" % (sum_time))
-                f.write("Min time: %s s\n" % (min_time))
-                f.write("Max time: %s s\n" % (max_time))
-                f.write(
-                    "Avg time / Max time: %s s\n"
-                    % (avg_time / max(max_time, float(1.0)))
-                )
-                f.write("Number of times: %s\n" % (count))
-
-        super()._analyze_experiments(workspace)
+            self.add_inmem_fom_value("sum_time", sum_time)
+            self.add_inmem_fom_value("count", count)
+            if count > 0:
+                self.add_inmem_fom_value("min_time", min_time)
+                self.add_inmem_fom_value("max_time", max_time)

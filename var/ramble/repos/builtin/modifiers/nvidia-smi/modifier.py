@@ -156,11 +156,10 @@ class NvidiaSmi(BasicModifier):
 
     figure_of_merit(
         "GPU Count",
-        fom_regex=r"GPU Count: (?P<gpu_count>\d+)",
-        group_name="gpu_count",
         units="",
         fom_type=FomType.MEASURE,
-        log_file="{nvidia_smi_log}",
+        formula=lambda mod: len(mod.get_fom_values("GPU Name", context="gpu"))
+        or None,
     )
 
     success_criteria(
@@ -175,5 +174,4 @@ class NvidiaSmi(BasicModifier):
     def nvidia_smi_exec(self):
         return [
             "nvidia-smi --query-gpu=index,name,driver_version,pstate,pci.bus_id,serial,uuid,power.draw,power.limit,clocks.gr,clocks.mem --format=csv,noheader,nounits > {nvidia_smi_log}",
-            'echo "GPU Count: $(wc -l < {nvidia_smi_log})" >> {nvidia_smi_log}',
         ]
