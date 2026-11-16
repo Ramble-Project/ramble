@@ -1437,6 +1437,8 @@ cd "{experiment_run_dir}"
         for workload_name in workload_names:
             edited = True
             missing_vars = set()
+            default_vars = {}
+            default_env_vars = {}
             exp_set = ramble.experiment_set.ExperimentSet(self)
             exp_list = exp_set.render_experiment_set(
                 app_inst.name,
@@ -1454,6 +1456,9 @@ cd "{experiment_run_dir}"
                 }
                 missing_exp_vars = missing_exp_vars | exp_inst.missing_mpi_variables
                 missing_vars = missing_vars | missing_exp_vars
+                if include_default_variables:
+                    default_vars.update(exp_inst.selected_variables)
+                    default_env_vars.update(exp_inst.selected_environment_variables)
 
             if workload_name not in workloads_dict:
                 workloads_dict[workload_name] = {namespace.experiment: {}}
@@ -1481,10 +1486,9 @@ cd "{experiment_run_dir}"
             # Only extract variable defaults if requested.
             # This is mutually exclusive with workload_name_variable
             if include_default_variables:
-                workload = exp_inst.get_workloads()
-                if workload.variables:
-                    first_var = True
-                    for var in workload.variables.values():
+                if default_vars:
+                    first_var = len(vars_dict) == 0
+                    for var in default_vars.values():
                         keep_var = False
                         for var_filter in variable_filters:
                             if fnmatch.fnmatch(var.name, var_filter):
@@ -1500,29 +1504,60 @@ cd "{experiment_run_dir}"
                                 first_var = False
                             else:
                                 yaml_add_comment_before_key(
-                                    vars_dict, var.name, "", column=17, start_char=""
+                                    vars_dict, var.name, "", column=0, start_char=""
                                 )
                             if var.description:
                                 yaml_add_comment_before_key(
-                                    vars_dict, var.name, var.description, column=17
+                                    vars_dict, var.name, var.description, column=16
                                 )
-                            if len(var.values) > 1 or var.values[0] is not None:
+                            if var.values and (len(var.values) > 1 or var.values[0] is not None):
                                 yaml_add_comment_before_key(
                                     vars_dict,
                                     var.name,
                                     f"Suggested values: {var.values}",
-                                    column=17,
+                                    column=16,
                                 )
 
-                if workload.environment_variables:
-                    if namespace.env_var not in exps_dict[experiment_name]:
-                        exp_dict[namespace.env_var] = syaml.syaml_dict()
-                        exp_dict[namespace.env_var]["set"] = syaml.syaml_dict()
+                if default_env_vars:
+                    exp_dict[namespace.env_var] = syaml.syaml_dict()
+                    env_vars_dict = exp_dict[namespace.env_var]
 
-                    env_vars_dict = exp_dict[namespace.env_var]["set"]
+                    for env_var in default_env_vars.values():
+                        action = env_var.method
+                        if action == "append":
+                            if "append" not in env_vars_dict:
+                                env_vars_dict["append"] = []
 
-                    for env_var in workload.environment_variables.values():
-                        env_vars_dict[env_var.name] = env_var.value
+                            append_list = env_vars_dict["append"]
+                            target_vars = None
+                            for group in append_list:
+                                if (
+                                    "var-separator" in group
+                                    and group["var-separator"] == env_var.separator
+                                ):
+                                    target_vars = group["vars"]
+                                    break
+
+                            if target_vars is None:
+                                append_group = syaml.syaml_dict()
+                                append_group["var-separator"] = env_var.separator
+                                append_group["vars"] = syaml.syaml_dict()
+                                append_list.append(append_group)
+                                target_vars = append_group["vars"]
+
+                            target_vars[env_var.name] = env_var.value
+                        elif action == "prepend":
+                            if "prepend" not in env_vars_dict:
+                                prepend_group = syaml.syaml_dict()
+                                prepend_group["paths"] = syaml.syaml_dict()
+                                env_vars_dict["prepend"] = [prepend_group]
+
+                            env_vars_dict["prepend"][0]["paths"][env_var.name] = env_var.value
+                        else:
+                            if "set" not in env_vars_dict:
+                                env_vars_dict["set"] = syaml.syaml_dict()
+
+                            env_vars_dict["set"][env_var.name] = env_var.value
 
             # Add any variables that are defined to the variables dict
             if exp_context.variables:

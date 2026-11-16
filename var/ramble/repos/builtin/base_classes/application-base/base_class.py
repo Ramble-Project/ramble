@@ -2227,6 +2227,14 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             "unset": set(),
         }
 
+        yaml_action_vars = {"append": set(), "prepend": set()}
+        for env_var_set in self._env_variable_sets:
+            for action in ("append", "prepend"):
+                for group in env_var_set.get(action, []):
+                    for key in ("vars", "paths"):
+                        if key in group:
+                            yaml_action_vars[action].update(group[key].keys())
+
         for _, obj in self.objects():
             for env_var in obj.selected_environment_variables.values():
                 action = env_var.method
@@ -2235,7 +2243,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                     flattened_env_vars[action][env_var.name] = env_var.value
                 elif action == "unset":
                     flattened_env_vars[action].add(env_var.name)
-                else:
+                elif env_var.name not in yaml_action_vars.get(action, set()):
                     sub_dict = {}
                     if action == "append":
                         sub_dict["var-separator"] = env_var.separator
