@@ -9,11 +9,13 @@
 import glob
 import os
 import re
+from types import SimpleNamespace
 
 import pytest
 
 import llnl.util.filesystem as fs
 
+import ramble.cmd.workspace
 import ramble.config
 import ramble.filters
 import ramble.pipeline
@@ -267,10 +269,62 @@ def test_workspace_list_empty(mutable_mock_workspace_path):
     out = workspace("list")
     assert workspace.returncode == 0
     assert "No workspaces found." in out
+    assert "Workspaces from dir:" not in out
 
     out = workspace("list", "--merged")
     assert workspace.returncode == 0
     assert "No workspaces found." in out
+    assert "Workspaces from dir:" not in out
+
+
+def test_workspace_list_partial_empty_dirs(tmpdir, mutable_mock_workspace_path, monkeypatch):
+    wsdir1 = str(tmpdir.join("ws1"))
+    wsdir2 = str(tmpdir.join("ws2"))
+    wsdir_missing = str(tmpdir.join("ws_missing"))
+    os.makedirs(wsdir1)
+    os.makedirs(wsdir2)
+
+    with ramble.config.override("config:workspace_dirs", [wsdir1, wsdir2, wsdir_missing]):
+        # All configured directories empty/missing: omit headers and warn once
+        out = workspace("list")
+        assert workspace.returncode == 0
+        assert "No workspaces found." in out
+        assert "Workspaces from dir:" not in out
+
+        # One directory populated, others empty or non-existent
+        workspace("create", "--parent-dir", wsdir1, "test1")
+
+        out = workspace("list")
+        assert workspace.returncode == 0
+        assert "No workspaces found." not in out
+        assert (
+            f"Workspaces from dir: {wsdir1}\n    test1\n\n"
+            f"Workspaces from dir: {wsdir2}\n==> 0 workspaces\n\n"
+            f"Workspaces from dir: {wsdir_missing}\n==> 0 workspaces"
+        ) in out
+
+        # Filtering to an empty parent-dir omits header and warns
+        out = workspace("list", "--parent-dir", wsdir2)
+        assert workspace.returncode == 0
+        assert "No workspaces found." in out
+        assert "Workspaces from dir:" not in out
+
+        # TTY output shows singular/plural counts for populated dirs and "0 workspaces" for empty
+        monkeypatch.setattr(
+            ramble.cmd.workspace,
+            "sys",
+            SimpleNamespace(stdout=SimpleNamespace(isatty=lambda: True)),
+        )
+        tty_out = workspace("list")
+        assert "==> 1 workspace\n" in tty_out
+        assert "1 workspaces" not in tty_out
+        assert f"Workspaces from dir: {wsdir2}\n==> 0 workspaces" in tty_out
+
+        workspace("create", "--parent-dir", wsdir1, "test2")
+        tty_out_plural = workspace("list")
+        assert "==> 2 workspaces\n" in tty_out_plural
+        tty_merged = workspace("list", "--merged")
+        assert "==> 2 workspaces\n" in tty_merged
 
 
 def test_workspace_info(workspace_name):
