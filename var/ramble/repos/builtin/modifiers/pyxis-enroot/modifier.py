@@ -13,8 +13,7 @@ import llnl.util.filesystem as fs
 from ramble.base_mod.builtin.container_base import ContainerBase
 from ramble.modkit import *
 from ramble.util.hashing import hash_file, hash_string
-
-from spack.util.path import canonicalize_path
+from ramble.util.path import canonicalize_path
 
 
 class PyxisEnroot(ContainerBase):

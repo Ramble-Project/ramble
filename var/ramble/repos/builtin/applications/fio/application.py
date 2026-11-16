@@ -10,8 +10,6 @@ import os
 
 from ramble.appkit import *
 
-from spack.util.path import canonicalize_path
-
 
 class Fio(ExecutableApplication):
     """Flexible I/O Tester. Fio spawns a number of threads or processes doing a
@@ -306,11 +304,9 @@ class Fio(ExecutableApplication):
             return
 
         jobfile_path = get_file_path(
-            canonicalize_path(
-                os.path.join(
-                    self.expander.expand_var_name("experiment_run_dir"),
-                    job_file,
-                )
+            os.path.join(
+                self.expander.expand_var_name("experiment_run_dir"),
+                job_file,
             ),
             workspace,
         )
@@ -361,11 +357,9 @@ class Fio(ExecutableApplication):
             return metric, unit
 
         fio_outfile = get_file_path(
-            canonicalize_path(
-                os.path.join(
-                    app_inst.expander.experiment_run_dir,
-                    app_inst.expander.expand_var_name("out_file"),
-                )
+            os.path.join(
+                app_inst.expander.experiment_run_dir,
+                app_inst.expander.expand_var_name("out_file"),
             ),
             workspace,
         )

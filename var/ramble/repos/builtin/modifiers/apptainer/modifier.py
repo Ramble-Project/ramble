@@ -15,8 +15,7 @@ from ramble.base_mod.builtin.container_base import ContainerBase
 from ramble.modkit import *
 from ramble.util import json_util
 from ramble.util.hashing import hash_json, hash_string
-
-from spack.util.path import canonicalize_path
+from ramble.util.path import canonicalize_path
 
 
 class Apptainer(ContainerBase):

@@ -15,8 +15,7 @@ from ruamel import yaml
 from ramble.appkit import *
 from ramble.expander import Expander
 from ramble.util import stats
-
-from spack.util.path import canonicalize_path
+from ramble.util.path import canonicalize_path
 
 
 class Maxtext(ExecutableApplication):

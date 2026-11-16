@@ -236,6 +236,7 @@ select = [
 "spack.fetch_strategy" = { msg = "Core Ramble code should not rely on spack.fetch_strategy." }
 "spack.util.lock" = { msg = "Core Ramble code should not rely on spack.util.lock." }
 "spack.util.editor" = { msg = "Core Ramble code should not rely on spack.util.editor." }
+"spack.util.path" = { msg = "Core Ramble code should not rely on spack.util.path." }
 
 [tool.ruff.lint.per-file-ignores]
 "lib/ramble/ramble/*kit.py" = ["F403"]
