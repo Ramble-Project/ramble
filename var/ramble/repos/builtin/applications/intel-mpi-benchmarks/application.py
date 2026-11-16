@@ -32,7 +32,7 @@ class IntelMpiBenchmarks(ExecutableApplication):
 
     version("2019.6", "Version 2019.6 of Intel MPI Benchmarks", preferred=True)
 
-    with when("package_manager_family"):
+    with when("package_manager_family=spack"):
         define_compiler("gcc14", pkg_spec="gcc@14.2.0")
 
         software_spec(
