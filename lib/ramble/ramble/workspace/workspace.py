@@ -1395,11 +1395,13 @@ cd "{experiment_run_dir}"
                 all_workload_names.add(workload)
 
         workload_names = []
+        matched_filter = False
         for workload in all_workload_names:
             add_workload = False
             for wl_filter in workload_filters:
                 if fnmatch.fnmatch(workload, wl_filter):
                     add_workload = True
+                    matched_filter = True
                     break
 
             # Don't add this experiment if it already exists in the workspace
@@ -1424,8 +1426,19 @@ cd "{experiment_run_dir}"
             if add_workload:
                 workload_names.append(workload)
 
+        if not matched_filter:
+            if len(workload_filters) == 1:
+                filter_msg = f"filter '{workload_filters[0]}'"
+            else:
+                filters_str = ", ".join(f"'{f}'" for f in workload_filters)
+                filter_msg = f"filters {filters_str}"
+            logger.die(f"No workloads match {filter_msg} in application {application}")
+
         if not workload_names:
-            logger.die(f"No workloads match filter '{wl_filter}' in application {application}")
+            logger.die(
+                f"All matching experiments are already defined in application {application}. "
+                "To overwrite, use '--overwrite'"
+            )
 
         if workload_name_variable:
             exp_context.variables[workload_name_variable] = workload_names.copy()

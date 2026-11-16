@@ -2979,7 +2979,10 @@ def test_workspace_no_empty_workloads(workspace_name):
     with ramble.workspace.create(workspace_name) as ws:
         ws.write()
 
-        with pytest.raises(RambleCommandError):
+        with pytest.raises(
+            RambleCommandError,
+            match="No workloads match filter 'nothing\\*' in application basic",
+        ):
             workspace(
                 "manage",
                 "experiments",
@@ -2995,9 +2998,79 @@ def test_workspace_no_empty_workloads(workspace_name):
                 global_args=global_args,
             )
 
+        with pytest.raises(
+            RambleCommandError,
+            match="No workloads match filters 'nothing\\*', 'other\\*' in application basic",
+        ):
+            workspace(
+                "manage",
+                "experiments",
+                "basic",
+                "--wf",
+                "nothing*",
+                "--wf",
+                "other*",
+                "-v",
+                "n_nodes=1",
+                "-v",
+                "n_ranks=1",
+                "--default-variable-value",
+                "1",
+                global_args=global_args,
+            )
+
         with open(ws.config_file_path, encoding="utf-8") as f:
             data = f.read()
             assert "basic:" not in data
+
+        # Add an experiment, then re-run without --overwrite: should report that
+        # all matching experiments are already defined rather than no workloads matching.
+        workspace(
+            "manage",
+            "experiments",
+            "basic",
+            "--wf",
+            "test_wl",
+            "-v",
+            "n_nodes=1",
+            "-v",
+            "n_ranks=1",
+            global_args=global_args,
+        )
+
+        with pytest.raises(
+            RambleCommandError,
+            match="All matching experiments are already defined in application basic",
+        ):
+            workspace(
+                "manage",
+                "experiments",
+                "basic",
+                "--wf",
+                "test_wl",
+                "-v",
+                "n_nodes=2",
+                "-v",
+                "n_ranks=2",
+                global_args=global_args,
+            )
+
+        # Passing --overwrite succeeds and updates the definition
+        workspace(
+            "manage",
+            "experiments",
+            "basic",
+            "--wf",
+            "test_wl",
+            "--overwrite",
+            "-v",
+            "n_nodes=2",
+            "-v",
+            "n_ranks=2",
+            global_args=global_args,
+        )
+        with open(ws.config_file_path, encoding="utf-8") as f:
+            assert "n_nodes: '2'" in f.read()
 
 
 def test_no_inherit_active_workspace_variants(request):
