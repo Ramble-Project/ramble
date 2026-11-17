@@ -514,3 +514,38 @@ def test_info_fom_type_formatting():
     out = info("intel-mpi-benchmarks", "-v", "--attrs", "figures_of_merit")
     assert "fom_type: Undefined" in out
     assert "FomType.UNDEFINED" not in out
+
+
+def test_info_hyphen_vs_underscore_across_repos(tmpdir):
+    import ramble.creator
+
+    obj_type = ramble.repository.ObjectTypes.applications
+    repo_underscore_dir = str(tmpdir.join("repo_underscore"))
+    repo_hyphen_dir = str(tmpdir.join("repo_hyphen"))
+
+    ramble.repository.create_repo(repo_underscore_dir, namespace="repo_underscore")
+    ramble.repository.create_repo(repo_hyphen_dir, namespace="repo_hyphen")
+
+    ramble.creator.create_object(
+        obj_type,
+        "md_test",
+        repo_name_or_path=repo_underscore_dir,
+        base_class="ExecutableApplication",
+    )
+    ramble.creator.create_object(
+        obj_type,
+        "md-test",
+        repo_name_or_path=repo_hyphen_dir,
+        base_class="ExecutableApplication",
+    )
+
+    with ramble.repository.use_repositories(
+        repo_underscore_dir, repo_hyphen_dir, object_type=obj_type
+    ):
+        out_hyphen = info("md-test")
+        assert "md-test" in out_hyphen
+        assert "md_test" not in out_hyphen
+
+        out_underscore = info("md_test")
+        assert "md_test" in out_underscore
+        assert "md-test" not in out_underscore

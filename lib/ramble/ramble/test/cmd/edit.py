@@ -343,3 +343,63 @@ def test_edit_application_with_tpl_files(mock_applications, monkeypatch):
     assert recorded_calls[0].endswith("application.py")
     assert recorded_calls[1].endswith("bar.tpl")
     assert recorded_calls[2].endswith("script.sh.tpl")
+
+
+def test_edit_hyphen_vs_underscore_across_repos(tmpdir, mock_editor):
+    """Test that `ramble edit` distinguishes hyphen vs underscore names across repos."""
+    import ramble.creator
+
+    obj_type = ramble.repository.ObjectTypes.applications
+    repo_underscore_dir = str(tmpdir.join("repo_underscore"))
+    repo_hyphen_dir = str(tmpdir.join("repo_hyphen"))
+
+    ramble.repository.create_repo(repo_underscore_dir, namespace="repo_underscore")
+    ramble.repository.create_repo(repo_hyphen_dir, namespace="repo_hyphen")
+
+    ramble.creator.create_object(obj_type, "md_test", repo_name_or_path=repo_underscore_dir)
+    ramble.creator.create_object(obj_type, "md-test", repo_name_or_path=repo_hyphen_dir)
+
+    # Case 1: repo with md_test has higher precedence than repo with md-test
+    with ramble.repository.use_repositories(
+        repo_underscore_dir, repo_hyphen_dir, object_type=obj_type
+    ):
+        mock_editor.clear()
+        out_hyphen = edit("md-test")
+        assert len(mock_editor) == 1
+        assert "repo_hyphen/applications/md-test/application.py" in mock_editor[0]
+        assert "Multiple matches found" not in out_hyphen
+
+        mock_editor.clear()
+        out_underscore = edit("md_test")
+        assert len(mock_editor) == 1
+        assert "repo_underscore/applications/md_test/application.py" in mock_editor[0]
+        assert "Multiple matches found" not in out_underscore
+
+        # Explicit namespace still falls back to variant name within that repo
+        mock_editor.clear()
+        edit("--namespace", "repo_underscore", "md-test")
+        assert len(mock_editor) == 1
+        assert "repo_underscore/applications/md_test/application.py" in mock_editor[0]
+
+    # Case 2: repo with md-test has higher precedence than repo with md_test
+    with ramble.repository.use_repositories(
+        repo_hyphen_dir, repo_underscore_dir, object_type=obj_type
+    ):
+        mock_editor.clear()
+        out_hyphen = edit("md-test")
+        assert len(mock_editor) == 1
+        assert "repo_hyphen/applications/md-test/application.py" in mock_editor[0]
+        assert "Multiple matches found" not in out_hyphen
+
+        mock_editor.clear()
+        out_underscore = edit("md_test")
+        assert len(mock_editor) == 1
+        assert "repo_underscore/applications/md_test/application.py" in mock_editor[0]
+        assert "Multiple matches found" not in out_underscore
+
+    # Case 3: When only one variant exists across repos, flexible matching still works
+    with ramble.repository.use_repositories(repo_hyphen_dir, object_type=obj_type):
+        mock_editor.clear()
+        edit("md_test")
+        assert len(mock_editor) == 1
+        assert "repo_hyphen/applications/md-test/application.py" in mock_editor[0]

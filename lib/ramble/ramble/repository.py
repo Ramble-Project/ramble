@@ -699,6 +699,13 @@ class RepoPath:
             return self.by_namespace[fullspace]
 
         # If there's no namespace, search in the RepoPath.
+        # Prefer exact directory name matches across all repos before
+        # falling back to hyphen/underscore variants.
+        for repo in self.repos:
+            if repo.exists(name, exact=True):
+                logger.debug("Found repo (exact match)...")
+                return repo
+
         for repo in self.repos:
             if name in repo:
                 logger.debug("Found repo...")
@@ -718,18 +725,20 @@ class RepoPath:
         """Find a class for the spec's object and return the class object."""
         return self.repo_for_obj(obj_name).get_obj_class(obj_name)
 
-    def dirname_for_object_name(self, obj_name):
-        return self.repo_for_obj(obj_name).dirname_for_object_name(obj_name)
+    def dirname_for_object_name(self, obj_name, exact=False):
+        return self.repo_for_obj(obj_name).dirname_for_object_name(obj_name, exact=exact)
 
-    def filename_for_object_name(self, obj_name):
+    def filename_for_object_name(self, obj_name, exact=False):
+        if exact:
+            return self.repo_for_obj(obj_name).filename_for_object_name(obj_name, exact=True)
         return self.repo_for_obj(obj_name).filename_for_object_name(obj_name)
 
-    def exists(self, obj_name):
+    def exists(self, obj_name, exact=False):
         """Whether object with the give name exists in the path's repos.
 
         Note that virtual objects do not "exist".
         """
-        return any(repo.exists(obj_name) for repo in self.repos)
+        return any(repo.exists(obj_name, exact=exact) for repo in self.repos)
 
     def in_path(self, maybe_obj_path):
         """Whether the path belongs to any of the repos."""
@@ -877,13 +886,13 @@ class Repo:
         More ambiguous:
             foo_bar_baz -> foo_bar_baz, foo-bar-baz, foo_bar-baz, foo-bar_baz
         """
-        if import_name in self:
+        if self.exists(import_name, exact=True):
             return import_name
 
         options = nm.possible_ramble_module_names(import_name)
         options.remove(import_name)
         for name in options:
-            if name in self:
+            if self.exists(name, exact=True):
                 return name
         return None
 
@@ -949,11 +958,11 @@ class Repo:
         """Index of tags and which objects they're defined on."""
         return self.index["tags"]
 
-    def dirname_for_object_name(self, obj_name):
+    def dirname_for_object_name(self, obj_name, exact=False):
         """Get the directory name for a particular object.  This is the
         directory that contains its object.py file."""
         default_path = os.path.join(self.objects_path, obj_name)
-        if os.path.isdir(default_path):
+        if exact or os.path.isdir(default_path):
             return default_path
 
         if "_" in obj_name:
@@ -968,7 +977,7 @@ class Repo:
 
         return default_path
 
-    def filename_for_object_name(self, obj_name):
+    def filename_for_object_name(self, obj_name, exact=False):
         """Get the filename for the module we should load for a particular
         object.  objects for a Repo live in
         ``$root/<object_name>/<object_type>.py``
@@ -977,7 +986,10 @@ class Repo:
         object doesn't exist yet, so callers will need to ensure
         the object exists before importing.
         """
-        obj_dir = self.dirname_for_object_name(obj_name)
+        if exact:
+            obj_dir = self.dirname_for_object_name(obj_name, exact=True)
+        else:
+            obj_dir = self.dirname_for_object_name(obj_name)
         return os.path.join(obj_dir, self.object_file_name)
 
     def object_path(self, spec):
@@ -1007,17 +1019,30 @@ class Repo:
 
         return sorted(v)
 
-    def exists(self, obj_name):
+    def exists(self, obj_name, exact=False):
         """Whether a object with the supplied name exists."""
         if obj_name is None:
             return False
 
         # if the FastObjectChecker is already constructed, use it
         if self._fast_object_checker:
-            return obj_name in self._obj_checker
+            if obj_name in self._obj_checker:
+                return True
+            if exact:
+                return False
+            if "_" in obj_name and obj_name.replace("_", "-") in self._obj_checker:
+                return True
+            if "-" in obj_name and obj_name.replace("-", "_") in self._obj_checker:
+                return True
+            return False
 
         # if not, check for the object.py file
-        path = self.filename_for_object_name(obj_name)
+        if exact:
+            path = os.path.join(
+                self.dirname_for_object_name(obj_name, exact=True), self.object_file_name
+            )
+        else:
+            path = self.filename_for_object_name(obj_name)
         return os.path.exists(path)
 
     def last_mtime(self):

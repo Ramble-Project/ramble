@@ -304,3 +304,64 @@ def test_repo_get_raises_failed_constructor_error(mutable_mock_apps_repo, monkey
     err_msg = str(exc_info.value)
     assert "Class constructor failed for application 'basic'." in err_msg
     assert "TypeError: simulated constructor failure" in err_msg
+
+
+def test_repo_path_prefers_exact_name_across_repos(tmpdir):
+    import ramble.creator
+
+    obj_type = ramble.repository.ObjectTypes.applications
+    repo_underscore_dir = str(tmpdir.join("repo_underscore"))
+    repo_hyphen_dir = str(tmpdir.join("repo_hyphen"))
+
+    ramble.repository.create_repo(repo_underscore_dir, namespace="repo_underscore")
+    ramble.repository.create_repo(repo_hyphen_dir, namespace="repo_hyphen")
+
+    ramble.creator.create_object(
+        obj_type,
+        "md_test",
+        repo_name_or_path=repo_underscore_dir,
+        base_class="ExecutableApplication",
+    )
+    ramble.creator.create_object(
+        obj_type,
+        "md-test",
+        repo_name_or_path=repo_hyphen_dir,
+        base_class="ExecutableApplication",
+    )
+
+    for repo_order in [
+        (repo_underscore_dir, repo_hyphen_dir),
+        (repo_hyphen_dir, repo_underscore_dir),
+    ]:
+        with ramble.repository.use_repositories(*repo_order, object_type=obj_type) as repo_path:
+            # Verify both before and after FastObjectChecker is populated
+            for warm_cache in (False, True):
+                if warm_cache:
+                    names = repo_path.all_object_names()
+                    assert "md-test" in names
+                    assert "md_test" in names
+
+                assert repo_path.repo_for_obj("md-test").namespace == "repo_hyphen"
+                assert repo_path.repo_for_obj("md_test").namespace == "repo_underscore"
+                assert repo_path.get("md-test").name == "md-test"
+                assert repo_path.get("md_test").name == "md_test"
+                assert repo_path.filename_for_object_name("md-test").endswith(
+                    "repo_hyphen/applications/md-test/application.py"
+                )
+                assert repo_path.filename_for_object_name("md_test").endswith(
+                    "repo_underscore/applications/md_test/application.py"
+                )
+
+                repo_u = repo_path.get_repo("repo_underscore")
+                assert repo_u.exists("md_test", exact=True)
+                assert not repo_u.exists("md-test", exact=True)
+                assert repo_u.exists("md-test", exact=False)
+
+
+def test_repo_path_variant_lookup_with_fast_object_checker(mutable_mock_apps_repo, extra_repo):
+    mutable_mock_apps_repo.put_first(extra_repo[0])
+    # Populate FastObjectChecker on all repos in RepoPath
+    mutable_mock_apps_repo.all_object_names()
+
+    app = mutable_mock_apps_repo.get("basic_inherited")
+    assert app.name == "basic-inherited"
