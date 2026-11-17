@@ -11,8 +11,6 @@ import os
 
 from ramble.appkit import *
 
-from spack.util.path import canonicalize_path
-
 
 class PyNemo(ExecutableApplication):
     """Define a base class for PyNemo applications."""
@@ -328,7 +326,7 @@ class PyNemo(ExecutableApplication):
 
     def _preprocess_log(self, workspace, app_inst):
         log_file = get_file_path(
-            canonicalize_path(self.expander.expand_var_name("log_file")),
+            self.expander.expand_var_name("log_file"),
             workspace,
         )
 

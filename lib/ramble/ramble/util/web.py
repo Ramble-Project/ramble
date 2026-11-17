@@ -24,12 +24,12 @@ import ramble
 import ramble.config
 import ramble.error
 from ramble.util.logger import logger
+from ramble.util.path import convert_to_posix_path
 
 import spack.util.gcs as gcs_util
 import spack.util.s3 as s3_util
 import spack.util.url as url_util
 from spack.error import SpackError
-from spack.util.path import convert_to_posix_path
 
 #: User-Agent used in Request objects
 RAMBLE_USER_AGENT = f"Ramblebot/{ramble.ramble_version}"

@@ -12,9 +12,9 @@ from typing import Any, Dict, List, Optional, Union
 import ramble.error
 import ramble.util.colors
 from ramble.util.output_capture import OUTPUT_CAPTURE
+from ramble.util.path import system_path_filter
 
 import spack.util.executable
-from spack.util.path import system_path_filter
 
 
 class PrefixedExecutable(spack.util.executable.Executable):

@@ -78,3 +78,26 @@ def test_substitute_workspace_path_variables(mutable_mock_workspace_path):
             )
             == "/override/repo"
         )
+
+
+def test_os_path_helpers():
+    assert ramble.util.path.format_os_path("", mode=ramble.util.path.Path.unix) == ""
+    assert ramble.util.path.convert_to_posix_path(r"a\b\c") == "a/b/c"
+    assert ramble.util.path.convert_to_windows_path("a/b/c") == r"a\b\c"
+    assert ramble.util.path.is_path_url("https://example.com/a") is True
+    assert ramble.util.path.is_path_url(r"C:\a\b") is False
+    assert ramble.util.path.is_path_url("/a/b") is False
+
+    @ramble.util.path.system_path_filter
+    def fn_all(a, b):
+        return a, b
+
+    @ramble.util.path.system_path_filter(arg_slice=slice(0, 1))
+    def fn_slice(a, b):
+        return a, b
+
+    assert fn_all("a/b", 123) == (ramble.util.path.convert_to_platform_path("a/b"), 123)
+    assert fn_slice("a/b", r"c\d") == (
+        ramble.util.path.convert_to_platform_path("a/b"),
+        r"c\d",
+    )

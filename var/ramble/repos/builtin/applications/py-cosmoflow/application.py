@@ -12,9 +12,9 @@ from ruamel import yaml
 
 import ramble.util.yaml_generation
 from ramble.appkit import *
+from ramble.util.path import canonicalize_path
 
 import spack.util.spack_yaml as syaml
-from spack.util.path import canonicalize_path
 
 
 class PyCosmoflow(ExecutableApplication):
