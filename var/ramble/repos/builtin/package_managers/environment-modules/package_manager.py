@@ -149,7 +149,7 @@ class EnvironmentModules(PackageManagerBase):
         return pkg_list
 
     def environment_load_commands(self) -> List[str]:
-        return self.module_list()
+        return self.module_load()
 
     def environment_unload_commands(self) -> List[str]:
         return ["module purge"]
