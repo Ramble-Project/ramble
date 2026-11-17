@@ -6,6 +6,8 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+from typing import List
+
 from ramble.pkg_man.builtin.environment_modules import EnvironmentModules
 from ramble.pkgmankit import *
 
@@ -45,3 +47,6 @@ class Eessi(EnvironmentModules):
         "module_load",
         depends_on=["package_manager_builtin::eessi::eessi_init"],
     )
+
+    def environment_load_commands(self) -> List[str]:
+        return self.eessi_init() + self.module_load()
