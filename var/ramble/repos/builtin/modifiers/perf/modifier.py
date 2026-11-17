@@ -59,7 +59,14 @@ class Perf(BasicModifier):
         "perf_subcommand",
         default="stat",
         description="Internal variable for the perf subcommand",
-        modes=["stat", "record"],
+        modes=["stat"],
+    )
+
+    modifier_variable(
+        "perf_subcommand",
+        default="record",
+        description="Internal variable for the perf subcommand",
+        modes=["record"],
     )
 
     variant(
@@ -193,7 +200,7 @@ class Perf(BasicModifier):
         "read_bandwidth",
         log_file="perf_{experiment_name}_*.out",
         fom_regex=r"\s+(?P<read_bw>\d+\.?\d*)\s+.*/rni_actual_read_bandwidth/",
-        group_name="bandwidth",
+        group_name="read_bw",
         units="GB/s",
     )
 
@@ -201,7 +208,7 @@ class Perf(BasicModifier):
         "write_bandwidth",
         log_file="perf_{experiment_name}_*.out",
         fom_regex=r"\s+(?P<write_bw>\d+\.?\d*)\s+.*/rni_actual_write_bandwidth/",
-        group_name="bandwidth",
+        group_name="write_bw",
         units="GB/s",
     )
 
@@ -209,7 +216,7 @@ class Perf(BasicModifier):
         "backend_stall_pct",
         log_file="perf_{experiment_name}_*.out",
         fom_regex=r"(?P<be_pct>\d+\.\d+)\s+percent of slots\s+backend_bound",
-        group_name="stalls",
+        group_name="be_pct",
         units="%",
     )
 
@@ -217,6 +224,6 @@ class Perf(BasicModifier):
         "branch_mispredict_pct",
         log_file="perf_{experiment_name}_*.out",
         fom_regex=r"(?P<br_pct>\d+\.\d+)\s+percent of slots\s+bad_speculation",
-        group_name="branches",
+        group_name="br_pct",
         units="%",
     )
