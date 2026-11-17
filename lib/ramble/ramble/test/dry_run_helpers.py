@@ -8,7 +8,7 @@
 
 from enum import Enum
 
-import spack.util.spack_yaml as syaml
+import ramble.util.ramble_yaml as syaml
 
 SCOPES = Enum("SCOPES", ["workspace", "application", "workload", "experiment"])
 

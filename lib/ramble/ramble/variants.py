@@ -16,8 +16,7 @@ import ramble.util.colors as color
 from ramble.expander import Expander
 from ramble.keywords import keywords
 from ramble.namespace import namespace
-
-from spack.util.spack_yaml import syaml_bool
+from ramble.util.ramble_yaml import syaml_bool
 
 reserved_variants = {
     "modifier",

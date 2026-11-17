@@ -28,9 +28,8 @@ from typing import Any, Dict, Union
 
 from ruamel import yaml
 
+import ramble.util.ramble_yaml as syaml
 from ramble.util.logger import logger
-
-import spack.util.spack_yaml as syaml
 
 
 def read_config_file(conf_path: str):

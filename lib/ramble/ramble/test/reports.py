@@ -30,10 +30,9 @@ import pytest
 from matplotlib.backends.backend_pdf import PdfPages
 
 import ramble.reports
+import ramble.util.ramble_yaml as syaml
 from ramble.main import RambleCommand
 from ramble.util import foms, json_util
-
-import spack.util.spack_yaml as syaml
 
 config = RambleCommand("config")
 results = RambleCommand("results")
