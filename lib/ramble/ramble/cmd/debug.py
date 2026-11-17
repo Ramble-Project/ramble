@@ -12,7 +12,6 @@ import platform
 import ramble.util.version
 
 import spack.platforms
-import spack.spec
 
 description = "debugging commands for troubleshooting Ramble"
 section = "developer"
@@ -28,7 +27,7 @@ def report(args):
     host_platform = spack.platforms.host()
     host_os = host_platform.operating_system("frontend")
     host_target = host_platform.target("frontend")
-    architecture = spack.spec.ArchSpec((str(host_platform), str(host_os), str(host_target)))
+    architecture = f"{host_platform}-{host_os}-{host_target}"
     print("* **Ramble:**", ramble.util.version.get_version())
     print("* **Python:**", platform.python_version())
     print("* **Platform:**", architecture)

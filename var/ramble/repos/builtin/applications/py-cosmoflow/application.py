@@ -10,11 +10,10 @@ import os
 
 from ruamel import yaml
 
+import ramble.util.ramble_yaml as syaml
 import ramble.util.yaml_generation
 from ramble.appkit import *
 from ramble.util.path import canonicalize_path
-
-import spack.util.spack_yaml as syaml
 
 
 class PyCosmoflow(ExecutableApplication):

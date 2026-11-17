@@ -16,9 +16,8 @@ import llnl.util.filesystem as fs
 
 import ramble.config
 import ramble.main
+import ramble.util.ramble_yaml as syaml
 import ramble.workspace
-
-import spack.util.spack_yaml as syaml
 
 config = ramble.main.RambleCommand("config")
 workspace = ramble.main.RambleCommand("workspace")

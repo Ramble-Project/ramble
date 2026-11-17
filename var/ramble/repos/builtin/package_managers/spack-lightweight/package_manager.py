@@ -16,11 +16,11 @@ import tempfile
 
 import llnl.util.filesystem as fs
 
+import ramble.util.ramble_yaml as syaml
 from ramble.pkgmankit import *
 from ramble.util.command_runner import RunnerError
 from ramble.util.logger import logger
 
-import spack.util.spack_yaml as syaml
 from spack.util.executable import ProcessError, which
 
 

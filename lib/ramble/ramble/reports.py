@@ -17,6 +17,7 @@ import ramble.config
 import ramble.expander
 import ramble.repository
 import ramble.util.path
+import ramble.util.ramble_yaml as syaml
 from ramble.experiment_result import ExperimentStatus, ResultKeys
 from ramble.keywords import keywords
 from ramble.namespace import namespace
@@ -26,8 +27,6 @@ from ramble.util.logger import logger
 from ramble.util.module_utils import import_module, import_pandas
 from ramble.util.naming import NS_SEPARATOR
 from ramble.workspace import WORKSPACE_EXECUTION_SCRIPT
-
-import spack.util.spack_yaml as syaml
 
 
 class _ReportVarsMeta(type):

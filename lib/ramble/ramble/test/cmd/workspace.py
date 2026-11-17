@@ -19,13 +19,12 @@ import ramble.cmd.workspace
 import ramble.config
 import ramble.filters
 import ramble.pipeline
+import ramble.util.ramble_yaml as syaml
 import ramble.workspace
 from ramble.error import RambleCommandError
 from ramble.main import RambleCommand, main
 from ramble.namespace import namespace
 from ramble.test.dry_run_helpers import search_files_for_string
-
-import spack.util.spack_yaml as syaml
 
 # everything here uses the mock_workspace_path
 pytestmark = pytest.mark.usefixtures(

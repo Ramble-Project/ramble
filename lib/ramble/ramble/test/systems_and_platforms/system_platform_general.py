@@ -13,10 +13,9 @@ import re
 import pytest
 
 import ramble.software_info
+import ramble.util.ramble_yaml as syaml
 import ramble.workspace
 from ramble.main import RambleCommand
-
-import spack.util.spack_yaml as syaml
 
 workspace = RambleCommand("workspace")
 

@@ -12,10 +12,16 @@
    :lines: 12-
 """
 
-import spack.schema.environment
+dictionary_of_strings_or_num = {
+    "type": "object",
+    "patternProperties": {r"\w[\w-]*": {"anyOf": [{"type": "string"}, {"type": "number"}]}},
+}
 
-dictionary_of_strings_or_num = spack.schema.environment.dictionary_of_strings_or_num
-array_of_strings_or_num = spack.schema.environment.array_of_strings_or_num
+array_of_strings_or_num = {
+    "type": "array",
+    "default": [],
+    "items": {"anyOf": [{"type": "string"}, {"type": "number"}]},
+}
 
 env_var_actions = {
     "set": dictionary_of_strings_or_num,

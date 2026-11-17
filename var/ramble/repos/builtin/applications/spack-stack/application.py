@@ -208,7 +208,7 @@ class SpackStack(ExecutableApplication):
         return cmds
 
     def evaluate_success(self):
-        import spack.util.spack_yaml as syaml
+        import ramble.util.ramble_yaml as syaml
 
         if not self.expander.satisfies("package_manager_family=spack"):
             return True

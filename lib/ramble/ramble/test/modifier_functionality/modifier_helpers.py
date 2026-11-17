@@ -8,7 +8,7 @@
 
 import os
 
-import spack.util.spack_yaml as syaml
+import ramble.util.ramble_yaml as syaml
 
 
 def check_software_env(base_dir, tests):
