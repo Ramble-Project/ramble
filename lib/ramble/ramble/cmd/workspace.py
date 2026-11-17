@@ -2148,13 +2148,9 @@ def workspace_manage_success_criteria(args):
     ws = ramble.cmd.require_active_workspace(cmd_name="workspace manage success-criteria")
 
     if args.remove:
-        remove_index = None
-        if args.remove_index is not None:
-            remove_index = args.remove_index
-
         with ws.write_transaction():
             removed = ws.remove_success_criteria(
-                remove_index=remove_index,
+                remove_index=args.remove_index,
                 scope_pattern=args.scope,
                 name_pattern=args.name,
                 mode_pattern=args.mode,
@@ -2164,13 +2160,11 @@ def workspace_manage_success_criteria(args):
             if args.dry_run:
                 ws.print_config()
 
-            if removed > 1:
-                logger.msg(f"Removed {removed} success criteria from workspace.")
-            elif removed == 1:
+            if removed >= 1:
                 logger.msg(f"Removed {removed} success criteria from workspace.")
             else:
                 logger.msg(
-                    "No success criteria matched criteria. "
+                    "No matching success criteria found. "
                     "0 success criteria removed from workspace."
                 )
 
@@ -2193,14 +2187,11 @@ def workspace_manage_success_criteria(args):
             if args.dry_run:
                 ws.print_config()
 
-            if added > 1:
-                logger.msg(f"Added {added} success criteria to workspace.")
-            elif added == 1:
+            if added >= 1:
                 logger.msg(f"Added {added} success criteria to workspace.")
             else:
                 logger.msg(
-                    "No success criteria matched criteria. "
-                    "0 success criteria added to workspace."
+                    "No matching success criteria found. 0 success criteria added to workspace."
                 )
     elif args.list:
         with ws.read_transaction():

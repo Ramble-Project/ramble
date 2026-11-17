@@ -685,3 +685,91 @@ def test_manage_success_criteria_validation_errors(workspace_name):
     ws.add_success_criteria(name="one_item", mode="string", match="ok")
     with pytest.raises(ramble.workspace.RambleWorkspaceError, match=r"Valid index is 0\."):
         ws.remove_success_criteria(remove_index=1)
+
+
+def test_manage_success_criteria_list_signifies_overrides(workspace_name):
+    """--list signifies when a config criterion overrides an object-defined criterion."""
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    global_args = ["-w", workspace_name]
+
+    workspace(
+        "manage",
+        "experiments",
+        "hostname",
+        "--wf",
+        "local",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "--name",
+        "exit-code",
+        "--scope",
+        "workspace",
+        global_args=global_args,
+    )
+
+    # Overrides application-defined 'wrote_anything' from hostname
+    workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--scope",
+        "hostname",
+        "--name",
+        "wrote_anything",
+        "--mode",
+        "string",
+        "--match",
+        "myhost",
+        global_args=global_args,
+    )
+
+    # Overrides modifier-defined 'Final Exit Code Zero' from exit-code
+    workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--scope",
+        "workspace",
+        "--name",
+        "Final Exit Code Zero",
+        "--mode",
+        "string",
+        "--match",
+        "Final exit code: 0",
+        global_args=global_args,
+    )
+
+    # Custom config criterion that does not override any object-defined criterion
+    workspace(
+        "manage",
+        "success-criteria",
+        "--add",
+        "--scope",
+        "hostname:local",
+        "--name",
+        "custom_only",
+        "--mode",
+        "string",
+        "--match",
+        ".*",
+        global_args=global_args,
+    )
+
+    list_out = workspace("manage", "success-criteria", "--list", global_args=global_args)
+    assert (
+        "0: Name: Final Exit Code Zero -- Mode: string -- Overrides: modifier::exit-code"
+        in list_out
+    )
+    assert (
+        "1: Name: wrote_anything -- Mode: string -- Overrides: application::hostname" in list_out
+    )
+    assert "2: Name: custom_only -- Mode: string\n" in list_out

@@ -2583,9 +2583,47 @@ cd "{experiment_run_dir}"
 
         return criteria_list
 
+    def _object_success_criteria_by_scope(self):
+        """Map each workspace config scope to object-level success criteria it covers."""
+        scope_map = defaultdict(lambda: defaultdict(list))
+        app_func_name = ramble.success_criteria.APPLICATION_FUNCTION_CRITERIA_NAME
+        prev_sw_envs = self.software_environments
+        try:
+            experiment_set = self.build_experiment_set(
+                die_on_validate_error=False, check_environments=False
+            )
+        except ramble.error.RambleError:
+            return scope_map
+        finally:
+            self.software_environments = prev_sw_envs
+        all_insts = list(experiment_set.experiments.values()) + list(
+            experiment_set.chained_experiments.values()
+        )
+        for app_inst in all_insts:
+            app_scope = app_inst.variables[app_inst.keywords.application_name]
+            wl_name = app_inst.variables[app_inst.keywords.workload_template_name]
+            exp_name = app_inst.variables[app_inst.keywords.experiment_template_name]
+            wl_scope = f"{app_scope}:{wl_name}"
+            exp_scope = f"{wl_scope}:{exp_name}"
+            resolved = {}
+            for _, obj_inst in app_inst.objects():
+                for when_set, crit_dict in getattr(obj_inst, "success_criteria", {}).items():
+                    if app_inst.expander.satisfies(
+                        when_set, variant_set=obj_inst.experiment_variants()
+                    ):
+                        for crit_name in crit_dict:
+                            resolved.setdefault(crit_name, obj_inst.scoped_name)
+            resolved.setdefault(app_func_name, app_inst.scoped_name)
+            for crit_name, owner_name in resolved.items():
+                for s in ("workspace", app_scope, wl_scope, exp_scope):
+                    if owner_name not in scope_map[s][crit_name]:
+                        scope_map[s][crit_name].append(owner_name)
+        return scope_map
+
     def print_success_criteria(self):
         """Print an indexed list of all success criteria in this workspace"""
         criteria_list = self.index_success_criteria()
+        overridden_map = self._object_success_criteria_by_scope() if criteria_list else {}
 
         logger.all_msg(f"Workspace contains {len(criteria_list)} success criteria.")
         logger.all_msg("Additional success criteria may come from scopes outside of workspace")
@@ -2606,7 +2644,12 @@ cd "{experiment_run_dir}"
             if "mode" in entry and entry["mode"] is not None:
                 mode_str = f" -- Mode: {entry['mode']}"
 
-            out_str = f"Name: {name}{mode_str}"
+            override_str = ""
+            overridden_owners = overridden_map.get(scope, {}).get(name, [])
+            if overridden_owners:
+                override_str = f" -- Overrides: {', '.join(overridden_owners)}"
+
+            out_str = f"Name: {name}{mode_str}{override_str}"
 
             logger.all_msg(f"{idx}: {out_str}")
 
