@@ -26,11 +26,11 @@ from llnl.util.compat import Mapping
 import ramble.config
 import ramble.error
 import ramble.fetch_strategy as fs
+import ramble.util.ramble_yaml as syaml
 from ramble.util.logger import logger
+from ramble.util.ramble_yaml import syaml_dict
 
 import spack.url
-import spack.util.spack_yaml
-from spack.util.spack_yaml import syaml_dict
 
 
 def _is_string(url):
@@ -65,7 +65,7 @@ class Mirror:
     @staticmethod
     def from_yaml(stream, name=None):
         try:
-            data = spack.util.spack_yaml.load(stream)
+            data = syaml.load(stream)
             return Mirror.from_dict(data, name)
         except yaml_error.MarkedYAMLError as e:
             raise MirrorError(f"error parsing YAML mirror: {e}") from e

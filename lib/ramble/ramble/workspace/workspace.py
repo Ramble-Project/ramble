@@ -36,6 +36,7 @@ import ramble.util.hashing
 import ramble.util.install_cache
 import ramble.util.lock as lk
 import ramble.util.path
+import ramble.util.ramble_yaml as syaml
 import ramble.util.version
 import ramble.util.web as web_util
 from ramble.experiment_result import ResultKeys
@@ -48,7 +49,6 @@ from ramble.util.logger import logger
 from ramble.util.naming import NS_SEPARATOR
 from ramble.util.path import substitute_path_variables
 
-import spack.util.spack_yaml as syaml
 import spack.util.url as url_util
 
 # Workspace-related constants
@@ -1994,20 +1994,8 @@ cd "{experiment_run_dir}"
             out_file = os.path.join(self.results_dir, filename_base + file_extension)
             results_written.append(out_file)
 
-            from ruamel.yaml import RoundTripDumper
-
-            class RambleSafeDumper(RoundTripDumper):
-                def ignore_aliases(self, _data):
-                    """Make the dumper NEVER print YAML aliases."""
-                    return True
-
-            def call_value(dumper, data):
-                return dumper.represent_data(data.value)
-
-            RambleSafeDumper.add_representer(ramble.experiment_result.ExperimentStatus, call_value)
-
             with open(out_file, "w+", encoding="utf-8") as f:
-                syaml.dump(results, stream=f, Dumper=RambleSafeDumper)
+                syaml.dump(results, stream=f)
 
             self._create_result_symlinks(out_file, latest_base, file_extension, symlinks_updated)
 

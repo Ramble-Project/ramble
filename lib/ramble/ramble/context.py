@@ -11,9 +11,8 @@ import copy
 import ramble.error
 import ramble.util.colors as color
 import ramble.util.matrices
+import ramble.util.ramble_yaml as syaml
 from ramble.namespace import namespace
-
-import spack.util.spack_yaml as syaml
 
 
 class ContextError(ramble.error.RambleError):

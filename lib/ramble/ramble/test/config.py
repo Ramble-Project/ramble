@@ -69,9 +69,9 @@ def test_unhashable_yaml_keys_coverage():
 
     from ruamel.yaml.nodes import MappingNode
 
-    import ramble.config
+    import ramble.util.ramble_yaml as syaml
 
-    loader = ramble.config._RambleLineLoader(io.StringIO())
+    loader = syaml.OrderedLineLoader(io.StringIO())
 
     # Mock construct_object to return custom keys dynamically with caching
     mock_keys = []
@@ -136,8 +136,7 @@ def test_syaml_bool_validates_as_json_boolean():
 
     import ramble.schema
     import ramble.schema.internals
-
-    import spack.util.spack_yaml as syaml
+    import ramble.util.ramble_yaml as syaml
 
     schema = ramble.schema.internals.schema
     data = syaml.load_config(io.StringIO("""
@@ -167,8 +166,7 @@ def test_non_boolean_still_rejected():
 
     import ramble.schema
     import ramble.schema.internals
-
-    import spack.util.spack_yaml as syaml
+    import ramble.util.ramble_yaml as syaml
 
     data = syaml.load_config(io.StringIO("""
 internals:

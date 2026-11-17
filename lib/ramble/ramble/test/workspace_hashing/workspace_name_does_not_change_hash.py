@@ -10,11 +10,10 @@ import os
 
 import pytest
 
+import ramble.util.ramble_yaml as syaml
 import ramble.workspace
 from ramble.main import RambleCommand
 from ramble.namespace import namespace
-
-import spack.util.spack_yaml as syaml
 
 # everything here uses the mock_workspace_path
 pytestmark = pytest.mark.usefixtures("mutable_config", "mutable_mock_workspace_path")

@@ -14,12 +14,11 @@ import pytest
 import ramble.cmd.repo
 import ramble.config
 import ramble.repository
+import ramble.util.ramble_yaml as syaml
 from ramble.cmd.repo import format_types
 from ramble.error import RambleCommandError
 from ramble.main import RambleCommand
 from ramble.repository import BadRepoError
-
-import spack.util.spack_yaml as syaml
 
 repo = RambleCommand("repo")
 

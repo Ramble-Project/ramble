@@ -67,15 +67,16 @@ import ramble.schema.variables
 import ramble.schema.variants
 import ramble.schema.workspace
 import ramble.schema.zips
+
+# Hacked yaml for configuration files preserves line numbers.
+import ramble.util.ramble_yaml as syaml
 from ramble.error import RambleError
 from ramble.util import cpus
 from ramble.util.logger import logger
+from ramble.util.ramble_yaml import load_config
 
-import spack.compilers
+import spack.compilers  # noqa: F401 - required before spack.platforms to avoid circular import
 import spack.platforms
-
-# Hacked yaml for configuration files preserves line numbers.
-import spack.util.spack_yaml as syaml
 
 #: Dict from section names -> schema for that section
 section_schemas: Dict[str, Dict[str, Any]] = {
@@ -102,50 +103,6 @@ section_schemas: Dict[str, Dict[str, Any]] = {
 # this allows us to unify config reading between configs and workspaces
 all_schemas = copy.deepcopy(section_schemas)
 all_schemas.update(dict.fromkeys(ramble.schema.workspace.keys, ramble.schema.workspace.schema))
-
-
-class _RambleLineLoader(syaml.OrderedLineLoader):
-    def construct_mapping(self, node, maptyp, deep=False):
-        from builtins import set
-
-        import llnl.util.tty as tty
-
-        seen_keys = set()
-        for key_node, _ in node.value:
-            key = self.construct_object(key_node, deep=True)
-
-            # Check if key is hashable; convert lists to tuples
-            try:
-                hash(key)
-                is_hashable = True
-            except TypeError:
-                if isinstance(key, list):
-                    try:
-                        key = tuple(key)
-                        hash(key)
-                        is_hashable = True
-                    except TypeError:
-                        is_hashable = False
-                else:
-                    is_hashable = False
-
-            if is_hashable:
-                if key in seen_keys:
-                    filename = node.start_mark.name
-                    line = key_node.start_mark.line + 1
-                    tty.warn(
-                        f'Duplicate key "{key}" detected in {filename} at line {line}. '
-                        "This will overwrite the previous value."
-                    )
-                seen_keys.add(key)
-
-        super().construct_mapping(node, maptyp, deep=deep)
-
-
-def load_config(*args, **kwargs):
-    """Load YAML using Ramble's custom Loader that warns on duplicate keys."""
-    kwargs["Loader"] = _RambleLineLoader
-    return syaml.load(*args, **kwargs)
 
 
 #: Builtin paths to configuration files in ramble
@@ -180,7 +137,7 @@ config_defaults = {
         "build_jobs": min(16, cpus.cpus_available()),
         "build_stage": "$tempdir/ramble-stage",
         "concretizer": "clingo",
-        "license_dir": spack.paths.default_license_dir,
+        "license_dir": ramble.paths.default_license_dir,
         "shell": "bash",
         "spack": {"install": {"flags": "--fresh"}, "concretize": {"flags": "--fresh"}},
         "pip": {"install": {"flags": []}},
@@ -1071,15 +1028,6 @@ def validate(data, schema, filename=None):
     # This allows us to round-trip data without adding to it.
     test_data = copy.deepcopy(data)
 
-    if isinstance(test_data, yaml.comments.CommentedMap):
-        # HACK to fully copy ruamel CommentedMap that doesn't provide copy
-        # method. Especially necessary for workspaces
-        setattr(
-            test_data,
-            yaml.comments.Comment.attrib,
-            getattr(data, yaml.comments.Comment.attrib, yaml.comments.Comment()),
-        )
-
     try:
         ramble.schema.Validator(schema).validate(test_data)
     except jsonschema.ValidationError as e:
@@ -1387,10 +1335,6 @@ def use_configuration(*scopes_or_paths):
     configuration = _config_from(scopes_or_paths)
     config.clear_caches(), configuration.clear_caches()
 
-    # Save and clear the current compiler cache
-    saved_compiler_cache = spack.compilers._cache_config_file
-    spack.compilers._cache_config_file = []
-
     saved_config, config = config, configuration
 
     import ramble.repository
@@ -1409,7 +1353,6 @@ def use_configuration(*scopes_or_paths):
         sys.meta_path = saved_meta_path
 
         # Restore previous config files
-        spack.compilers._cache_config_file = saved_compiler_cache
         config = saved_config
 
 

@@ -561,7 +561,7 @@ def send_warning_to_tty(message, *args):
 
 
 def mock_repositories(objects):
-    import spack.util.spack_yaml as syaml
+    import ramble.util.ramble_yaml as syaml
 
     for obj in objects:
         obj_section = ramble.repository.type_definitions[obj]["config_section"]

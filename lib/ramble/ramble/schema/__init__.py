@@ -39,7 +39,7 @@ def _make_validator():
         else:
             yield jsonschema.ValidationError(msg)
 
-    import spack.util.spack_yaml as syaml
+    import ramble.util.ramble_yaml as syaml
 
     # Ramble's YAML loader represents `true`/`false` as `syaml_bool`, which derives from
     # `int` rather than `bool`, so jsonschema's stock `isinstance(instance, bool)` check

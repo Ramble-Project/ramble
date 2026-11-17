@@ -10,9 +10,9 @@ import ramble.mirror
 import ramble.util.web as web_util
 from ramble.cmd.common import arguments
 from ramble.util.logger import logger
+from ramble.util.ramble_yaml import syaml_dict
 
 import spack.util.url as url_util
-from spack.util.spack_yaml import syaml_dict
 
 description = "manage mirrors (inputs)"
 section = "config"

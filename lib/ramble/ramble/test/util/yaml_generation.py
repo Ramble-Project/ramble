@@ -10,9 +10,8 @@ import pytest
 from ruamel import yaml
 
 import ramble.expander
+import ramble.util.ramble_yaml as syaml
 import ramble.util.yaml_generation
-
-import spack.util.spack_yaml as syaml
 
 
 @pytest.fixture(scope="session")

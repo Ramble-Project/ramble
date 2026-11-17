@@ -250,7 +250,7 @@ def test_no_active_workspace(make_workspace_from_config, monkeypatch):
 
 
 def test_yaml_equivalent():
-    import spack.util.spack_yaml as syaml
+    import ramble.util.ramble_yaml as syaml
 
     assert workspace.yaml_equivalent({"a": 1, "b": 2.5}, {"a": syaml.syaml_int(1), "b": 2.5})
     assert workspace.yaml_equivalent(

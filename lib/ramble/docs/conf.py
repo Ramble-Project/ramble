@@ -248,7 +248,7 @@ nitpick_ignore = [
     ("py:class", "spack.util.environment.EnvironmentModifications"),
     ("py:class", "spack.util.executable.Executable"),
     ("py:class", "spack.util.pattern.Composite"),
-    ("py:class", "spack.util.spack_yaml.OrderedLineLoader"),
+    ("py:class", "ramble.util.ramble_yaml.OrderedLineLoader"),
     ("py:class", "ramble.keywords.type"),
     ("py:class", "ramble.keywords.level"),
     ("py:class", "ramble.cmd.common.info.formats"),
