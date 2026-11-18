@@ -228,3 +228,19 @@ def test_config_schema_valid_options_and_types():
     assert isinstance(ramble.config.get_valid_type("config:pip:install:flags"), list)
     assert isinstance(ramble.config.get_valid_type("config:spack:install:flags"), str)
     assert isinstance(ramble.config.get_valid_type("config:repeat_success_strict"), bool)
+
+
+def test_config_get_cache_and_invalidation(mutable_config):
+    """Ensure Configuration.get caches lookups in _get_config_cache and invalidates on mutation."""
+    assert ramble.config.get("config:disable_passthrough") is False
+    assert ("config:disable_passthrough", None) in ramble.config.config._get_config_cache
+
+    # Missing keys should return the caller-provided default even when cached as missing
+    assert ramble.config.get("config:non_existent_key", default="fallback1") == "fallback1"
+    assert ramble.config.get("config:non_existent_key", default="fallback2") == "fallback2"
+
+    # Mutating via override/set must invalidate _get_config_cache
+    with ramble.config.override("config:disable_passthrough", True):
+        assert ramble.config.get("config:disable_passthrough") is True
+
+    assert ramble.config.get("config:disable_passthrough") is False
