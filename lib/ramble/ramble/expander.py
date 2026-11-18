@@ -824,7 +824,7 @@ class Expander:
         passthrough_setting = allow_passthrough
 
         # If disable_passthrough is set, override allow_passthrough from caller
-        if ramble.config.get("config:disable_passthrough"):
+        if passthrough_setting and ramble.config.get("config:disable_passthrough"):
             passthrough_setting = False
 
         logger.debug(f"BEGINNING OF EXPAND_VAR STACK ON {var}")

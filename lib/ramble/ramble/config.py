@@ -497,6 +497,9 @@ class InternalConfigScope(ConfigScope):
         return result
 
 
+_MISSING = object()
+
+
 def _config_mutator(method):
     """Decorator to mark all the methods in the Configuration class
     that mutate the underlying configuration. Used to clear the
@@ -526,6 +529,7 @@ class Configuration:
                 Configuration, ordered from lowest to highest precedence
 
         """
+        self._get_config_cache = {}
         self.scopes = collections.OrderedDict()
         for scope in scopes:
             self.push_scope(scope)
@@ -700,9 +704,6 @@ class Configuration:
            }
 
         """
-        if not hasattr(self, "_get_config_cache"):
-            self._get_config_cache = {}
-
         key = (section, scope)
         if key not in self._get_config_cache:
             self._get_config_cache[key] = self._get_config_no_memo(section, scope)
@@ -762,6 +763,11 @@ class Configuration:
 
         We use ``:`` as the separator, like YAML objects.
         """
+        cache_key = (path, scope)
+        if cache_key in self._get_config_cache:
+            val = self._get_config_cache[cache_key]
+            return default if val is _MISSING else val
+
         # TODO: Currently only handles maps. Think about lists if needed.
         parts = process_config_path(path)
         section = parts.pop(0)
@@ -773,8 +779,12 @@ class Configuration:
             # cannot use value.get(key, default) in case there is another part
             # and default is not a dict
             if key not in value:
+                self._get_config_cache[cache_key] = _MISSING
                 return default
             value = value[key]
+
+        if not isinstance(value, (dict, list)):
+            self._get_config_cache[cache_key] = value
 
         return value
 
