@@ -768,7 +768,6 @@ class Configuration:
             val = self._get_config_cache[cache_key]
             return default if val is _MISSING else val
 
-        # TODO: Currently only handles maps. Think about lists if needed.
         parts = process_config_path(path)
         section = parts.pop(0)
 
@@ -778,7 +777,7 @@ class Configuration:
             key = parts.pop(0)
             # cannot use value.get(key, default) in case there is another part
             # and default is not a dict
-            if key not in value:
+            if not isinstance(value, dict) or key not in value:
                 self._get_config_cache[cache_key] = _MISSING
                 return default
             value = value[key]
@@ -808,6 +807,12 @@ class Configuration:
         while len(parts) > 1:
             key = parts.pop(0)
 
+            if not isinstance(data, dict):
+                raise ConfigError(
+                    f"Cannot set '{path}': cannot index into "
+                    f"'{type(data).__name__}' with key '{key}'"
+                )
+
             if _override(key):
                 new = type(data[key])()
                 del data[key]
@@ -820,6 +825,12 @@ class Configuration:
                 # reattach to parent object
                 data[key] = new
             data = new
+
+        if not isinstance(data, dict):
+            raise ConfigError(
+                f"Cannot set '{path}': cannot index into "
+                f"'{type(data).__name__}' with key '{parts[0]}'"
+            )
 
         if _override(parts[0]):
             data.pop(parts[0], None)

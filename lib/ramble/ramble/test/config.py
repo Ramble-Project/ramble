@@ -244,3 +244,55 @@ def test_config_get_cache_and_invalidation(mutable_config):
         assert ramble.config.get("config:disable_passthrough") is True
 
     assert ramble.config.get("config:disable_passthrough") is False
+
+
+def test_config_get_traversing_non_dict_returns_default(mutable_empty_config):
+    """Traversing past lists or scalars in Configuration.get returns default."""
+    ramble.config.set("repos", ["repo1"], scope="user")
+    ramble.config.add("config:template_dirs:test1")
+    ramble.config.add("config:dirty:true")
+    ramble.config.add("config:shell:bash")
+    ramble.config.add("config:connect_timeout:10")
+
+    # Direct lookups still return the configured lists and scalars
+    assert ramble.config.get("repos") == ["repo1"]
+    assert ramble.config.get("config:template_dirs") == ["test1"]
+    assert bool(ramble.config.get("config:dirty")) is True
+    assert ramble.config.get("config:shell") == "bash"
+    assert ramble.config.get("config:connect_timeout") == 10
+
+    # Traversing into non-dict values returns default rather than raising TypeError
+    non_dict_subpaths = [
+        "repos:0",
+        "repos:repo1",
+        "config:template_dirs:0",
+        "config:template_dirs:test1",
+        "config:template_dirs:missing",
+        "config:dirty:sub",
+        "config:shell:as",
+        "config:connect_timeout:sub",
+    ]
+    for path in non_dict_subpaths:
+        assert ramble.config.get(path) is None
+        assert ramble.config.get(path, default="fallback") == "fallback"
+
+
+def test_config_set_traversing_non_dict_raises_config_error(mutable_empty_config):
+    """Setting nested keys under a list or scalar raises ConfigError."""
+    ramble.config.set("repos", ["repo1"], scope="user")
+    ramble.config.add("config:template_dirs:test1")
+    ramble.config.add("config:dirty:true")
+
+    for path in (
+        "repos:foo",
+        "repos:foo:bar",
+        "config:template_dirs:test1",
+        "config:template_dirs:test1:bar",
+        "config:dirty:foo",
+        "config:dirty:foo:bar",
+    ):
+        with pytest.raises(ramble.config.ConfigError, match="cannot index into"):
+            ramble.config.set(path, "val", scope="user")
+
+    with pytest.raises(ramble.config.ConfigError, match="cannot index into"):
+        ramble.config.add("config:template_dirs:test1:bar", scope="user")
