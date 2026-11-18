@@ -498,6 +498,35 @@ def test_workload_variable_workload_defaults_error():
         assert "workload_defaults cannot be used with workload, workloads" in err
 
 
+def _two_workload_app():
+    class WhenWorkloadApp(ExecutableApplication):  # noqa: F405
+        name = "when-workload-app"
+
+    app = WhenWorkloadApp("/not/a/path")
+    app.executable("test", "echo '{test_var}'")
+    app.workload("wl1", executables=["test"])
+    app.workload("wl2", executables=["test"])
+    return app
+
+
+def test_workload_variable_workload_from_when():
+    app = _two_workload_app()
+    app.workload_variable(
+        "test_var", default="x", description="Test var", when=["workload_name=wl1", "+foo"]
+    )
+
+    wl1_vars = app.workloads[_FS]["wl1"].find_variable("test_var")
+    assert len(wl1_vars) == 1
+    assert set(wl1_vars[0].when) == {"workload_name=wl1", "+foo"}
+    assert not app.workloads[_FS]["wl2"].find_variable("test_var")
+
+
+def test_workload_variable_requires_workload():
+    app = _two_workload_app()
+    with pytest.raises(DirectiveError, match="requires a workload"):
+        app.workload_variable("test_var", default="x", description="Test var", when=["+foo"])
+
+
 def test_stage_files_directive_no_dst():
     import ramble.config
 
