@@ -52,6 +52,12 @@ class Spack(UtilityBase):
     env_source("{utility::spack::path}/share/spack/setup-env.sh")
     env_set("SPACK_USER_CONFIG_PATH", "{utility::spack::path}/../.spack")
 
+    archive_exclude("opt")
+    archive_exclude("var/spack/stage")
+    archive_exclude("var/spack/cache")
+    archive_exclude("../.spack/bootstrap")
+    archive_exclude("../.spack/cache")
+
     # Future proofing: tools can define their own setup phases!
     def install(self, workspace):
         # E.g., make, configure, etc.

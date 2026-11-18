@@ -644,6 +644,7 @@ class Workspace:
 
         # Used by profiling phases
         self.profile_config = None
+        self._latest_archive = None
 
     def _re_read(self):
         """Reinitialize the workspace object if it has been written (this
@@ -2234,6 +2235,10 @@ cd "{experiment_run_dir}"
             return self._latest_archive
 
         if os.path.exists(self.archive_dir):
+            latest_link = os.path.join(self.archive_dir, "archive.latest")
+            if os.path.islink(latest_link) and os.path.exists(latest_link):
+                return os.path.basename(os.path.realpath(latest_link))
+
             archive_dirs = []
 
             for subdir in os.listdir(self.archive_dir):
@@ -2243,8 +2248,7 @@ cd "{experiment_run_dir}"
 
             if archive_dirs:
                 latest_path = max(archive_dirs, key=os.path.getmtime)
-                self._latest_archive = os.path.basename(latest_path)
-                return self._latest_archive
+                return os.path.basename(latest_path)
 
         return None
 

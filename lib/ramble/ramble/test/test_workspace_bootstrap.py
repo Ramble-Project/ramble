@@ -269,3 +269,267 @@ ramble:
     assert app_inst._bootstrapped_utility_paths["spack"] == "system"
     assert app_inst.variables["utility::spack::commit"] == "expanded_commit"
     assert "utility::spack::when" not in app_inst.variables
+
+
+def _populate_mock_bootstrapped_spack(ws, version="v1.2.2"):
+    """Populate a mock bootstrapped spack tree with both essential files and build bloat."""
+    import llnl.util.filesystem as fs
+
+    version_dir = os.path.join(ws.shared_dir, "bootstrapped_utilities", "spack", version)
+    source_dir = os.path.join(version_dir, "source")
+
+    kept_rel_paths = [
+        os.path.join("source", "bin", "spack"),
+        os.path.join("source", "share", "spack", "setup-env.sh"),
+        os.path.join(
+            "source", "var", "spack", "repos", "builtin", "packages", "opt", "package.py"
+        ),
+        os.path.join(".spack", "config.yaml"),
+    ]
+    excluded_rel_paths = [
+        os.path.join("source", "opt", "spack", "linux-x86_64", "gcc", "zlib", "libz.so"),
+        os.path.join("source", "var", "spack", "stage", "spack-stage-zlib", "build.out"),
+        os.path.join("source", "var", "spack", "cache", "_source-cache", "zlib.tar.gz"),
+        os.path.join(".spack", "bootstrap", "store", "clingo.so"),
+        os.path.join(".spack", "cache", "indices", "index.json"),
+    ]
+
+    for rel in kept_rel_paths + excluded_rel_paths:
+        full_path = os.path.join(version_dir, rel)
+        fs.mkdirp(os.path.dirname(full_path))
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(f"mock content for {rel}\n")
+
+    return version_dir, source_dir, kept_rel_paths, excluded_rel_paths
+
+
+def test_utility_archive_exclude_directive_and_info():
+    from ramble.language.shared_language import variant
+    from ramble.language.utility_language import archive_exclude
+
+    UtilityBase = ramble.repository.get_base_class("utility-base")
+
+    class CustomExcludedUtil(UtilityBase):
+        name = "custom_excluded_util"
+
+        variant("clean_cache", default=False, description="Exclude cache dir")
+        archive_exclude("build")
+        archive_exclude("cache/*", when=["+clean_cache"])
+
+    util = CustomExcludedUtil("/mock/path")
+    assert frozenset() in util.archive_excludes
+    assert util.archive_excludes[frozenset()]["build"] == "build"
+    assert frozenset(["+clean_cache"]) in util.archive_excludes
+    assert util.archive_excludes[frozenset(["+clean_cache"])]["cache/*"] == "cache/*"
+
+    info = RambleCommand("info")
+    out = info("--type", "utilities", "spack")
+    assert "archive_excludes:" in out
+    for expected in [
+        "opt",
+        "var/spack/stage",
+        "var/spack/cache",
+        "../.spack/bootstrap",
+        "../.spack/cache",
+    ]:
+        assert expected in out
+
+
+def test_workspace_archive_omits_utilities_by_default_and_excludes_bloat(
+    make_workspace_from_config, mock_applications
+):
+    import llnl.util.filesystem as fs
+
+    test_config = """
+ramble:
+  utilities:
+    spack:
+      version: v1.2.2
+"""
+    ws, ws_name = make_workspace_from_config(test_config, activate=True)
+    workspace = RambleCommand("workspace")
+    workspace(
+        "manage",
+        "experiments",
+        "basic",
+        "--wf",
+        "test_wl",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=["-w", ws_name],
+    )
+    ws._re_read()
+
+    workspace("setup", "--dry-run", global_args=["-w", ws_name])
+
+    shared_marker = os.path.join(ws.shared_dir, "custom_shared.txt")
+    fs.mkdirp(ws.shared_dir)
+    with open(shared_marker, "w", encoding="utf-8") as f:
+        f.write("shared data\n")
+
+    _, _, kept_rel_paths, excluded_rel_paths = _populate_mock_bootstrapped_spack(ws)
+
+    # Default archive omits shared/bootstrapped_utilities while keeping other shared files
+    workspace("archive", "--prefix", "default_archive")
+    default_archive_dir = ws.latest_archive_path
+    assert "default_archive-archive-" in os.path.basename(default_archive_dir)
+    assert os.path.isfile(os.path.join(default_archive_dir, "shared", "custom_shared.txt"))
+    assert not os.path.exists(
+        os.path.join(default_archive_dir, "shared", "bootstrapped_utilities")
+    )
+
+    # --include-utilities copies bootstrapped utilities while skipping archive_exclude paths
+    workspace(
+        "archive",
+        "--include-utilities",
+        "--prefix",
+        "with_utilities",
+    )
+    with_utils_archive_dir = ws.latest_archive_path
+    assert "with_utilities-archive-" in os.path.basename(with_utils_archive_dir)
+    archived_spack_ver_dir = os.path.join(
+        with_utils_archive_dir, "shared", "bootstrapped_utilities", "spack", "v1.2.2"
+    )
+    assert os.path.isfile(os.path.join(with_utils_archive_dir, "shared", "custom_shared.txt"))
+    for rel in kept_rel_paths:
+        assert os.path.isfile(os.path.join(archived_spack_ver_dir, rel))
+    for rel in excluded_rel_paths:
+        assert not os.path.exists(os.path.join(archived_spack_ver_dir, rel))
+    assert not os.path.exists(os.path.join(archived_spack_ver_dir, "source", "opt"))
+
+
+def test_deployment_push_omits_utilities_by_default_and_excludes_bloat(
+    make_workspace_from_config, mock_applications
+):
+    from ramble.util import json_util
+
+    test_config = """
+ramble:
+  utilities:
+    spack:
+      version: v1.2.2
+"""
+    ws, ws_name = make_workspace_from_config(test_config, activate=True)
+    workspace = RambleCommand("workspace")
+    deployment = RambleCommand("deployment")
+    workspace(
+        "manage",
+        "experiments",
+        "basic",
+        "--wf",
+        "test_wl",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=["-w", ws_name],
+    )
+    ws._re_read()
+
+    _, _, kept_rel_paths, excluded_rel_paths = _populate_mock_bootstrapped_spack(ws)
+
+    # Default deployment omits shared/bootstrapped_utilities
+    deployment("push", "-d", "default_deploy", global_args=["-w", ws_name])
+    default_deploy_dir = os.path.join(ws.deployments_dir, "default_deploy")
+    assert not os.path.exists(os.path.join(default_deploy_dir, "shared", "bootstrapped_utilities"))
+    with open(os.path.join(default_deploy_dir, "index.json"), encoding="utf-8") as f:
+        default_index = json_util.load(f)["deployment_files"]
+    assert not any("bootstrapped_utilities" in entry for entry in default_index)
+
+    # --include-utilities copies bootstrapped utilities while skipping archive_exclude paths
+    deployment(
+        "push",
+        "-d",
+        "with_utils_deploy",
+        "--include-utilities",
+        global_args=["-w", ws_name],
+    )
+    utils_deploy_dir = os.path.join(ws.deployments_dir, "with_utils_deploy")
+    deployed_spack_ver_dir = os.path.join(
+        utils_deploy_dir, "shared", "bootstrapped_utilities", "spack", "v1.2.2"
+    )
+    with open(os.path.join(utils_deploy_dir, "index.json"), encoding="utf-8") as f:
+        utils_index = set(json_util.load(f)["deployment_files"])
+
+    for rel in kept_rel_paths:
+        assert os.path.isfile(os.path.join(deployed_spack_ver_dir, rel))
+        expected_index_entry = os.path.join(
+            "shared", "bootstrapped_utilities", "spack", "v1.2.2", rel
+        )
+        assert expected_index_entry in utils_index
+
+    for rel in excluded_rel_paths:
+        assert not os.path.exists(os.path.join(deployed_spack_ver_dir, rel))
+        unexpected_index_entry = os.path.join(
+            "shared", "bootstrapped_utilities", "spack", "v1.2.2", rel
+        )
+        assert unexpected_index_entry not in utils_index
+
+
+def test_utility_archive_exclude_when_and_variable_expansion(
+    make_workspace_from_config, mock_applications, monkeypatch
+):
+    import llnl.util.filesystem as fs
+
+    ws, ws_name = make_workspace_from_config(activate=True)
+    workspace = RambleCommand("workspace")
+    workspace(
+        "manage",
+        "experiments",
+        "basic",
+        "--wf",
+        "test_wl",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=["-w", ws_name],
+    )
+    ws._re_read()
+
+    # Populate spack on disk WITHOUT referencing spack in ramble.yaml (tests repo fallback),
+    # plus custom variable-expanded and conditional excludes.
+    version_dir, source_dir, kept_rel_paths, _ = _populate_mock_bootstrapped_spack(ws)
+    extra_var_excluded = os.path.join(source_dir, "generated_bloat", "artifact.bin")
+    extra_glob_excluded = os.path.join(source_dir, "logs", "debug.tmp")
+    conditional_kept = os.path.join(source_dir, "conditional_dir", "keep.txt")
+    for path in [extra_var_excluded, extra_glob_excluded, conditional_kept]:
+        fs.mkdirp(os.path.dirname(path))
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("data\n")
+
+    SpackClass = type(ramble.repository.get("spack", ramble.repository.ObjectTypes.utilities))
+    patched_excludes = {
+        frozenset(): {
+            "opt": "opt",
+            "{utility::spack::path}/generated_bloat": "{utility::spack::path}/generated_bloat",
+            "*.tmp": "*.tmp",
+        },
+        frozenset(["+non_existent_variant"]): {
+            "conditional_dir": "conditional_dir",
+        },
+    }
+    monkeypatch.setattr(SpackClass, "archive_excludes", patched_excludes)
+
+    workspace("setup", "--dry-run", global_args=["-w", ws_name])
+    workspace("archive", "--include-utilities", global_args=["-w", ws_name])
+
+    archived_spack_ver_dir = os.path.join(
+        ws.latest_archive_path, "shared", "bootstrapped_utilities", "spack", "v1.2.2"
+    )
+    for rel in kept_rel_paths:
+        assert os.path.isfile(os.path.join(archived_spack_ver_dir, rel))
+    assert os.path.isfile(
+        os.path.join(archived_spack_ver_dir, "source", "conditional_dir", "keep.txt")
+    )
+    assert not os.path.exists(os.path.join(archived_spack_ver_dir, "source", "opt"))
+    assert not os.path.exists(os.path.join(archived_spack_ver_dir, "source", "generated_bloat"))
+    assert not os.path.exists(os.path.join(archived_spack_ver_dir, "source", "logs", "debug.tmp"))

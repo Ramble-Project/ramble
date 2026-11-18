@@ -104,6 +104,17 @@ This directive declares an executable that the utility provides, and optionally,
 
 If an object requiring this utility provides a `min_version` or `max_version`, Ramble will verify the system's executable meets the constraints using this regex. If it does, Ramble will skip the bootstrapping phase and use the system's version.
 
+``archive_exclude``
+-------------------
+
+Bootstrapped utilities are omitted from workspace archives and deployments by default unless ``--include-utilities`` is passed. When ``--include-utilities`` is used, ``archive_exclude`` specifies relative paths or glob patterns (relative to the bootstrapped utility's ``source`` directory, or its parent version directory when prefixed with ``../``) to skip so build stages, caches, or compiled binary trees do not bloat the archive or deployment.
+
+.. code-block:: python
+
+    archive_exclude("opt")
+    archive_exclude("var/spack/stage")
+    archive_exclude("var/spack/cache")
+
 ``requires_utility``
 --------------------
 

@@ -452,7 +452,7 @@ _ramble_deployment() {
 }
 
 _ramble_deployment_push() {
-    RAMBLE_COMPREPLY="-h --help --tar-archive -t --deployment-name -d --upload-url -u --phases --include-phase-dependencies --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
+    RAMBLE_COMPREPLY="-h --help --tar-archive -t --deployment-name -d --upload-url -u --include-utilities --phases --include-phase-dependencies --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
 }
 
 _ramble_deployment_pull() {
@@ -709,7 +709,7 @@ _ramble_workspace_activate() {
 }
 
 _ramble_workspace_archive() {
-    RAMBLE_COMPREPLY="-h --help --tar-archive -t --prefix -p --upload-url -u --include-secrets --archive-pattern --phases --include-phase-dependencies --where --exclude-where --profile-phase --profile-phase-output --dry-run"
+    RAMBLE_COMPREPLY="-h --help --tar-archive -t --prefix -p --upload-url -u --include-secrets --include-utilities --archive-pattern --phases --include-phase-dependencies --where --exclude-where --profile-phase --profile-phase-output --dry-run"
 }
 
 _ramble_workspace_bootstrap() {

@@ -173,3 +173,31 @@ def provides_executable(
         )
 
     return _execute_provides_executable
+
+
+@utility_directive("archive_excludes")
+def archive_exclude(pattern: str, when=None, **kwargs):
+    """Adds a relative path or glob pattern to exclude when copying a bootstrapped utility
+
+    Defines a path or pattern (relative to the bootstrapped utility's ``source``
+    directory, or its parent version directory when prefixed with ``../``) that
+    will be excluded when copying bootstrapped utilities into archives or
+    deployments.
+
+    Args:
+        pattern (str): Relative path or glob pattern to exclude (e.g., ``"opt"``,
+            ``"var/spack/stage"``, ``"var/spack/cache"``)
+        when (list | None): List of when conditions to apply to directive
+    """
+
+    def _execute_archive_exclude(obj):
+        when_list = ramble.language.language_helpers.build_when_list(
+            when, obj, pattern, "archive_exclude"
+        )
+        when_set = frozenset(when_list)
+        if when_set not in obj.archive_excludes:
+            obj.archive_excludes[when_set] = {}
+
+        obj.archive_excludes[when_set][pattern] = pattern
+
+    return _execute_archive_exclude

@@ -1612,6 +1612,16 @@ def workspace_archive_setup_parser(subparser):
     )
 
     subparser.add_argument(
+        "--include-utilities",
+        action="store_true",
+        help=(
+            "If set, bootstrapped utilities are included in the archive "
+            "(excluding paths matched by utility archive_exclude directives). "
+            "Default is false"
+        ),
+    )
+
+    subparser.add_argument(
         "--archive-pattern",
         dest="archive_patterns",
         nargs="+",
@@ -1657,6 +1667,7 @@ def workspace_archive(args):
         archive_prefix=args.archive_prefix,
         upload_url=args.upload_url,
         include_secrets=args.include_secrets,
+        include_utilities=args.include_utilities,
         archive_patterns=archive_patterns,
     )
 
