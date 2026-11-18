@@ -178,3 +178,22 @@ def test_validate_filter_group_name():
         ramble.filters.validate_filter_group_name("small.scale")
     with pytest.raises(RambleError):
         ramble.filters.validate_filter_group_name("small&scale")
+
+
+def test_filters_from_args(mutable_config):
+    class MockArgs:
+        phases = ["setup"]
+        where = [["{n_nodes} == 1"]]
+        exclude_where = [["{n_nodes} > 2"]]
+        filter_tags = [["tag1", "tag2"]]
+        filter_group = None
+        exclude_filter_group = None
+
+    filters = ramble.filters.Filters.from_args(MockArgs())
+    assert filters.phases == ["setup"]
+    assert filters.include_where == ["{n_nodes} == 1"]
+    assert filters.exclude_where == ["{n_nodes} > 2"]
+    assert filters.tags == {"tag1", "tag2"}
+
+    overridden = ramble.filters.Filters.from_args(MockArgs(), phase_filters=["analyze"])
+    assert overridden.phases == ["analyze"]

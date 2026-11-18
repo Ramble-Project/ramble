@@ -79,14 +79,7 @@ def deployment_push(args):
     current_pipeline = ramble.pipeline.pipelines.pushdeployment
     ws = ramble.cmd.require_active_workspace(cmd_name="deployment push")
 
-    args.where = ramble.filters.resolve_and_apply_filter_groups(args, args.where)
-
-    filters = ramble.filters.Filters(
-        phase_filters=args.phases,
-        include_where_filters=args.where,
-        exclude_where_filters=args.exclude_where,
-        tags=args.filter_tags,
-    )
+    filters = ramble.filters.Filters.from_args(args)
 
     pipeline_cls = ramble.pipeline.pipeline_class(current_pipeline)
 

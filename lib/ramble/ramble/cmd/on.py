@@ -58,14 +58,7 @@ def ramble_on(args):
 
     executor = args.executor if args.executor else "{batch_submit}"
 
-    args.where = ramble.filters.resolve_and_apply_filter_groups(args, args.where)
-
-    filters = ramble.filters.Filters(
-        phase_filters=["*"],
-        include_where_filters=args.where,
-        exclude_where_filters=args.exclude_where,
-        tags=args.filter_tags,
-    )
+    filters = ramble.filters.Filters.from_args(args)
 
     debug = ramble.config.get("config:debug")
     suppress_per_experiment_prints = not debug and not args.per_experiment_prints_on
