@@ -22,11 +22,6 @@ steps:
       - 'BUILD_ID=$BUILD_ID'
       - 'PROJECT_ID=$PROJECT_ID'
       - 'LOCATION=$LOCATION'
-  - name: gcr.io/cloud-builders/git
-    args:
-      - fetch
-      - '--unshallow'
-    id: ramble-clone
   - name: us-central1-docker.pkg.dev/$PROJECT_ID/ramble-repo/ramble-${_BASE_IMG}-${_BASE_VER}-spack${_SPACK_REF}-python${_PYTHON_VER}:latest
     args:
       - '-c'

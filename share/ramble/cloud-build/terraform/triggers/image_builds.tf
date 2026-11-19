@@ -30,3 +30,25 @@ resource "google_cloudbuild_trigger" "image_builders" {
     _BASE_VER    = each.value.base_ver
   }
 }
+
+resource "google_cloudbuild_trigger" "docs_image_builder" {
+  location    = var.region
+  name        = "ramble-image-builder-docs"
+  description = "Build Ramble cloud build image for documentation"
+
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/Ramble-USC1/repositories/${var.github_owner}-${var.github_repo}"
+    push {
+      branch = "^develop$"
+    }
+  }
+
+  included_files = [
+    "requirements.txt",
+    "lib/ramble/docs/requirements.txt",
+    "share/ramble/cloud-build/ramble-docs-image-builder.yaml",
+    "share/ramble/cloud-build/Dockerfile-docs",
+  ]
+
+  filename = "share/ramble/cloud-build/ramble-docs-image-builder.yaml"
+}

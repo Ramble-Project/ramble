@@ -1,0 +1,27 @@
+# Copyright 2022-2026 The Ramble Authors
+#
+# Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+# https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+# <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+# option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    id: builder
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/ramble-repo/ramble-docs:latest'
+      - '--cache-from'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/ramble-repo/ramble-docs:latest'
+      - '-f'
+      - 'share/ramble/cloud-build/Dockerfile-docs'
+      - '--build-arg'
+      - 'PYTHON_VER=${_PYTHON_VER}'
+      - '.'
+substitutions:
+  _PYTHON_VER: '3.12'
+images: ['us-central1-docker.pkg.dev/$PROJECT_ID/ramble-repo/ramble-docs:latest']
+timeout: 1200s
+queueTtl: 7200s

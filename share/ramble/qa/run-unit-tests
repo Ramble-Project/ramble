@@ -101,27 +101,24 @@ if [[ "$PUSH_CODECOV" ]]; then
   DEFAULT_BASE_BRANCH="develop"
   TARGET_BRANCH=${BASE_BRANCH:-$DEFAULT_BASE_BRANCH}
 
-  echo "Comparing against base branch: origin/$TARGET_BRANCH"
-
-  # Calculate merge base between the PR commit and origin/$TARGET_BRANCH
-  MERGE_BASE_SHA=$(git merge-base "$COMMIT_SHA" "origin/$TARGET_BRANCH" || echo "")
-  
   echo "Processing codecov upload for commit $COMMIT_SHA"
 
   UPLOAD_ARGS="-C $COMMIT_SHA --git-service github --slug Ramble-Project/ramble"
   if [[ -n "$PR_NUMBER" ]]; then
     UPLOAD_ARGS="$UPLOAD_ARGS --pr $PR_NUMBER"
-  else
-    UPLOAD_ARGS="$UPLOAD_ARGS -B $TARGET_BRANCH"
-  fi
-  if [[ -n "$MERGE_BASE_SHA" ]]; then
-    echo "Picking PR base: $MERGE_BASE_SHA"
-    if [[ -n "$PR_NUMBER" ]]; then
+    echo "Comparing against base branch: origin/$TARGET_BRANCH"
+    git fetch --no-tags --depth=50 origin "+refs/heads/$TARGET_BRANCH:refs/remotes/origin/$TARGET_BRANCH" "$COMMIT_SHA" 2>/dev/null || true
+
+    # Calculate merge base between the PR commit and origin/$TARGET_BRANCH
+    MERGE_BASE_SHA=$(git merge-base "$COMMIT_SHA" "origin/$TARGET_BRANCH" 2>/dev/null || (git fetch --unshallow 2>/dev/null && git merge-base "$COMMIT_SHA" "origin/$TARGET_BRANCH") || echo "")
+    if [[ -n "$MERGE_BASE_SHA" ]]; then
+      echo "Picking PR base: $MERGE_BASE_SHA"
       codecovcli pr-base-picking --base-sha $MERGE_BASE_SHA --pr $PR_NUMBER --slug "Ramble-Project/ramble" --service github
       UPLOAD_ARGS="$UPLOAD_ARGS --parent-sha $MERGE_BASE_SHA"
-    else
-      echo "Skipping pr-base-picking: PR_NUMBER not set"
     fi
+  else
+    UPLOAD_ARGS="$UPLOAD_ARGS -B $TARGET_BRANCH"
+    echo "Skipping pr-base-picking: PR_NUMBER not set"
   fi
   codecovcli upload-process $UPLOAD_ARGS
 fi

@@ -1,0 +1,13 @@
+ARG PYTHON_VER=3.12
+FROM python:${PYTHON_VER}-slim
+
+RUN apt-get update && \
+    apt-get install -yq --no-install-recommends git graphviz && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /opt/ramble/requirements.txt
+COPY lib/ramble/docs/requirements.txt /opt/ramble/lib/ramble/docs/requirements.txt
+RUN python -m pip install --no-cache-dir -r /opt/ramble/lib/ramble/docs/requirements.txt
+
+ENTRYPOINT ["/bin/bash", "-l", "-c", "$*", "--"]
+CMD ["/bin/bash"]
