@@ -333,8 +333,6 @@ class Pipeline:
 
         for util_name in os.listdir(tools_dir):
             util_path = os.path.join(tools_dir, util_name)
-            if os.path.islink(util_path) and not os.path.exists(util_path):
-                continue
             if os.path.isfile(util_path):
                 fs.mkdirp(dest_tools_dir)
                 shutil.copy(util_path, os.path.join(dest_tools_dir, util_name))
@@ -346,8 +344,6 @@ class Pipeline:
 
             for version_name in os.listdir(util_path):
                 version_dir = os.path.join(util_path, version_name)
-                if os.path.islink(version_dir) and not os.path.exists(version_dir):
-                    continue
                 if os.path.isfile(version_dir):
                     target_util_dir = os.path.join(dest_tools_dir, util_name)
                     fs.mkdirp(target_util_dir)
@@ -357,7 +353,7 @@ class Pipeline:
                     continue
 
                 source_dir = os.path.join(version_dir, "source")
-                rel_patterns, abs_patterns = _compile_utility_excludes(
+                rel_patterns = _compile_utility_excludes(
                     raw_excludes, util_name, version_dir, source_dir
                 )
 
@@ -366,14 +362,14 @@ class Pipeline:
                         d
                         for d in dirs
                         if not _is_utility_path_excluded(
-                            os.path.join(root, d), version_dir, rel_patterns, abs_patterns
+                            os.path.join(root, d), version_dir, rel_patterns
                         )
                     ]
                     for name in files:
                         src = os.path.join(root, name)
-                        if _is_utility_path_excluded(src, version_dir, rel_patterns, abs_patterns):
-                            continue
-                        if os.path.islink(src) and not os.path.exists(src):
+                        if not os.path.isfile(src) or _is_utility_path_excluded(
+                            src, version_dir, rel_patterns
+                        ):
                             continue
                         rel_file = os.path.relpath(src, tools_dir)
                         dest = os.path.join(dest_tools_dir, rel_file)
@@ -1028,9 +1024,8 @@ class PushDeploymentPipeline(Pipeline):
 
 
 def _compile_utility_excludes(raw_excludes, util_name, version_dir, source_dir):
-    """Resolve utility archive_exclude patterns for a specific version directory."""
+    """Resolve utility archive_exclude patterns relative to version_dir."""
     rel_patterns = set()
-    abs_patterns = set()
     path_token = f"{{utility::{util_name}::path}}"
 
     for pat, expander in raw_excludes:
@@ -1039,46 +1034,32 @@ def _compile_utility_excludes(raw_excludes, util_name, version_dir, source_dir):
         expanded = pat.replace(path_token, source_dir)
         if expander is not None:
             expanded = expander.expand_var(expanded)
-        if expanded != os.sep:
-            expanded = expanded.rstrip(os.sep)
+        expanded = expanded.rstrip(os.sep)
         if not expanded:
             continue
 
         if os.path.isabs(expanded):
-            norm = os.path.normpath(expanded)
-            rel = os.path.relpath(norm, version_dir)
-            if rel != ".." and not rel.startswith(".." + os.sep):
-                rel_patterns.add(rel)
-            else:
-                abs_patterns.add(norm)
+            rel = os.path.relpath(os.path.normpath(expanded), version_dir)
         else:
             rel = os.path.normpath(os.path.join("source", expanded))
-            if rel != ".." and not rel.startswith(".." + os.sep):
-                rel_patterns.add(rel)
-            else:
-                abs_patterns.add(os.path.normpath(os.path.join(source_dir, expanded)))
 
-    return rel_patterns, abs_patterns
+        if rel != ".." and not rel.startswith(".." + os.sep):
+            rel_patterns.add(rel)
+
+    return rel_patterns
 
 
-def _is_utility_path_excluded(candidate_path, version_dir, rel_patterns, abs_patterns):
+def _is_utility_path_excluded(candidate_path, version_dir, rel_patterns):
     """Return True if candidate_path matches any utility archive_exclude pattern."""
-    if rel_patterns:
-        rel_candidate = os.path.relpath(candidate_path, version_dir)
-        for rp in rel_patterns:
-            if fnmatch.fnmatchcase(rel_candidate, rp):
-                return True
-            if not glob.has_magic(rp) and rel_candidate.startswith(rp + os.sep):
-                return True
+    if not rel_patterns:
+        return False
 
-    if abs_patterns:
-        norm_candidate = os.path.normpath(candidate_path)
-        for ap in abs_patterns:
-            if not glob.has_magic(ap):
-                if norm_candidate == ap or norm_candidate.startswith(ap + os.sep):
-                    return True
-            elif fnmatch.fnmatchcase(norm_candidate, ap):
-                return True
+    rel_candidate = os.path.relpath(candidate_path, version_dir)
+    for rp in rel_patterns:
+        if fnmatch.fnmatchcase(rel_candidate, rp):
+            return True
+        if not glob.has_magic(rp) and rel_candidate.startswith(rp + os.sep):
+            return True
 
     return False
 

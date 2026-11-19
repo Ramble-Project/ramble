@@ -533,3 +533,115 @@ def test_utility_archive_exclude_when_and_variable_expansion(
     assert not os.path.exists(os.path.join(archived_spack_ver_dir, "source", "opt"))
     assert not os.path.exists(os.path.join(archived_spack_ver_dir, "source", "generated_bloat"))
     assert not os.path.exists(os.path.join(archived_spack_ver_dir, "source", "logs", "debug.tmp"))
+
+
+def test_copy_bootstrapped_utilities_edge_cases(make_workspace_from_config, mock_applications):
+    import llnl.util.filesystem as fs
+
+    test_config = """
+ramble:
+  utilities:
+    spack:
+      version: v1.2.2
+"""
+    ws, ws_name = make_workspace_from_config(test_config, activate=True)
+    workspace = RambleCommand("workspace")
+    workspace(
+        "manage",
+        "experiments",
+        "basic",
+        "--wf",
+        "test_wl",
+        "-v",
+        "n_ranks=1",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=["-w", ws_name],
+    )
+    ws._re_read()
+    workspace("setup", "--dry-run", global_args=["-w", ws_name])
+
+    # --include-utilities is a no-op when shared/bootstrapped_utilities does not exist
+    workspace("archive", "--include-utilities", "--prefix", "no_tools")
+    assert not os.path.exists(
+        os.path.join(ws.latest_archive_path, "shared", "bootstrapped_utilities")
+    )
+
+    # Populate loose files, broken symlinks, and an unknown utility directory
+    tools_dir = os.path.join(ws.shared_dir, "bootstrapped_utilities")
+    unknown_ver_src = os.path.join(tools_dir, "unknown_util", "1.0", "source")
+    fs.mkdirp(unknown_ver_src)
+
+    with open(os.path.join(tools_dir, "README.txt"), "w", encoding="utf-8") as f:
+        f.write("top-level file\n")
+    with open(os.path.join(tools_dir, "unknown_util", "meta.txt"), "w", encoding="utf-8") as f:
+        f.write("util-level file\n")
+    with open(os.path.join(unknown_ver_src, "tool.sh"), "w", encoding="utf-8") as f:
+        f.write("#!/bin/sh\n")
+
+    os.symlink("/nonexistent/top_target", os.path.join(tools_dir, "broken_top_link"))
+    os.symlink(
+        "/nonexistent/ver_target", os.path.join(tools_dir, "unknown_util", "broken_ver_link")
+    )
+    os.symlink("/nonexistent/file_target", os.path.join(unknown_ver_src, "broken_file_link"))
+
+    workspace("archive", "--include-utilities", "--prefix", "edge_cases")
+    archived_tools = os.path.join(ws.latest_archive_path, "shared", "bootstrapped_utilities")
+    assert os.path.isfile(os.path.join(archived_tools, "README.txt"))
+    assert os.path.isfile(os.path.join(archived_tools, "unknown_util", "meta.txt"))
+    assert os.path.isfile(os.path.join(archived_tools, "unknown_util", "1.0", "source", "tool.sh"))
+    assert not os.path.lexists(os.path.join(archived_tools, "broken_top_link"))
+    assert not os.path.lexists(os.path.join(archived_tools, "unknown_util", "broken_ver_link"))
+    assert not os.path.lexists(
+        os.path.join(archived_tools, "unknown_util", "1.0", "source", "broken_file_link")
+    )
+
+
+def test_compile_and_match_utility_excludes_helpers(tmpdir):
+    version_dir = str(tmpdir.join("spack", "v1.2.2"))
+    source_dir = os.path.join(version_dir, "source")
+
+    rel_patterns = ramble.pipeline._compile_utility_excludes(
+        [
+            ("", None),
+            (os.sep, None),
+            ("opt/", None),
+            ("../../outside", None),
+            ("/outside/abs", None),
+        ],
+        "spack",
+        version_dir,
+        source_dir,
+    )
+    assert rel_patterns == {os.path.join("source", "opt")}
+
+    assert ramble.pipeline._is_utility_path_excluded(
+        os.path.join(source_dir, "opt"), version_dir, rel_patterns
+    )
+    assert ramble.pipeline._is_utility_path_excluded(
+        os.path.join(source_dir, "opt", "spack", "zlib", "libz.so"), version_dir, rel_patterns
+    )
+    assert not ramble.pipeline._is_utility_path_excluded(
+        os.path.join(source_dir, "bin", "spack"), version_dir, rel_patterns
+    )
+    assert not ramble.pipeline._is_utility_path_excluded(
+        os.path.join(source_dir, "opt"), version_dir, set()
+    )
+
+
+def test_workspace_latest_archive_without_symlink(make_workspace_from_config):
+    import llnl.util.filesystem as fs
+
+    ws, _ = make_workspace_from_config(activate=False)
+    assert ws.latest_archive is None
+
+    older = os.path.join(ws.archive_dir, "older-archive")
+    newer = os.path.join(ws.archive_dir, "newer-archive")
+    fs.mkdirp(older)
+    fs.mkdirp(newer)
+    os.utime(older, (1000, 1000))
+    os.utime(newer, (2000, 2000))
+
+    assert ws.latest_archive == "newer-archive"
