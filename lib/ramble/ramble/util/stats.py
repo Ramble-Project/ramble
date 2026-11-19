@@ -12,7 +12,7 @@ import math
 import statistics
 from typing import List, Tuple, Union
 
-from scipy.stats import norm, t
+from ramble.util.module_utils import import_module
 
 NA = "NA"
 
@@ -133,6 +133,7 @@ class StatsCoefficientOfVariation(StatsBase):
 
 def _calculate_margin_of_error(values: List[float], cl: ConfidenceLevel) -> float:
     """Calculates the margin of error for a given confidence interval."""
+    scipy_stats = import_module("scipy.stats")
     n = len(values)
     stdev = statistics.stdev(values)
 
@@ -140,11 +141,11 @@ def _calculate_margin_of_error(values: List[float], cl: ConfidenceLevel) -> floa
     # For larger samples, the z-score is a good approximation.
     if n < 30:
         degrees_freedom = n - 1
-        t_score = float(t.ppf(1 - (1 - cl.value) / 2, degrees_freedom))
+        t_score = float(scipy_stats.t.ppf(1 - (1 - cl.value) / 2, degrees_freedom))
         return t_score * (stdev / math.sqrt(n))
     else:
         # Using z-score for confidence.
-        z_score = float(norm.ppf(1 - (1 - cl.value) / 2))
+        z_score = float(scipy_stats.norm.ppf(1 - (1 - cl.value) / 2))
         return z_score * (stdev / math.sqrt(n))
 
 
