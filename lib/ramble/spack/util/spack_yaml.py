@@ -13,6 +13,7 @@
 
 """
 import collections
+import copy
 import ctypes
 import io
 import re
@@ -77,6 +78,26 @@ syaml_types = {
 markable_types = set(syaml_types) | set([
     yaml.comments.CommentedSeq,
     yaml.comments.CommentedMap])
+
+
+def _commented_map_deepcopy(self, memo):
+    res = self.__class__()
+    memo[id(self)] = res
+    for k, v in self.items():
+        res[copy.deepcopy(k, memo)] = copy.deepcopy(v, memo)
+    if hasattr(self, yaml.comments.Comment.attrib):
+        setattr(
+            res,
+            yaml.comments.Comment.attrib,
+            copy.deepcopy(getattr(self, yaml.comments.Comment.attrib), memo),
+        )
+    if hasattr(self, '__dict__'):
+        for attr, val in self.__dict__.items():
+            setattr(res, attr, copy.deepcopy(val, memo))
+    return res
+
+
+yaml.comments.CommentedMap.__deepcopy__ = _commented_map_deepcopy
 
 
 def syaml_type(obj):
