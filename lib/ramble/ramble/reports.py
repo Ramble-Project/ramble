@@ -23,17 +23,11 @@ from ramble.namespace import namespace
 from ramble.util.file_util import create_symlink
 from ramble.util.foms import BetterDirection, FomType, SummaryFoms
 from ramble.util.logger import logger
-from ramble.util.module_utils import import_pandas
+from ramble.util.module_utils import import_module, import_pandas
 from ramble.util.naming import NS_SEPARATOR
 from ramble.workspace import WORKSPACE_EXECUTION_SCRIPT
 
 import spack.util.spack_yaml as syaml
-
-try:
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_pdf import PdfPages
-except ModuleNotFoundError:
-    logger.die("matplotlib was not found. Ensure requirements.txt are installed.")
 
 
 class _ReportVarsMeta(type):
@@ -753,6 +747,7 @@ class PlotGenerator:
             syaml.dump(self.inventory, stream=f)
 
     def draw(self, perf_measure, scale_var, series, pdf_report, y_label=None):
+        plt = import_module("matplotlib.pyplot")
         series_data = self.output_df.query(f'series == "{series}"').copy()
 
         title = (
@@ -836,6 +831,7 @@ class PlotGenerator:
     def draw_filler(self, perf_measure, scale_var, series, exception, pdf_report):
         # FIXME: DRY THIS
         """Draws a filler figure in cases where a chart cannot be drawn due to errors."""
+        plt = import_module("matplotlib.pyplot")
         title = f"{perf_measure} vs {scale_var} for {series}"
         logger.debug(f"Generating filler figure for {title}")
 
@@ -868,6 +864,7 @@ class PlotGenerator:
                 )
 
     def write(self, fig, filename, pdf_report):
+        plt = import_module("matplotlib.pyplot")
         filename = filename.replace(" ", "-").replace("/", "_")
         plt.savefig(os.path.join(self.report_dir_path, filename), bbox_inches="tight")
         self.add_to_inventory(filename)
@@ -1146,6 +1143,7 @@ class ScalingPlotGenerator(PlotGenerator):
         return BetterDirection.INDETERMINATE
 
     def prep_draw(self, perf_measure, scale_var):
+        plt = import_module("matplotlib.pyplot")
         fig, ax = plt.subplots(figsize=self.figsize)
 
         if self.logx or self.logy:
@@ -1410,6 +1408,7 @@ class MultiLinePlot(ScalingPlotGenerator):
         )
 
     def draw_multiline(self, perf_measure, scale_var, pdf_report, y_label):
+        plt = import_module("matplotlib.pyplot")
         # TODO: add suffix 'higher/lower is better' to chart title based on better_direction
         title = f"{perf_measure} vs {scale_var}"
         logger.debug(f"Generating plot for {title}")
@@ -1575,6 +1574,7 @@ def make_report(experiments: list, ws_name, args):
 
     pdf_filename = f"{report_name}.{plot_type}.pdf"
     pdf_path = os.path.join(report_dir_path, pdf_filename)
+    PdfPages = import_module("matplotlib.backends.backend_pdf").PdfPages
     with PdfPages(pdf_path) as pdf_report:
         plot.generate_plot_data(pdf_report)
         plot.add_to_inventory(pdf_filename)
