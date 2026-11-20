@@ -148,7 +148,7 @@ ramble:
                 n_nodes: '1'
 """
     ws, _ = make_workspace_from_config(test_config, activate=True)
-    workspace("setup", "--dry-run")
+    workspace("setup", "--dry-run", "--phases", "make_experiments")
 
     sweep1_dir = os.path.abspath(os.path.join(ws.experiment_dir, "basic", "test_wl", "sweep_1"))
     out_sweep = cd("sweep_*")

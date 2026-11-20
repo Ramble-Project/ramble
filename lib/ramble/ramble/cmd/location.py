@@ -8,8 +8,8 @@
 
 """Implement ``ramble location`` (and the path-resolution backend for ``ramble cd``).
 
-Resolution flow
----------------
+Resolution flow:
+
 1. ``location()`` (or ``ramble.cmd.cd.cd()``) calls ``run_location()``, which
    redirects incidental logging/warnings to ``stderr`` so ``stdout`` contains
    only resolved directory paths (one per line).
@@ -18,6 +18,7 @@ Resolution flow
    active workspace context via ``_get_workspace_context()`` and delegates to
    ``_resolve_within_workspace_context()``.
 3. ``_resolve_within_workspace_context()`` dispatches across:
+
    - Explicit repository mode (``--repo``).
    - Explicit experiment mode (``-e``, ``-s``, ``--input-dir``, ``-i``,
      ``--where``/``--exclude-where``, ``--filter-tags``, ``--fg``/``--efg``,
@@ -29,6 +30,7 @@ Resolution flow
    - Lazy first-match-wins positional resolution (supporting ``<target>/<subpath>``):
      active workspace subdir -> active workspace experiment/workload/app ->
      named/directory workspace -> Ramble path keyword -> repository namespace.
+
 4. All candidate lists pass through ``_finalize_candidates()`` to enforce
    ``--existing``, apply ``--first``/``--limit-one``, and emit ambiguity
    warnings when ``ramble cd`` implicitly picks the first of multiple matches.
@@ -65,6 +67,7 @@ level = "short"
 _INNER_BRACE_RE = re.compile(r"\{[^{}]*\}")
 _GLOB_CHARS = frozenset("*?[")
 _MAX_WARN_ALTERNATIVES = 5
+_SETUP_HINT = " Has the workspace been set up? Try running 'ramble workspace setup' first."
 
 
 class _SelectionOpts(NamedTuple):
@@ -73,6 +76,100 @@ class _SelectionOpts(NamedTuple):
     limit_one: bool
     existing: bool
     warn_implicit_first: bool = False
+
+
+class _StaticPathSpec(NamedTuple):
+    """Metadata for a static Ramble directory flag and its positional keyword alias(es)."""
+
+    flags: Tuple[str, ...]
+    path_attr: str
+    keywords: Tuple[str, ...]
+    help_text: str
+
+
+_STATIC_PATHS: Tuple[_StaticPathSpec, ...] = (
+    _StaticPathSpec(
+        flags=("-r", "--ramble-root"),
+        path_attr="prefix",
+        keywords=("root",),
+        help_text="ramble installation root directory ($RAMBLE_ROOT)",
+    ),
+    _StaticPathSpec(
+        flags=("-m", "--module-dir"),
+        path_attr="module_path",
+        keywords=("module", "lib"),
+        help_text="ramble's python module directory ($RAMBLE_ROOT/lib/ramble/ramble)",
+    ),
+    _StaticPathSpec(
+        flags=("--user-config",),
+        path_attr="user_config_path",
+        keywords=("user-config",),
+        help_text="user configuration directory (~/.ramble)",
+    ),
+    _StaticPathSpec(
+        flags=("--builtin-repo",),
+        path_attr="builtin_path",
+        keywords=("builtin",),
+        help_text="built-in object repository ($RAMBLE_ROOT/var/ramble/repos/builtin)",
+    ),
+    _StaticPathSpec(
+        flags=("--repos-dir",),
+        path_attr="repos_path",
+        keywords=("repos",),
+        help_text="built-in repositories parent directory ($RAMBLE_ROOT/var/ramble/repos)",
+    ),
+)
+_STATIC_PATH_FLAGS_DESC = (
+    ", ".join(spec.flags[-1] for spec in _STATIC_PATHS[:-1])
+    + f", or {_STATIC_PATHS[-1].flags[-1]}"
+)
+
+
+class _HierarchyLevel(NamedTuple):
+    """One level (experiment, workload, or application) of an ExperimentSet."""
+
+    kind: str
+    input_kind: str
+
+    @property
+    def plural(self) -> str:
+        return f"{self.kind}s"
+
+    @property
+    def run_dir_attr(self) -> str:
+        return f"{self.kind}_run_dir"
+
+    @property
+    def input_dir_attr(self) -> str:
+        return f"{self.input_kind}_input_dir"
+
+    @property
+    def input_ns_attr(self) -> str:
+        return f"{self.input_kind}_namespace"
+
+    @property
+    def input_plural(self) -> str:
+        return f"{self.input_kind} input directories"
+
+    def identifiers(self, exp: str, app_inst: Any) -> Tuple[str, str, str]:
+        """Return ``(full_ns, simplified_ns, short_name)`` for ``app_inst`` at this level."""
+        expander = app_inst.expander
+        full_ns = exp if self.kind == "experiment" else getattr(expander, f"{self.kind}_namespace")
+        simp_ns = expander.expand_var_name(
+            getattr(app_inst.keywords, f"simplified_{self.kind}_namespace")
+        )
+        short_name = getattr(expander, f"{self.kind}_name")
+        return full_ns, simp_ns, short_name
+
+
+_EXPERIMENT_LEVEL = _HierarchyLevel("experiment", "workload")
+_WORKLOAD_LEVEL = _HierarchyLevel("workload", "workload")
+_APPLICATION_LEVEL = _HierarchyLevel("application", "application")
+_HIERARCHY_LEVELS: Tuple[_HierarchyLevel, ...] = (
+    _EXPERIMENT_LEVEL,
+    _WORKLOAD_LEVEL,
+    _APPLICATION_LEVEL,
+)
 
 
 def setup_parser(subparser):
@@ -105,37 +202,15 @@ def setup_parser(subparser):
         default=False,
         help="locate the input directory for the matched workload, experiment, or application",
     )
-    modes.add_argument(
-        "-r",
-        "--ramble-root",
-        action="store_const",
-        dest="static_path_attr",
-        const="prefix",
-        default=None,
-        help="ramble installation root directory ($RAMBLE_ROOT)",
-    )
-    modes.add_argument(
-        "-m",
-        "--module-dir",
-        action="store_const",
-        dest="static_path_attr",
-        const="module_path",
-        help="ramble's python module directory ($RAMBLE_ROOT/lib/ramble/ramble)",
-    )
-    modes.add_argument(
-        "--user-config",
-        action="store_const",
-        dest="static_path_attr",
-        const="user_config_path",
-        help="user configuration directory (~/.ramble)",
-    )
-    modes.add_argument(
-        "--builtin-repo",
-        action="store_const",
-        dest="static_path_attr",
-        const="builtin_path",
-        help="built-in object repository ($RAMBLE_ROOT/var/ramble/repos/builtin)",
-    )
+    for spec in _STATIC_PATHS:
+        modes.add_argument(
+            *spec.flags,
+            action="store_const",
+            dest="static_path_attr",
+            const=spec.path_attr,
+            default=None,
+            help=spec.help_text,
+        )
     modes.add_argument(
         "--repo",
         nargs="?",
@@ -144,13 +219,6 @@ def setup_parser(subparser):
         dest="sub_repo",
         metavar="REPO",
         help="object repository namespace or path (or all configured repos when given no value)",
-    )
-    modes.add_argument(
-        "--repos-dir",
-        action="store_const",
-        dest="static_path_attr",
-        const="repos_path",
-        help="built-in repositories parent directory ($RAMBLE_ROOT/var/ramble/repos)",
     )
 
     subparser.add_argument(
@@ -215,13 +283,13 @@ def setup_parser(subparser):
         ["filter_group", "exclude_filter_group"],
     )
 
+    keyword_list = ", ".join(kw for spec in _STATIC_PATHS for kw in spec.keywords)
     subparser.add_argument(
         "target",
         nargs="?",
         default=None,
         help="workspace subdirectory, experiment/workload/application name, namespace, or glob, "
-        "workspace name, repository namespace, or ramble path keyword "
-        "(root, module, lib, user-config, builtin, repos)",
+        f"workspace name, repository namespace, or ramble path keyword ({keyword_list})",
     )
 
 
@@ -238,12 +306,7 @@ def _cmd_name(args) -> str:
 def _ramble_keywords() -> Dict[str, str]:
     """Return mapping of positional Ramble path keywords to installation directories."""
     return {
-        "root": ramble.paths.prefix,
-        "module": ramble.paths.module_path,
-        "lib": ramble.paths.module_path,
-        "user-config": ramble.paths.user_config_path,
-        "builtin": ramble.paths.builtin_path,
-        "repos": ramble.paths.repos_path,
+        kw: getattr(ramble.paths, spec.path_attr) for spec in _STATIC_PATHS for kw in spec.keywords
     }
 
 
@@ -309,6 +372,11 @@ def _normalize_target(raw_target: Optional[str]) -> Optional[str]:
     return raw_target.rstrip("/") or raw_target
 
 
+def _is_explicit_fs_path(path: str) -> bool:
+    """Return True if ``path`` is absolute or starts with ``./`` or ``../``."""
+    return os.path.isabs(path) or path.startswith(("./", "../"))
+
+
 def _split_head_and_subpath(norm_target: str) -> Tuple[str, Optional[str]]:
     """Split a relative ``<head>/<subpath>`` target into its leading token and remainder.
 
@@ -317,8 +385,7 @@ def _split_head_and_subpath(norm_target: str) -> Tuple[str, Optional[str]]:
     """
     if (
         "/" in norm_target
-        and not os.path.isabs(norm_target)
-        and not norm_target.startswith(("./", "../"))
+        and not _is_explicit_fs_path(norm_target)
         and norm_target not in (".", "..")
     ):
         head, raw_sub = norm_target.split("/", 1)
@@ -362,10 +429,9 @@ def _resolve_workspace_target(target: str) -> Optional[str]:
         return ramble.workspace.root(stripped)
     if ramble.workspace.is_workspace_dir(stripped):
         return os.path.abspath(stripped)
-    if "/" in stripped and not os.path.isabs(stripped) and not stripped.startswith(("./", "../")):
-        head, raw_sub = stripped.split("/", 1)
-        if ramble.workspace.exists(head):
-            return _join_subpath(ramble.workspace.root(head), raw_sub.lstrip("/") or None)
+    head, subpath = _split_head_and_subpath(stripped)
+    if subpath is not None and ramble.workspace.exists(head):
+        return _join_subpath(ramble.workspace.root(head), subpath)
     return _walk_ancestor_dir(stripped, ramble.workspace.is_workspace_dir)
 
 
@@ -410,7 +476,7 @@ def _resolve_repo_targets(target: str) -> List[str]:
     if not stripped:
         return []
 
-    if not (os.path.isabs(stripped) or stripped.startswith(("./", "../"))):
+    if not _is_explicit_fs_path(stripped):
         head, subpath = _split_head_and_subpath(stripped)
         matches = [
             _join_subpath(root, subpath) for ns, root in _iter_registered_repos() if ns == head
@@ -481,9 +547,18 @@ def _may_match_in_workspace_config(target: str) -> bool:
     )
 
 
+def _experiment_index(app_inst: Any) -> Optional[int]:
+    """Return the integer ``experiment_index`` of ``app_inst``, or ``None`` if unparsable."""
+    exp_idx_str = app_inst.expander.expand_var_name(app_inst.keywords.experiment_index)
+    try:
+        return int(exp_idx_str)
+    except (ValueError, TypeError):
+        return None
+
+
 def _build_and_filter_experiments(
     ws: ramble.workspace.Workspace, args
-) -> Tuple[Any, List[Tuple[str, Any, int]]]:
+) -> Tuple[Any, List[Tuple[str, Any]]]:
     """Build ``ws``'s ``ExperimentSet`` and apply CLI experiment filters.
 
     Applies ``--where``, ``--exclude-where``, ``--filter-tags``, ``--fg``/``--efg``,
@@ -492,7 +567,7 @@ def _build_and_filter_experiments(
 
     Returns:
         Tuple of ``(experiment_set, filtered)`` where ``filtered`` is a list of
-        ``(experiment_namespace, app_inst, experiment_index)`` tuples.
+        ``(experiment_namespace, app_inst)`` tuples.
     """
     where_filter = [[v] if isinstance(v, str) else list(v) for v in (args.where or [])]
     where_filter = ramble.filters.resolve_and_apply_filter_groups(args, where_filter)
@@ -522,20 +597,17 @@ def _build_and_filter_experiments(
         check_environments=False,
     )
 
-    filtered: List[Tuple[str, Any, int]] = []
+    filtered: List[Tuple[str, Any]] = []
     for exp, app_inst, idx in experiment_set.filtered_experiments(filters):
         if app_inst.is_template or app_inst.repeats.is_repeat_base:
             continue
         if args.index is not None and exp in experiment_set.chained_experiments:
             continue
-        exp_idx_str = app_inst.expander.expand_var_name(app_inst.keywords.experiment_index)
-        try:
-            exp_idx = int(exp_idx_str)
-        except (ValueError, TypeError):
-            exp_idx = idx
+        parsed_idx = _experiment_index(app_inst)
+        exp_idx = idx if parsed_idx is None else parsed_idx
         if args.index is not None and exp_idx != args.index:
             continue
-        filtered.append((exp, app_inst, exp_idx))
+        filtered.append((exp, app_inst))
 
     return experiment_set, filtered
 
@@ -546,12 +618,7 @@ def _die_missing_index(ws: ramble.workspace.Workspace, experiment_set, target_in
     Distinguishes template and repeat-base indices from nonexistent indices.
     """
     for exp, app_inst in experiment_set.experiments.items():
-        exp_idx_str = app_inst.expander.expand_var_name(app_inst.keywords.experiment_index)
-        try:
-            exp_idx = int(exp_idx_str)
-        except (ValueError, TypeError):
-            continue
-        if exp_idx == target_index:
+        if _experiment_index(app_inst) == target_index:
             if app_inst.is_template:
                 logger.die(
                     f"Experiment {target_index} ('{exp}') in workspace '{ws.name}' "
@@ -567,7 +634,7 @@ def _die_missing_index(ws: ramble.workspace.Workspace, experiment_set, target_in
 
 
 def _repeat_base_identifiers(
-    exp: str, app_inst: Any
+    full_ns: str, simp_ns: str, short_name: str, app_inst: Any
 ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Return ``(base_exp_ns, base_simplified_ns, base_exp_name)`` for a repeat instance.
 
@@ -579,129 +646,72 @@ def _repeat_base_identifiers(
     if not repeat_idx:
         return None, None, None
     suffix = f".{repeat_idx}"
-    simplified_exp_ns = app_inst.expander.expand_var_name(
-        app_inst.keywords.simplified_experiment_namespace
-    )
-    exp_name = app_inst.expander.experiment_name
     return (
-        exp[: -len(suffix)] if exp.endswith(suffix) else None,
-        simplified_exp_ns[: -len(suffix)] if simplified_exp_ns.endswith(suffix) else None,
-        exp_name[: -len(suffix)] if exp_name.endswith(suffix) else None,
+        full_ns[: -len(suffix)] if full_ns.endswith(suffix) else None,
+        simp_ns[: -len(suffix)] if simp_ns.endswith(suffix) else None,
+        short_name[: -len(suffix)] if short_name.endswith(suffix) else None,
     )
 
 
 def _match_in_experiment_set(
     ws: ramble.workspace.Workspace, args, target: str
-) -> Tuple[Optional[str], List[Tuple[str, Any, int]]]:
+) -> Tuple[Optional[_HierarchyLevel], List[Tuple[str, Any]]]:
     """Match ``target`` against filtered experiments at experiment, workload, or application level.
 
     Applies CLI filters via ``_build_and_filter_experiments()`` first, then
-    matches ``target`` in strict precedence order:
-      1. Exact experiment match (full/simplified namespace > short name >
-         repeat-base namespace > repeat-base short name)
-      2. Exact workload match (full/simplified namespace > short name)
-      3. Exact application match (full/simplified namespace or short name)
-      4. Glob match (if ``target`` contains ``*``, ``?``, or ``[``) in the same
-         experiment > workload > application order. Dotted globs match against
-         full/simplified namespaces and short names; dotless globs match only
-         against short names so e.g. ``*hpcg*`` selects the application dir.
+    matches ``target`` across ``_HIERARCHY_LEVELS`` in precedence order:
+
+    1. Exact match per level (experiment > workload > application), preferring
+       full/simplified namespace > short name (> repeat-base namespace/name
+       for experiments).
+    2. Glob match (if ``target`` contains ``*``, ``?``, or ``[``) in the same
+       level order. Dotted globs match against full/simplified namespaces and
+       short names; dotless globs match only against short names so e.g.
+       ``*hpcg*`` selects the application directory.
 
     Returns:
-        Tuple of ``(match_kind, matches)`` where ``match_kind`` is one of
-        ``'experiment'``, ``'experiment_glob'``, ``'workload'``, ``'application'``,
-        or ``None`` if nothing matched.
+        Tuple of ``(level, matches)`` where ``level`` is the matched
+        ``_HierarchyLevel`` (or ``None`` if nothing matched).
     """
     _, filtered = _build_and_filter_experiments(ws, args)
     if not filtered:
         return None, []
 
-    exact_ns, exact_name, repeat_ns, repeat_name = [], [], [], []
-    wl_ns_matches, wl_name_matches, app_matches = [], [], []
-    for exp, app_inst, exp_idx in filtered:
-        exp_simp = app_inst.expander.expand_var_name(
-            app_inst.keywords.simplified_experiment_namespace
-        )
-        if target in (exp, exp_simp):
-            exact_ns.append((exp, app_inst, exp_idx))
-        elif target == app_inst.expander.experiment_name:
-            exact_name.append((exp, app_inst, exp_idx))
-        else:
-            base_exp, base_simp, base_name = _repeat_base_identifiers(exp, app_inst)
-            if target in (base_exp, base_simp):
-                repeat_ns.append((exp, app_inst, exp_idx))
-            elif base_name and target == base_name:
-                repeat_name.append((exp, app_inst, exp_idx))
-
-        wl_ns = app_inst.expander.workload_namespace
-        wl_simp = app_inst.expander.expand_var_name(
-            app_inst.keywords.simplified_workload_namespace
-        )
-        if target in (wl_ns, wl_simp):
-            wl_ns_matches.append((wl_ns, app_inst, exp_idx))
-        elif target == app_inst.expander.workload_name:
-            wl_name_matches.append((wl_ns, app_inst, exp_idx))
-
-        app_ns = app_inst.expander.application_namespace
-        app_simp = app_inst.expander.expand_var_name(
-            app_inst.keywords.simplified_application_namespace
-        )
-        if target in (app_ns, app_simp, app_inst.expander.application_name):
-            app_matches.append((app_ns, app_inst, exp_idx))
-
-    for kind, group in (
-        ("experiment", exact_ns or exact_name or repeat_ns or repeat_name),
-        ("workload", wl_ns_matches or wl_name_matches),
-        ("application", app_matches),
-    ):
+    for level in _HIERARCHY_LEVELS:
+        ns_matches: List[Tuple[str, Any]] = []
+        name_matches: List[Tuple[str, Any]] = []
+        repeat_ns: List[Tuple[str, Any]] = []
+        repeat_name: List[Tuple[str, Any]] = []
+        for exp, app_inst in filtered:
+            full_ns, simp_ns, short_name = level.identifiers(exp, app_inst)
+            item = (full_ns, app_inst)
+            if target in (full_ns, simp_ns):
+                ns_matches.append(item)
+            elif target == short_name:
+                name_matches.append(item)
+            elif level is _EXPERIMENT_LEVEL:
+                base_exp, base_simp, base_name = _repeat_base_identifiers(
+                    full_ns, simp_ns, short_name, app_inst
+                )
+                if target in (base_exp, base_simp):
+                    repeat_ns.append(item)
+                elif base_name and target == base_name:
+                    repeat_name.append(item)
+        group = ns_matches or name_matches or repeat_ns or repeat_name
         if group:
-            return kind, group
+            return level, group
 
     if any(c in _GLOB_CHARS for c in target):
         has_dot = "." in target
-        exp_globs: List[Tuple[str, Any, int]] = []
-        wl_globs: List[Tuple[str, Any, int]] = []
-        app_globs: List[Tuple[str, Any, int]] = []
-        for exp, app_inst, exp_idx in filtered:
-            exp_expander = app_inst.expander
-            kw = app_inst.keywords
-            for group, item_ns, full_ns, simp_var, short_name in (
-                (
-                    exp_globs,
-                    exp,
-                    exp,
-                    kw.simplified_experiment_namespace,
-                    exp_expander.experiment_name,
-                ),
-                (
-                    wl_globs,
-                    exp_expander.workload_namespace,
-                    exp_expander.workload_namespace,
-                    kw.simplified_workload_namespace,
-                    exp_expander.workload_name,
-                ),
-                (
-                    app_globs,
-                    exp_expander.application_namespace,
-                    exp_expander.application_namespace,
-                    kw.simplified_application_namespace,
-                    exp_expander.application_name,
-                ),
-            ):
-                names = (
-                    (full_ns, exp_expander.expand_var_name(simp_var), short_name)
-                    if has_dot
-                    else (short_name,)
-                )
+        for level in _HIERARCHY_LEVELS:
+            glob_matches: List[Tuple[str, Any]] = []
+            for exp, app_inst in filtered:
+                full_ns, simp_ns, short_name = level.identifiers(exp, app_inst)
+                names = (full_ns, simp_ns, short_name) if has_dot else (short_name,)
                 if any(fnmatch.fnmatchcase(c, target) for c in names):
-                    group.append((item_ns, app_inst, exp_idx))
-
-        for kind, group in (
-            ("experiment_glob", exp_globs),
-            ("workload", wl_globs),
-            ("application", app_globs),
-        ):
-            if group:
-                return kind, group
+                    glob_matches.append((full_ns, app_inst))
+            if glob_matches:
+                return level, glob_matches
 
     return None, []
 
@@ -709,17 +719,6 @@ def _match_in_experiment_set(
 # ---------------------------------------------------------------------------
 # Candidate extraction and finalization
 # ---------------------------------------------------------------------------
-
-
-def _die_missing_path(path: str, needs_setup_hint: bool) -> None:
-    """Exit with a missing-directory error, optionally suggesting ``ramble workspace setup``."""
-    if needs_setup_hint:
-        logger.die(
-            f"Target directory '{path}' does not exist. Has the workspace "
-            "been set up? Try running 'ramble workspace setup' first."
-        )
-    else:
-        logger.die(f"Target directory '{path}' does not exist.")
 
 
 def _finalize_candidates(
@@ -738,14 +737,10 @@ def _finalize_candidates(
     if opts.existing:
         existing_candidates = [c for c in candidates if os.path.isdir(c[1])]
         if not existing_candidates:
+            hint = _SETUP_HINT if any(c[2] for c in candidates) else ""
             if len(candidates) == 1:
-                _die_missing_path(candidates[0][1], candidates[0][2])
+                logger.die(f"Target directory '{candidates[0][1]}' does not exist.{hint}")
             else:
-                hint = (
-                    " Has the workspace been set up? Try running 'ramble workspace setup' first."
-                    if any(c[2] for c in candidates)
-                    else ""
-                )
                 logger.die(
                     f"None of the {len(candidates)} matched target directories exist "
                     f"(first: '{candidates[0][1]}' does not exist).{hint}"
@@ -797,17 +792,18 @@ def _extract_experiment_set_paths(
     ws: ramble.workspace.Workspace,
     args,
     opts: _SelectionOpts,
-    match_kind: str,
-    matches: List[Tuple[str, Any, int]],
+    level: _HierarchyLevel,
+    matches: List[Tuple[str, Any]],
     subpath: Optional[str] = None,
 ) -> List[str]:
     """Map matched ``ExperimentSet`` items to concrete directory paths and finalize them.
 
     Projects matches to:
-      - ``{env_path}`` when ``-s/--software-env`` is set
-      - ``{application_input_dir}`` or ``{workload_input_dir}`` when ``--input-dir`` is set
-      - ``{experiment_run_dir}``, ``{workload_run_dir}``, or ``{application_run_dir}``
-        corresponding to ``match_kind`` otherwise
+
+    - ``{env_path}`` when ``-s/--software-env`` is set
+    - ``{application_input_dir}`` or ``{workload_input_dir}`` when ``--input-dir`` is set
+    - ``{experiment_run_dir}``, ``{workload_run_dir}``, or ``{application_run_dir}``
+      corresponding to ``level`` otherwise
     """
     if args.software_env:
         unexpanded_env = Expander.expansion_str(ramble.keywords.keywords.env_path)
@@ -816,7 +812,7 @@ def _extract_experiment_set_paths(
                 _software_env_label(ws, app_inst, app_inst.expander.env_path, label),
                 app_inst.expander.env_path,
             )
-            for label, app_inst, _ in matches
+            for label, app_inst in matches
             if app_inst.package_manager is not None
             and getattr(app_inst.package_manager, "requires_software_environment", True)
             and app_inst.expander.env_path
@@ -830,41 +826,20 @@ def _extract_experiment_set_paths(
             )
         noun = "software environments"
     elif args.input_dir:
-        is_app = match_kind == "application"
         unique_items = _dedupe_pairs(
             (
-                (
-                    app_inst.expander.application_namespace
-                    if is_app
-                    else app_inst.expander.workload_namespace
-                ),
-                (
-                    app_inst.expander.application_input_dir
-                    if is_app
-                    else app_inst.expander.workload_input_dir
-                ),
+                getattr(app_inst.expander, level.input_ns_attr),
+                getattr(app_inst.expander, level.input_dir_attr),
             )
-            for _, app_inst, _ in matches
+            for _, app_inst in matches
         )
-        noun = "application input directories" if is_app else "workload input directories"
-    elif match_kind in ("experiment", "experiment_glob", "filtered"):
-        unique_items = _dedupe_pairs(
-            (exp_ns, app_inst.expander.experiment_run_dir) for exp_ns, app_inst, _ in matches
-        )
-        noun = "experiments"
-    elif match_kind == "workload":
-        unique_items = _dedupe_pairs(
-            (wl_ns, app_inst.expander.workload_run_dir) for wl_ns, app_inst, _ in matches
-        )
-        noun = "workloads"
-    elif match_kind == "application":
-        unique_items = _dedupe_pairs(
-            (app_ns, app_inst.expander.application_run_dir) for app_ns, app_inst, _ in matches
-        )
-        noun = "applications"
+        noun = level.input_plural
     else:
-        logger.die(f"Unexpected match kind: {match_kind}")
-        return []
+        unique_items = _dedupe_pairs(
+            (item_ns, getattr(app_inst.expander, level.run_dir_attr))
+            for item_ns, app_inst in matches
+        )
+        noun = level.plural
 
     candidates = [
         (label, _join_subpath(base_dir, subpath), not os.path.isdir(base_dir))
@@ -876,6 +851,29 @@ def _extract_experiment_set_paths(
 # ---------------------------------------------------------------------------
 # Main resolution flow and command entry points
 # ---------------------------------------------------------------------------
+
+
+def _resolve_repo_mode(args, opts: _SelectionOpts, sub_repo: Any) -> List[str]:
+    """Resolve paths for explicit ``--repo [REPO] [SUBPATH]`` mode."""
+    if _has_experiment_selection_flags(args):
+        logger.die("Cannot combine --repo with experiment filter flags.")
+    repo_query: Optional[str] = args.target if sub_repo is True else sub_repo
+    repo_subpath: Optional[str] = None if sub_repo is True else _normalize_target(args.target)
+    if repo_subpath and os.path.isabs(repo_subpath):
+        logger.die("Subpath used with --repo must be a relative path.")
+    if repo_query is None:
+        repos = _iter_registered_repos()
+        if not repos:
+            logger.die("No object repositories are configured.")
+            return []
+        return _finalize_candidates([(ns, root, False) for ns, root in repos], opts)
+    repo_paths = _resolve_repo_targets(repo_query)
+    if not repo_paths:
+        logger.die(f"No such repository: '{repo_query}'")
+        return []
+    return _finalize_candidates(
+        [(p, _join_subpath(p, repo_subpath), False) for p in repo_paths], opts
+    )
 
 
 def _resolve_within_workspace_context(
@@ -891,28 +889,9 @@ def _resolve_within_workspace_context(
     ``--input-dir``, or filter flags), default no-target mode, and lazy
     first-match-wins positional resolution.
     """
-    # Explicit repository mode (--repo [REPO])
     sub_repo = getattr(args, "sub_repo", None)
     if sub_repo is not None:
-        if _has_experiment_selection_flags(args):
-            logger.die("Cannot combine --repo with experiment filter flags.")
-        repo_query: Optional[str] = args.target if sub_repo is True else sub_repo
-        repo_subpath: Optional[str] = None if sub_repo is True else _normalize_target(args.target)
-        if repo_subpath and os.path.isabs(repo_subpath):
-            logger.die("Subpath used with --repo must be a relative path.")
-        if repo_query is None:
-            repos = _iter_registered_repos()
-            if not repos:
-                logger.die("No object repositories are configured.")
-                return []
-            return _finalize_candidates([(ns, root, False) for ns, root in repos], opts)
-        repo_paths = _resolve_repo_targets(repo_query)
-        if not repo_paths:
-            logger.die(f"No such repository: '{repo_query}'")
-            return []
-        return _finalize_candidates(
-            [(p, _join_subpath(p, repo_subpath), False) for p in repo_paths], opts
-        )
+        return _resolve_repo_mode(args, opts, sub_repo)
 
     norm_target = _normalize_target(args.target)
 
@@ -932,17 +911,17 @@ def _resolve_within_workspace_context(
                 if args.index is not None:
                     _die_missing_index(ws, experiment_set, args.index)
                 logger.die(f"No matching experiments found in workspace '{ws.name}'.")
-            return _extract_experiment_set_paths(ws, args, opts, "filtered", filtered)
+            return _extract_experiment_set_paths(ws, args, opts, _EXPERIMENT_LEVEL, filtered)
 
         head, subpath = _split_head_and_subpath(norm_target)
-        match_kind, matches = _match_in_experiment_set(ws, args, head)
-        if match_kind is None:
+        match_level, matches = _match_in_experiment_set(ws, args, head)
+        if match_level is None:
             logger.die(
                 f"No experiment, workload, or application matching '{head}' "
                 f"found in workspace '{ws.name}'."
             )
             return []
-        return _extract_experiment_set_paths(ws, args, opts, match_kind, matches, subpath=subpath)
+        return _extract_experiment_set_paths(ws, args, opts, match_level, matches, subpath=subpath)
 
     # Default behavior with no target and no flags
     if args.target is None or norm_target is None:
@@ -955,7 +934,7 @@ def _resolve_within_workspace_context(
     #   4. Ramble path keyword
     #   5. Registered object repository namespace
     head, subpath = _split_head_and_subpath(norm_target)
-    is_explicit_fs_path = os.path.isabs(norm_target) or norm_target.startswith(("./", "../"))
+    is_explicit_fs_path = _is_explicit_fs_path(norm_target)
 
     if ws_root is not None and not is_explicit_fs_path:
         subdir_match = _workspace_subdirs(ws_root).get(head)
@@ -968,10 +947,10 @@ def _resolve_within_workspace_context(
         and head not in (".", "..")
         and _may_match_in_workspace_config(head)
     ):
-        exp_match_kind, exp_matches = _match_in_experiment_set(ws, args, head)
-        if exp_match_kind is not None:
+        exp_level, exp_matches = _match_in_experiment_set(ws, args, head)
+        if exp_level is not None:
             return _extract_experiment_set_paths(
-                ws, args, opts, exp_match_kind, exp_matches, subpath=subpath
+                ws, args, opts, exp_level, exp_matches, subpath=subpath
             )
 
     ws_match = _resolve_workspace_target(args.target)
@@ -1004,20 +983,13 @@ def _resolve_within_workspace_context(
 
 def _resolve_locations(args, opts: _SelectionOpts) -> List[str]:
     """Resolve one or more target directory paths from parsed CLI arguments."""
-    # Explicit developer / user path flags
     static_attr = getattr(args, "static_path_attr", None)
     if static_attr:
         if _has_experiment_selection_flags(args):
-            logger.die(
-                "Cannot combine experiment filter flags with "
-                "--ramble-root, --module-dir, --user-config, --builtin-repo, or --repos-dir."
-            )
+            logger.die(f"Cannot combine experiment filter flags with {_STATIC_PATH_FLAGS_DESC}.")
         subpath = _normalize_target(args.target)
         if subpath and os.path.isabs(subpath):
-            logger.die(
-                "Subpath used with --ramble-root, --module-dir, --user-config, "
-                "--builtin-repo, or --repos-dir must be a relative path."
-            )
+            logger.die(f"Subpath used with {_STATIC_PATH_FLAGS_DESC} must be a relative path.")
         return _finalize_one(_join_subpath(getattr(ramble.paths, static_attr), subpath), opts)
 
     ws, ws_root, ws_name = _get_workspace_context(args)

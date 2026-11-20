@@ -249,9 +249,13 @@ def test_location_named_and_dir_workspaces(tmpdir):
         os.path.join(dir_ws_path, "configs")
     )
 
-    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="No workspace in ws_alpha"):
+    with pytest.raises(
+        ramble.workspace.RambleWorkspaceError, match="(?i)no workspace in ws_alpha"
+    ):
         location(global_args=["-D", "ws_alpha"])
-    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="No workspace in no_such_ws"):
+    with pytest.raises(
+        ramble.workspace.RambleWorkspaceError, match="(?i)no workspace in no_such_ws"
+    ):
         location(global_args=["-w", "no_such_ws"])
 
 

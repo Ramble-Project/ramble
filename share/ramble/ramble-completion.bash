@@ -468,7 +468,7 @@ _ramble_attributes() {
 _ramble_cd() {
     if $list_options
     then
-        RAMBLE_COMPREPLY="-h --help -e --experiment -s --software-env --input-dir -r --ramble-root -m --module-dir --user-config --builtin-repo --repo --repos-dir -i --index --first --limit-one --existing --first-failed --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
+        RAMBLE_COMPREPLY="-h --help -e --experiment -s --software-env --input-dir -r --ramble-root -m --module-dir --user-config --builtin-repo --repos-dir --repo -i --index --first --limit-one --existing --first-failed --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
     else
         _location_targets
     fi
@@ -708,7 +708,7 @@ _ramble_list() {
 _ramble_location() {
     if $list_options
     then
-        RAMBLE_COMPREPLY="-h --help -e --experiment -s --software-env --input-dir -r --ramble-root -m --module-dir --user-config --builtin-repo --repo --repos-dir -i --index --first --limit-one --existing --first-failed --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
+        RAMBLE_COMPREPLY="-h --help -e --experiment -s --software-env --input-dir -r --ramble-root -m --module-dir --user-config --builtin-repo --repos-dir --repo -i --index --first --limit-one --existing --first-failed --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
     else
         _location_targets
     fi
