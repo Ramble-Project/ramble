@@ -17,6 +17,8 @@ from ramble.pkg_man.builtin.spack_lightweight import (
 )
 from ramble.util.command_runner import RunnerError
 
+from spack.util.executable import ProcessError
+
 
 def test_env_create(tmpdir, request):
     try:
@@ -667,3 +669,166 @@ def test_multiword_args(tmpdir, capsys, request):
             assert "package_path=-multiword -args" in captured.out
     except RunnerError as e:
         pytest.skip("%s" % e)
+
+
+class _FakeSpack:
+    """Stand-in for the spack executable, which records the issued commands"""
+
+    def __init__(self, known_compilers=(), installs=None):
+        self.known_compilers = set(known_compilers)
+        self.installs = installs or {}
+        self.default_env = {}
+        self.calls = []
+
+    def __call__(self, *args, **kwargs):
+        self.calls.append(list(args))
+        if args[:2] == ("compiler", "info"):
+            if args[-1] not in self.known_compilers:
+                raise ProcessError("No compilers match spec")
+        elif args[-1] in self.installs:
+            self.known_compilers.add(self.installs[args[-1]])
+
+    def add_default_env(self, var, val):
+        self.default_env[var] = val
+
+    def count(self, *command):
+        return len(
+            [c for c in self.calls if c[: len(command)] == list(command)]
+        )
+
+
+def _fake_spack_runner(monkeypatch, fake_spack, env_path, env=None):
+    sr = SpackRunner(env=env)
+    for attr in ["spack", "installer", "concretizer"]:
+        monkeypatch.setattr(sr, attr, fake_spack)
+    sr.env_path = env_path
+    return sr
+
+
+@pytest.fixture
+def fake_spack_commands(monkeypatch):
+    monkeypatch.setattr(SpackRunner, "_compiler_cache", {})
+    monkeypatch.setattr(SpackRunner, "_compiler_find_cache", set())
+    monkeypatch.setattr(SpackRunner, "_compiler_spec_aliases", {})
+    monkeypatch.setattr(
+        SpackRunner,
+        "_run_command",
+        lambda self, executable, args, **kwargs: executable(*args),
+    )
+
+
+def test_compiler_find_shared_across_envs(monkeypatch, fake_spack_commands):
+    fake_spack = _FakeSpack(known_compilers=["gcc@12.1.0", "gcc@13.2.0"])
+    try:
+        for env_path in ["/env1", "/env2"]:
+            sr = _fake_spack_runner(monkeypatch, fake_spack, env_path)
+            sr.install_compiler("gcc@12.1.0 +binutils", "gcc@12.1.0")
+            sr.install_compiler("gcc@13.2.0 +binutils", "gcc@13.2.0")
+    except RunnerError as e:
+        pytest.skip("%s" % e)
+
+    assert fake_spack.count("compiler", "find") == 1
+    assert fake_spack.count("compiler", "info") == 4
+
+
+def test_compiler_find_reruns_after_install(monkeypatch, fake_spack_commands):
+    pkg_spec = "gcc@12.1.0 +binutils"
+    compiler_spec = "gcc@12.1.0"
+    fake_spack = _FakeSpack(installs={pkg_spec: compiler_spec})
+    try:
+        sr = _fake_spack_runner(monkeypatch, fake_spack, "/env1")
+        sr.install_compiler(pkg_spec, compiler_spec)
+
+        calls = fake_spack.calls
+        assert len(calls) == 5
+        assert calls[0] == ["compiler", "find"]
+        assert calls[1] == ["compiler", "info", compiler_spec]
+        assert calls[2][-1] == pkg_spec
+        assert calls[3] == ["load", "--first", "--sh", pkg_spec]
+        assert calls[4] == ["compiler", "find"]
+
+        sr = _fake_spack_runner(monkeypatch, fake_spack, "/env2")
+        sr.install_compiler(pkg_spec, compiler_spec)
+    except RunnerError as e:
+        pytest.skip("%s" % e)
+
+    assert fake_spack.calls[5:] == [["compiler", "info", compiler_spec]]
+
+
+def test_compiler_find_reruns_for_new_runner_env(
+    monkeypatch, fake_spack_commands
+):
+    fake_spack = _FakeSpack(known_compilers=["gcc@12.1.0"])
+    new_env = dict(os.environ, RAMBLE_TEST_COMPILER_FIND="1")
+    try:
+        for env_path, env in [("/env1", None), ("/env2", new_env)]:
+            sr = _fake_spack_runner(monkeypatch, fake_spack, env_path, env=env)
+            sr.install_compiler("gcc@12.1.0 +binutils", "gcc@12.1.0")
+    except RunnerError as e:
+        pytest.skip("%s" % e)
+
+    assert fake_spack.count("compiler", "find") == 2
+
+
+def test_compiler_find_reruns_for_new_flags(monkeypatch, fake_spack_commands):
+    fake_spack = _FakeSpack(known_compilers=["gcc@12.1.0"])
+    try:
+        sr = _fake_spack_runner(monkeypatch, fake_spack, "/env1")
+        sr.install_compiler("gcc@12.1.0 +binutils", "gcc@12.1.0")
+
+        with ramble.config.override(
+            "config:spack", {"compiler_find": {"flags": "--scope site"}}
+        ):
+            sr = _fake_spack_runner(monkeypatch, fake_spack, "/env2")
+            sr.install_compiler("gcc@12.1.0 +binutils", "gcc@12.1.0")
+    except RunnerError as e:
+        pytest.skip("%s" % e)
+
+    assert fake_spack.count("compiler", "find") == 2
+    assert ["compiler", "find", "--scope", "site"] in fake_spack.calls
+
+
+def test_compiler_info_falls_back_to_pkg_name(
+    monkeypatch, fake_spack_commands
+):
+    fake_spack = _FakeSpack(
+        known_compilers=["intel-oneapi-compilers@2025.3.2"]
+    )
+    try:
+        for env_path in ["/env1", "/env2"]:
+            sr = _fake_spack_runner(monkeypatch, fake_spack, env_path)
+            sr.install_compiler(
+                "intel-oneapi-compilers@2025.3.2 target=x86_64",
+                "oneapi@2025.3.2",
+            )
+    except RunnerError as e:
+        pytest.skip("%s" % e)
+
+    assert fake_spack.count("compiler", "find") == 1
+    assert fake_spack.calls == [
+        ["compiler", "find"],
+        ["compiler", "info", "oneapi@2025.3.2"],
+        ["compiler", "info", "intel-oneapi-compilers@2025.3.2"],
+        ["compiler", "info", "intel-oneapi-compilers@2025.3.2"],
+    ]
+
+
+def test_compiler_install_not_repeated_across_envs(
+    monkeypatch, fake_spack_commands
+):
+    pkg_spec = "intel-oneapi-compilers@2025.3.2 target=x86_64"
+    compiler_spec = "oneapi@2025.3.2"
+    fake_spack = _FakeSpack()
+    try:
+        sr = _fake_spack_runner(monkeypatch, fake_spack, "/env1")
+        sr.install_compiler(pkg_spec, compiler_spec)
+        calls_after_env1 = len(fake_spack.calls)
+
+        sr.env_path = "/env2"
+        sr.install_compiler(pkg_spec, compiler_spec)
+    except RunnerError as e:
+        pytest.skip("%s" % e)
+
+    assert [
+        c for c in fake_spack.calls[calls_after_env1:] if c[-1] == pkg_spec
+    ] == []
