@@ -39,14 +39,14 @@ def _make_validator():
         else:
             yield jsonschema.ValidationError(msg)
 
-    import ramble.util.ramble_yaml as syaml
+    import ramble.util.ramble_yaml as ryaml
 
-    # Ramble's YAML loader represents `true`/`false` as `syaml_bool`, which derives from
+    # Ramble's YAML loader represents `true`/`false` as `ryaml_bool`, which derives from
     # `int` rather than `bool`, so jsonschema's stock `isinstance(instance, bool)` check
     # rejects it. Redefine the "boolean" type check to accept it, otherwise every boolean
     # in every Ramble config file fails validation.
     type_checker = jsonschema.Draft4Validator.TYPE_CHECKER.redefine(
-        "boolean", lambda checker, instance: isinstance(instance, (bool, syaml.syaml_bool))
+        "boolean", lambda checker, instance: isinstance(instance, (bool, ryaml.ryaml_bool))
     )
 
     ValidatorClass = jsonschema.validators.extend(

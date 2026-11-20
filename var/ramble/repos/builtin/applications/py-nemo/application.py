@@ -11,7 +11,7 @@ import os
 
 from ruamel import yaml
 
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 import ramble.util.yaml_generation
 from ramble.appkit import *
 from ramble.base_app.builtin.py_nemo import PyNemo as BasePyNemo
@@ -362,8 +362,8 @@ class PyNemo(BasePyNemo):
         config_str = yaml.dump(
             config_data,
             default_flow_style=False,
-            width=syaml.maxint,
-            Dumper=syaml.OrderedLineDumper,
+            width=ryaml.maxint,
+            Dumper=ryaml.OrderedLineDumper,
         )
 
         config_str = config_str.replace(

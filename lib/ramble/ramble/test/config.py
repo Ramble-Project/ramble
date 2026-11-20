@@ -69,9 +69,9 @@ def test_unhashable_yaml_keys_coverage():
 
     from ruamel.yaml.nodes import MappingNode
 
-    import ramble.util.ramble_yaml as syaml
+    import ramble.util.ramble_yaml as ryaml
 
-    loader = syaml.OrderedLineLoader(io.StringIO())
+    loader = ryaml.OrderedLineLoader(io.StringIO())
 
     # Mock construct_object to return custom keys dynamically with caching
     mock_keys = []
@@ -121,10 +121,10 @@ def test_unhashable_yaml_keys_coverage():
         loader.construct_mapping(node2, MockMap())
 
 
-def test_syaml_bool_validates_as_json_boolean():
+def test_ryaml_bool_validates_as_json_boolean():
     """Booleans from Ramble YAML must satisfy a schema's ``"type": "boolean"``.
 
-    Ramble's YAML loader represents ``true``/``false`` as ``syaml_bool``, which
+    Ramble's YAML loader represents ``true``/``false`` as ``ryaml_bool``, which
     derives from ``int`` rather than ``bool``, so stock jsonschema rejects it.
     ``ramble.schema`` compensates by redefining the "boolean" type check. This
     test pins that behavior down: without the redefinition every boolean in
@@ -136,10 +136,10 @@ def test_syaml_bool_validates_as_json_boolean():
 
     import ramble.schema
     import ramble.schema.internals
-    import ramble.util.ramble_yaml as syaml
+    import ramble.util.ramble_yaml as ryaml
 
     schema = ramble.schema.internals.schema
-    data = syaml.load_config(io.StringIO("""
+    data = ryaml.load_config(io.StringIO("""
 internals:
   custom_executables:
     test_exec:
@@ -150,8 +150,8 @@ internals:
 """))
 
     value = data["internals"]["custom_executables"]["test_exec"]["use_mpi"]
-    assert isinstance(value, syaml.syaml_bool)
-    # The reason this test exists: syaml_bool is not a bool.
+    assert isinstance(value, ryaml.ryaml_bool)
+    # The reason this test exists: ryaml_bool is not a bool.
     assert not isinstance(value, bool)
 
     # Control: an unpatched validator rejects it, so the check below has teeth.
@@ -161,14 +161,14 @@ internals:
 
 
 def test_non_boolean_still_rejected():
-    """Accepting syaml_bool must not weaken boolean type checking generally."""
+    """Accepting ryaml_bool must not weaken boolean type checking generally."""
     import io
 
     import ramble.schema
     import ramble.schema.internals
-    import ramble.util.ramble_yaml as syaml
+    import ramble.util.ramble_yaml as ryaml
 
-    data = syaml.load_config(io.StringIO("""
+    data = ryaml.load_config(io.StringIO("""
 internals:
   custom_executables:
     test_exec:

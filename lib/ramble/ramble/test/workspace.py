@@ -250,17 +250,17 @@ def test_no_active_workspace(make_workspace_from_config, monkeypatch):
 
 
 def test_yaml_equivalent():
-    import ramble.util.ramble_yaml as syaml
+    import ramble.util.ramble_yaml as ryaml
 
-    assert workspace.yaml_equivalent({"a": 1, "b": 2.5}, {"a": syaml.syaml_int(1), "b": 2.5})
+    assert workspace.yaml_equivalent({"a": 1, "b": 2.5}, {"a": ryaml.ryaml_int(1), "b": 2.5})
     assert workspace.yaml_equivalent(
         {"flag": True, "off": False, "none": None},
-        {"flag": syaml.syaml_bool(True), "off": syaml.syaml_bool(False), "none": None},
+        {"flag": ryaml.ryaml_bool(True), "off": ryaml.ryaml_bool(False), "none": None},
     )
-    assert workspace.yaml_equivalent(["x", 1, True, None], [syaml.syaml_str("x"), 1, True, None])
+    assert workspace.yaml_equivalent(["x", 1, True, None], [ryaml.ryaml_str("x"), 1, True, None])
     assert not workspace.yaml_equivalent(1, True)
     assert not workspace.yaml_equivalent(True, 1)
-    assert not workspace.yaml_equivalent(1, syaml.syaml_bool(True))
+    assert not workspace.yaml_equivalent(1, ryaml.ryaml_bool(True))
     assert not workspace.yaml_equivalent(1, 1.0)
     assert not workspace.yaml_equivalent("1", 1)
 

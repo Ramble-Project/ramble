@@ -30,7 +30,7 @@ import pytest
 from matplotlib.backends.backend_pdf import PdfPages
 
 import ramble.reports
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 from ramble.main import RambleCommand
 from ramble.util import foms, json_util
 
@@ -435,7 +435,7 @@ def test_multiline_plot(mutable_mock_workspace_path, mutable_config, tmpdir_fact
     assert os.path.isfile(inventory_path)
 
     with open(inventory_path, encoding="utf-8") as f:
-        inventory = syaml.load(f)
+        inventory = ryaml.load(f)
 
     for file in inventory["files"]:
         assert os.path.isfile(os.path.join(out_path, file))
@@ -1161,7 +1161,7 @@ def test_index_printing(mutable_mock_workspace_path, tmpdir_factory, format):
         if format == "json":
             json_util.dump(test_exp_results, f)
         elif format == "yaml":
-            syaml.dump(test_exp_results, stream=f)
+            ryaml.dump(test_exp_results, stream=f)
 
     result_index = results("index", "-f", results_file)
 

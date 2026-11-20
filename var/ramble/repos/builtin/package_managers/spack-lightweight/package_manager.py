@@ -16,7 +16,7 @@ import tempfile
 
 import llnl.util.filesystem as fs
 
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 from ramble.pkgmankit import *
 from ramble.util.command_runner import RunnerError
 from ramble.util.logger import logger
@@ -1236,20 +1236,20 @@ class SpackRunner(CommandRunner):
 
     def _env_file_dict(self):
         """Construct a dictionary with the env file contents in it"""
-        env_file = syaml.syaml_dict()
-        env_file[spack_namespace] = syaml.syaml_dict()
-        env_file[spack_namespace]["concretizer"] = syaml.syaml_dict()
+        env_file = ryaml.ryaml_dict()
+        env_file[spack_namespace] = ryaml.ryaml_dict()
+        env_file[spack_namespace]["concretizer"] = ryaml.ryaml_dict()
         env_file[spack_namespace]["concretizer"]["unify"] = True
 
         link_type = ramble.config.get("config:spack:env_view:link_type")
-        env_file[spack_namespace]["view"] = syaml.syaml_dict()
-        env_file[spack_namespace]["view"]["default"] = syaml.syaml_dict()
+        env_file[spack_namespace]["view"] = ryaml.ryaml_dict()
+        env_file[spack_namespace]["view"]["default"] = ryaml.ryaml_dict()
         env_file[spack_namespace]["view"]["default"]["root"] = os.path.join(
             self.env_path, "ramble"
         )
         env_file[spack_namespace]["view"]["default"]["link_type"] = link_type
 
-        env_file[spack_namespace]["specs"] = syaml.syaml_list()
+        env_file[spack_namespace]["specs"] = ryaml.ryaml_list()
         # Ensure the specs content are consistently sorted.
         # Otherwise the hash checking may artificially miss due to ordering.
         env_file[spack_namespace]["specs"].extend(sorted(self.env_contents))
@@ -1276,7 +1276,7 @@ class SpackRunner(CommandRunner):
         tmp_env_file = os.path.join(tmp_path, "spack.yaml")
 
         with open(tmp_env_file, "w+", encoding="utf-8") as f:
-            syaml.dump_config(env_file, default_flow_style=False, stream=f)
+            ryaml.dump_config(env_file, default_flow_style=False, stream=f)
 
         return tmp_path
 
@@ -1378,8 +1378,8 @@ class SpackRunner(CommandRunner):
         """
         self._check_active()
 
-        env_data = syaml.load_config(
-            syaml.dump_config(self._env_file_dict(), default_flow_style=False)
+        env_data = ryaml.load_config(
+            ryaml.dump_config(self._env_file_dict(), default_flow_style=False)
         )
         self.hash = ramble.util.hashing.hash_json(env_data)
 

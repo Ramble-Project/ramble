@@ -8,7 +8,7 @@
 
 import os
 
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 
 
 def check_software_env(base_dir, tests):
@@ -41,7 +41,7 @@ def check_execute_script(script_path, tests):
 
 
 def named_modifier(name, mode=None):
-    modifier_def = syaml.syaml_dict()
+    modifier_def = ryaml.ryaml_dict()
     modifier_def["name"] = name
     if mode is not None:
         modifier_def["mode"] = mode
@@ -51,7 +51,7 @@ def named_modifier(name, mode=None):
 def intel_aps_modifier():
     modifier_def = named_modifier("intel-aps")
     modifier_def["mode"] = "mpi"
-    modifier_def["on_executable"] = syaml.syaml_list()
+    modifier_def["on_executable"] = ryaml.ryaml_list()
     modifier_def["on_executable"].append("*")
     return modifier_def
 
@@ -65,7 +65,7 @@ def intel_aps_answer():
 def lscpu_modifier():
     modifier_def = named_modifier("lscpu")
     modifier_def["mode"] = "standard"
-    modifier_def["on_executable"] = syaml.syaml_list()
+    modifier_def["on_executable"] = ryaml.ryaml_list()
     modifier_def["on_executable"].append("*")
     return modifier_def
 
@@ -83,7 +83,7 @@ def lscpu_answer():
 def env_var_append_paths_modifier():
     modifier_def = named_modifier("append-env-var-mod-paths")
     modifier_def["mode"] = "test"
-    modifier_def["on_executable"] = syaml.syaml_list()
+    modifier_def["on_executable"] = ryaml.ryaml_list()
     modifier_def["on_executable"].append("*")
     return modifier_def
 
@@ -99,7 +99,7 @@ def env_var_append_paths_modifier_answer():
 def env_var_append_vars_modifier():
     modifier_def = named_modifier("append-env-var-mod-vars")
     modifier_def["mode"] = "test"
-    modifier_def["on_executable"] = syaml.syaml_list()
+    modifier_def["on_executable"] = ryaml.ryaml_list()
     modifier_def["on_executable"].append("*")
     return modifier_def
 
@@ -117,7 +117,7 @@ def env_var_append_vars_modifier_answer():
 def env_var_prepend_paths_modifier():
     modifier_def = named_modifier("prepend-env-var-mod-paths")
     modifier_def["mode"] = "test"
-    modifier_def["on_executable"] = syaml.syaml_list()
+    modifier_def["on_executable"] = ryaml.ryaml_list()
     modifier_def["on_executable"].append("*")
     return modifier_def
 
@@ -135,7 +135,7 @@ def env_var_prepend_paths_modifier_answer():
 def env_var_set_modifier():
     modifier_def = named_modifier("set-env-var-mod")
     modifier_def["mode"] = "test"
-    modifier_def["on_executable"] = syaml.syaml_list()
+    modifier_def["on_executable"] = ryaml.ryaml_list()
     modifier_def["on_executable"].append("*")
     return modifier_def
 
@@ -151,7 +151,7 @@ def env_var_set_modifier_answer():
 def env_var_unset_modifier():
     modifier_def = named_modifier("unset-env-var-mod")
     modifier_def["mode"] = "test"
-    modifier_def["on_executable"] = syaml.syaml_list()
+    modifier_def["on_executable"] = ryaml.ryaml_list()
     modifier_def["on_executable"].append("*")
     return modifier_def
 

@@ -10,7 +10,7 @@ import pytest
 from ruamel import yaml
 
 import ramble.expander
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 import ramble.util.yaml_generation
 
 
@@ -36,8 +36,8 @@ def yaml_config(tmpdir_factory):
         yaml.dump(
             test_data,
             default_flow_style=False,
-            width=syaml.maxint,
-            Dumper=syaml.OrderedLineDumper,
+            width=ryaml.maxint,
+            Dumper=ryaml.OrderedLineDumper,
             stream=f,
         )
     return path
