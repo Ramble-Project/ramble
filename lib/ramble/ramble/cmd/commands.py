@@ -146,6 +146,7 @@ _positional_to_subroutine = {
     "help_command": "_subcommands",
     "namespace": "_repos",
     "pytest": "_unit_tests",
+    "target": "_location_targets",
 }
 
 

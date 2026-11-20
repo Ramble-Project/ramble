@@ -249,6 +249,70 @@ A filter group can also be persistently activated for a workspace session by pas
 This will export the ``RAMBLE_ACTIVE_FILTER_GROUP`` environment variable to the shell, which will be used by subsequent workspace commands as the default filter group. Deactivating the workspace will unset this variable.
 
 
+---------------------
+Navigating Workspaces
+---------------------
+
+When shell support is sourced (``share/ramble/setup-env.sh``, ``setup-env.csh``,
+or ``setup-env.fish``), ``ramble cd`` navigates directly to workspaces,
+workspace subdirectories, experiments, software environments, input
+directories, and repositories. Its companion command ``ramble location`` prints
+the resolved directory path(s) to standard output for use in scripts:
+
+.. code-block:: console
+
+    $ ramble cd                              # active workspace root (or $RAMBLE_ROOT if none active)
+    $ ramble cd configs                      # active workspace configs/ directory
+    $ ramble cd software/spack               # subpath under a workspace subdirectory
+    $ ramble cd my_experiment                # experiment, workload, or application run directory
+    $ ramble cd hpcg.standard                # workload run directory using its full namespace
+    $ ramble cd hpcg.standard.my_experiment  # experiment run directory using its full namespace
+    $ ramble cd -i 2                         # primary experiment with experiment_index 2
+    $ ramble cd -s -i 2                      # software environment ({env_path}) for experiment index 2
+    $ ramble cd -s hpcg.standard.my_exp      # software environment for a matched experiment or workload
+    $ ramble cd --input-dir my_experiment    # workload input directory ({workload_input_dir}) for an experiment
+    $ ramble cd --input-dir hpcg.standard    # workload input directory ({workload_input_dir}) for a workload
+    $ ramble cd --input-dir hpcg             # application input directory ({application_input_dir})
+    $ ramble -w other_ws cd shared           # subdirectory inside another workspace
+    $ ramble -D /path/to/ws cd configs       # subdirectory inside an anonymous workspace
+    $ ramble cd --repo my_repo               # registered object repository
+
+Targeting experiments, software environments, and input directories uses the
+same selection mechanism:
+
+* **Short names, full namespaces, subpaths, and globs:** Targets can be a short
+  name (e.g., ``my_experiment``, ``standard``, ``hpcg``), a full dotted
+  namespace (e.g., ``hpcg.standard``, ``hpcg.standard.my_experiment``) to
+  disambiguate overlaps across applications or workloads, a ``/``-delimited
+  subpath (e.g., ``hpcg/standard``), or a glob pattern (e.g., ``'*scale*'``).
+  Tab completion suggests both short names and dotted namespaces.
+* **Composing with ``-s`` / ``--software-env`` and ``--input-dir``:** Both
+  flags resolve directories for the selected experiment(s), workload(s), or
+  application(s) and can be combined with a target, ``-e`` / ``--experiment``,
+  ``-i`` / ``--index``, or experiment filters (``--where``, ``--exclude-where``,
+  ``--filter-tags``, ``--fg``). Specifically, ``-s`` resolves each matched
+  experiment's ``{env_path}``
+  (``{workspace_root}/software/<package_manager>/<env_name>``) under whichever
+  package manager that experiment uses, while ``--input-dir`` resolves
+  ``{workload_input_dir}`` (for experiment or workload matches) or
+  ``{application_input_dir}`` (for application matches).
+* **Handling multiple matches:** When a target or filter matches multiple
+  directories (such as an ambiguous short workload name, a glob, or bare
+  ``ramble cd -s`` across multiple software environments or package managers),
+  ``ramble location`` prints all unique matching paths (one per line), whereas
+  ``ramble cd`` warns (listing the other matches) and navigates to the first
+  existing match.
+
+``ramble location`` accepts the same flags and targets without requiring paths
+to already exist on disk, and supports ``--first`` and ``--existing`` when
+filtering scripted output:
+
+.. code-block:: console
+
+    $ ramble location '*scale*'
+    $ ramble location --first --existing '*scale*'
+
+
 ------------------------------
 Printing Workspace Information
 ------------------------------
