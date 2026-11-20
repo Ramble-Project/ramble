@@ -276,13 +276,13 @@ _location_targets() {
                     ws_arg="${COMP_WORDS[$((idx + 1))]}"
                     ws_flags=(-w "${ws_arg}")
                     let idx++
-                    eff_ws="$(ramble location -w "${ws_arg}" 2>/dev/null)" || eff_ws=""
+                    eff_ws="$(ramble -w "${ws_arg}" location 2>/dev/null)" || eff_ws=""
                 fi
                 ;;
             --workspace=*)
                 ws_arg="${COMP_WORDS[$idx]#--workspace=}"
                 ws_flags=("${COMP_WORDS[$idx]}")
-                eff_ws="$(ramble location -w "${ws_arg}" 2>/dev/null)" || eff_ws=""
+                eff_ws="$(ramble -w "${ws_arg}" location 2>/dev/null)" || eff_ws=""
                 ;;
         esac
         let idx++
@@ -302,7 +302,7 @@ _location_targets() {
             then
                 base_dir="${eff_ws}/${head}"
             else
-                base_dir="$(ramble location --first ${ws_flags[@]+"${ws_flags[@]}"} "${head}" 2>/dev/null)" || base_dir=""
+                base_dir="$(ramble ${ws_flags[@]+"${ws_flags[@]}"} location --first "${head}" 2>/dev/null)" || base_dir=""
             fi
             search_dir="${base_dir}${prefix#"$head"}"
         fi
@@ -318,11 +318,6 @@ _location_targets() {
             done
         fi
         RAMBLE_COMPREPLY="${subpath_replies}"
-        return
-    fi
-    if [[ "${prev}" == "-w" || "${prev}" == "--workspace" ]]
-    then
-        _workspaces
         return
     fi
     if [[ "${prev}" == "--repo" ]]
@@ -473,7 +468,7 @@ _ramble_attributes() {
 _ramble_cd() {
     if $list_options
     then
-        RAMBLE_COMPREPLY="-h --help -w --workspace -D --workspace-dir -W --no-workspace -e --experiment -s --software-env --input-dir -r --ramble-root -m --module-dir --user-config --builtin-repo --repo --repos-dir -i --index --first --limit-one --existing --first-failed --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
+        RAMBLE_COMPREPLY="-h --help -e --experiment -s --software-env --input-dir -r --ramble-root -m --module-dir --user-config --builtin-repo --repo --repos-dir -i --index --first --limit-one --existing --first-failed --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
     else
         _location_targets
     fi
@@ -713,7 +708,7 @@ _ramble_list() {
 _ramble_location() {
     if $list_options
     then
-        RAMBLE_COMPREPLY="-h --help -w --workspace -D --workspace-dir -W --no-workspace -e --experiment -s --software-env --input-dir -r --ramble-root -m --module-dir --user-config --builtin-repo --repo --repos-dir -i --index --first --limit-one --existing --first-failed --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
+        RAMBLE_COMPREPLY="-h --help -e --experiment -s --software-env --input-dir -r --ramble-root -m --module-dir --user-config --builtin-repo --repo --repos-dir -i --index --first --limit-one --existing --first-failed --where --exclude-where --filter-tags --fg --filter-group --efg --exclude-filter-group"
     else
         _location_targets
     fi

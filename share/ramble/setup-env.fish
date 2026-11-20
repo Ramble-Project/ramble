@@ -531,7 +531,7 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
                     if test "x$_arg" = "x--"
                         break
                     end
-                    if string match -r -q '^x(--help$|-[^wDi-]*h)' "x$_arg"
+                    if string match -r -q '^x(--help$|-[^i-]*h)' "x$_arg"
                         command ramble $argv
                         return $status
                     end

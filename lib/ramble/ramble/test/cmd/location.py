@@ -70,40 +70,27 @@ def test_location_default_active_workspace_and_global_flags(make_workspace_from_
         location("-s")
 
     assert location(global_args=["-W"]).strip() == ramble_root
-
-    # Subcommand -W / --no-workspace mirrors top-level -W and preserves active_workspace
-    ramble.workspace.activate(ws)
-    assert location("-W").strip() == ramble_root
-    assert location("--no-workspace").strip() == ramble_root
-    assert ramble.workspace.active_workspace() is ws
+    assert location(global_args=["--no-workspace"]).strip() == ramble_root
 
     ramble.workspace.deactivate()
-    assert location(global_args=["-w", ws_name]).strip() == ws_root
-    assert location("configs", global_args=["-D", ws.root]).strip() == cfg_dir
-
-    # Subcommand -w / --workspace and -D / --workspace-dir mirror top-level flags
-    ramble.workspace.deactivate()
-    for args, expected in [
-        (["-w", ws_name], ws_root),
-        ([f"--workspace={ws_name}"], ws_root),
-        ([f"-w{ws_name}"], ws_root),
-        (["-w", ws_name, "configs"], cfg_dir),
-        ([f"--workspace={ws_name}", "configs"], cfg_dir),
-        (["-w", ws_name, "exp_1"], exp1_dir),
-        (["-w", ws_name, "-e", "exp_1"], exp1_dir),
-        (["-D", ws.root], ws_root),
-        ([f"--workspace-dir={ws.root}", "configs"], cfg_dir),
-        (["-D", ws.root, "-e", "exp_1"], exp1_dir),
+    for g_args, cmd_args, expected in [
+        (["-w", ws_name], [], ws_root),
+        ([f"--workspace={ws_name}"], [], ws_root),
+        ([f"-w{ws_name}"], [], ws_root),
+        (["-w", ws_name], ["configs"], cfg_dir),
+        ([f"--workspace={ws_name}"], ["configs"], cfg_dir),
+        (["-w", ws_name], ["exp_1"], exp1_dir),
+        (["-w", ws_name], ["-e", "exp_1"], exp1_dir),
+        (["-D", ws.root], [], ws_root),
+        (["-D", ws.root], ["configs"], cfg_dir),
+        ([f"--workspace-dir={ws.root}"], ["configs"], cfg_dir),
+        (["-D", ws.root], ["-e", "exp_1"], exp1_dir),
     ]:
-        assert location(*args).strip() == expected
-    assert ramble.workspace.active_workspace() is None
+        ramble.workspace.deactivate()
+        assert location(*cmd_args, global_args=g_args).strip() == expected
 
-    with pytest.raises(RambleCommandError, match="both before and after"):
-        location("-w", ws_name, global_args=["-w", ws_name])
-
-    # Errors inside _scoped_workspace_context propagate cleanly without generator RuntimeError
     with pytest.raises(RambleCommandError, match="Unknown filter group 'no_such_group'"):
-        location("-w", ws_name, "--fg", "no_such_group")
+        location("--fg", "no_such_group", global_args=["-w", ws_name])
 
 
 def test_location_developer_and_user_paths(tmpdir, monkeypatch):
@@ -223,8 +210,8 @@ def test_location_broken_workspace_config_fallback(
 
     for argv, expected in [
         (["location"], ws.root),
-        (["location", "-w"], ws.root),
         (["location", "configs"], ws.config_dir),
+        (["-D", ws.root, "location", "configs"], ws.config_dir),
     ]:
         assert ramble.main._main(argv) == 0
         assert capsys.readouterr().out.strip() == os.path.abspath(expected)
@@ -243,33 +230,29 @@ def test_location_named_and_dir_workspaces(tmpdir):
 
     assert location("ws_alpha").strip() == alpha_root
     assert location("ws_alpha/").strip() == alpha_root
-    assert location("-w", "ws_beta").strip() == beta_root
-    assert location("--workspace=ws_beta").strip() == beta_root
-    assert location("ws_beta", "-w").strip() == beta_root
-
-    with pytest.raises(RambleCommandError, match="No workspace is currently active"):
-        location("-w")
+    assert location(global_args=["-w", "ws_beta"]).strip() == beta_root
+    assert location(global_args=["--workspace=ws_beta"]).strip() == beta_root
 
     ramble.workspace.activate(ramble.workspace.read("ws_alpha"))
-    assert location("-w").strip() == alpha_root
+    assert location().strip() == alpha_root
     assert location("ws_beta").strip() == beta_root
 
     dir_ws_path = str(tmpdir.join("dir_ws"))
     workspace("create", "-d", dir_ws_path)
-    assert location("-w", dir_ws_path).strip() == os.path.abspath(dir_ws_path)
-    assert location("-D", dir_ws_path).strip() == os.path.abspath(dir_ws_path)
-    assert location("-D", f"{dir_ws_path}/configs").strip() == os.path.abspath(
+    assert location(dir_ws_path).strip() == os.path.abspath(dir_ws_path)
+    assert location(f"{dir_ws_path}/configs").strip() == os.path.abspath(
+        os.path.join(dir_ws_path, "configs")
+    )
+    assert location(global_args=["-w", dir_ws_path]).strip() == os.path.abspath(dir_ws_path)
+    assert location(global_args=["-D", dir_ws_path]).strip() == os.path.abspath(dir_ws_path)
+    assert location("configs", global_args=["-D", dir_ws_path]).strip() == os.path.abspath(
         os.path.join(dir_ws_path, "configs")
     )
 
-    with pytest.raises(RambleCommandError, match="No workspace in 'ws_alpha'"):
-        location("-D", "ws_alpha")
-    with pytest.raises(RambleCommandError, match="No such workspace: 'no_such_ws'"):
-        location("-w", "no_such_ws")
-    with pytest.raises(
-        RambleCommandError, match="Cannot combine bare --workspace with experiment filter flags"
-    ):
-        location("-w", "--where", "True")
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="No workspace in ws_alpha"):
+        location(global_args=["-D", "ws_alpha"])
+    with pytest.raises(ramble.workspace.RambleWorkspaceError, match="No workspace in no_such_ws"):
+        location(global_args=["-w", "no_such_ws"])
 
 
 def test_location_experiments_workloads_applications_and_filters(make_workspace_from_config):
@@ -636,10 +619,15 @@ def test_location_target_subpaths(make_workspace_from_config, tmpdir):
         (["-e", "scale_1/sub_output"], exp1_sub),
         (["scale_1/no_such_subdir"], os.path.join(exp1_dir, "no_such_subdir")),
         (["ws_other/configs"], os.path.join(other_root, "configs")),
-        (["-w", "ws_other/shared/licenses"], os.path.join(other_root, "shared", "licenses")),
+        (["ws_other/shared/licenses"], os.path.join(other_root, "shared", "licenses")),
         ([f"{dir_ws}/configs"], os.path.abspath(os.path.join(dir_ws, "configs"))),
     ]:
         assert location(*args).strip() == expected
+
+    assert location("shared/licenses", global_args=["-w", "ws_other"]).strip() == os.path.join(
+        other_root, "shared", "licenses"
+    )
+    ramble.workspace.activate(ws)
 
     with pytest.raises(RambleCommandError) as exc_info:
         location("--existing", "scale_1/no_such_subdir")

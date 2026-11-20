@@ -95,9 +95,9 @@ _ramble_scan_cd_help() {
         case "$_arg" in
             --) break ;;
             -h|--help|-h*) _rmb_cd_help=1; break ;;
-            --*|-w?*|-D?*|-i?*) ;;
+            --*|-i?*) ;;
             -*h*)
-                case "${_arg%%[wDi]*}" in
+                case "${_arg%%i*}" in
                     *h*) _rmb_cd_help=1; break ;;
                 esac
                 ;;

@@ -6,7 +6,6 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
-import argparse
 import contextlib
 import fnmatch
 import operator
@@ -47,35 +46,6 @@ class _SelectionOpts(NamedTuple):
 
 
 def setup_parser(subparser):
-    ws_modes = subparser.add_mutually_exclusive_group()
-    ws_modes.add_argument(
-        "-w",
-        "--workspace",
-        nargs="?",
-        const=True,
-        default=None,
-        dest="sub_workspace",
-        metavar="WRKSPC",
-        help="workspace name or path (or active workspace root when given with no value)",
-    )
-    ws_modes.add_argument(
-        "-D",
-        "--workspace-dir",
-        action="store",
-        default=None,
-        dest="sub_workspace_dir",
-        metavar="DIR",
-        help="run with or locate a workspace directory (ignore named workspaces)",
-    )
-    ws_modes.add_argument(
-        "-W",
-        "--no-workspace",
-        action="store_true",
-        default=False,
-        dest="sub_no_workspace",
-        help="run without any workspaces activated",
-    )
-
     subparser.add_argument(
         "-e",
         "--experiment",
@@ -321,72 +291,17 @@ def _walk_ancestor_dir(stripped: str, predicate: Callable[[str], bool]) -> Optio
     return None
 
 
-def _resolve_workspace_target(target: str, allow_named: bool = True) -> Optional[str]:
+def _resolve_workspace_target(target: str) -> Optional[str]:
     stripped = target.rstrip("/") or target
-    if allow_named and ramble.workspace.exists(stripped):
+    if ramble.workspace.exists(stripped):
         return ramble.workspace.root(stripped)
     if ramble.workspace.is_workspace_dir(stripped):
         return os.path.abspath(stripped)
-    if (
-        allow_named
-        and "/" in stripped
-        and not os.path.isabs(stripped)
-        and not stripped.startswith(("./", "../"))
-    ):
+    if "/" in stripped and not os.path.isabs(stripped) and not stripped.startswith(("./", "../")):
         head, raw_sub = stripped.split("/", 1)
         if ramble.workspace.exists(head):
             return _join_subpath(ramble.workspace.root(head), raw_sub.lstrip("/") or None)
     return _walk_ancestor_dir(stripped, ramble.workspace.is_workspace_dir)
-
-
-@contextlib.contextmanager
-def _scoped_workspace_context(mode: Optional[str], value: Optional[str]):
-    """Temporarily override active workspace context for subcommand -w/-D/-W."""
-    if mode is None:
-        yield None
-        return
-
-    with ramble.workspace.no_active_workspace():
-        if mode == "no_workspace" or value is None:
-            yield (None, None, None)
-            return
-
-        stripped = value.rstrip("/") or value
-        ws_args = argparse.Namespace(
-            workspace=stripped if mode == "workspace" else None,
-            workspace_dir=stripped if mode == "workspace_dir" else None,
-        )
-        try:
-            raw_root = ramble.cmd.find_workspace_path(ws_args)
-        except ramble.workspace.RambleWorkspaceError:
-            raw_root = None
-
-        if not raw_root:
-            msg = (
-                f"No such workspace: '{value}'"
-                if mode == "workspace"
-                else f"No workspace in '{value}'"
-            )
-            logger.die(msg)
-            yield (None, None, None)
-            return
-
-        ws_root = ramble.util.path.canonicalize_path(raw_root)
-        ws_name = (
-            stripped
-            if (mode == "workspace" and ramble.workspace.exists(stripped))
-            else os.path.basename(ws_root)
-        )
-        try:
-            ws_obj = ramble.cmd.find_workspace(ws_args)
-        except Exception:
-            ws_obj = None
-
-        if ws_obj is not None:
-            with ws_obj:
-                yield (ws_obj, ws_obj.root, ws_obj.name)
-        else:
-            yield (None, ws_root, ws_name)
 
 
 def _iter_registered_repos() -> List[Tuple[str, str]]:
@@ -937,30 +852,9 @@ def _resolve_within_workspace_context(
 
 def _resolve_locations(args, opts: _SelectionOpts) -> List[str]:
     """Resolve one or more target directory paths from parsed CLI arguments."""
-    sub_ws = getattr(args, "sub_workspace", None)
-    sub_ws_dir = getattr(args, "sub_workspace_dir", None)
-    sub_no_ws = bool(getattr(args, "sub_no_workspace", False))
-    sub_repo = getattr(args, "sub_repo", None)
-
-    has_top_ws_flag = bool(
-        getattr(args, "workspace", None)
-        or getattr(args, "workspace_dir", None)
-        or getattr(args, "no_workspace", False)
-    )
-    if has_top_ws_flag and (isinstance(sub_ws, str) or sub_ws_dir is not None or sub_no_ws):
-        logger.die(
-            "Cannot specify workspace flags (-w/--workspace, -D/--workspace-dir, "
-            "-W/--no-workspace) both before and after the subcommand."
-        )
-
-    # 1. Explicit developer / user path flags
+    # Explicit developer / user path flags
     static_attr = getattr(args, "static_path_attr", None)
     if static_attr:
-        if sub_ws is not None or sub_ws_dir is not None:
-            logger.die(
-                "Cannot combine -w/--workspace or -D/--workspace-dir with "
-                "--ramble-root, --module-dir, --user-config, --builtin-repo, or --repos-dir."
-            )
         if _has_experiment_selection_flags(args):
             logger.die(
                 "Cannot combine experiment filter flags with "
@@ -974,60 +868,8 @@ def _resolve_locations(args, opts: _SelectionOpts) -> List[str]:
             )
         return _finalize_one(_join_subpath(getattr(ramble.paths, static_attr), subpath), opts)
 
-    # 2. Direct workspace target resolution (`-w`, `target -w`, `-w WRKSPC`, or `-D DIR` alone)
-    has_inner_query = bool(
-        args.target is not None or _has_experiment_mode(args) or sub_repo is not None
-    )
-    if sub_ws is True or (
-        not has_inner_query and (isinstance(sub_ws, str) or sub_ws_dir is not None)
-    ):
-        if sub_ws is True:
-            if sub_repo is not None:
-                logger.die("Cannot combine -w/--workspace with --repo.")
-            if _has_experiment_mode(args):
-                logger.die(
-                    "Cannot combine bare --workspace with experiment filter flags "
-                    "(pass '-w WRKSPC ...' to query a workspace)."
-                )
-        if sub_ws_dir is not None:
-            ws_path = _resolve_workspace_target(sub_ws_dir, allow_named=False)
-            if ws_path is None:
-                logger.die(f"No workspace in '{sub_ws_dir}'")
-                return []
-            return _finalize_one(ws_path, opts)
-
-        ws_query: Optional[str] = sub_ws if isinstance(sub_ws, str) else args.target
-        if ws_query is None:
-            _, ws_root, _ = _get_workspace_context(args)
-            if ws_root is None:
-                logger.die(
-                    "No workspace is currently active. "
-                    "Specify a workspace name or activate a workspace first."
-                )
-                return []
-            return _finalize_one(ws_root, opts)
-
-        ws_path = _resolve_workspace_target(ws_query, allow_named=True)
-        if ws_path is None:
-            logger.die(f"No such workspace: '{ws_query}'")
-            return []
-        return _finalize_one(ws_path, opts)
-
-    # 3. Scoped workspace context (`-W`, `-w WRKSPC <query>`, `-D DIR <query>`, or default)
-    override_mode: Optional[str] = None
-    override_val: Optional[str] = None
-    if sub_no_ws:
-        override_mode = "no_workspace"
-    elif isinstance(sub_ws, str):
-        override_mode, override_val = "workspace", sub_ws
-    elif sub_ws_dir is not None:
-        override_mode, override_val = "workspace_dir", sub_ws_dir
-
-    with _scoped_workspace_context(override_mode, override_val) as scoped_ctx:
-        ws, ws_root, ws_name = (
-            scoped_ctx if scoped_ctx is not None else _get_workspace_context(args)
-        )
-        return _resolve_within_workspace_context(args, opts, ws, ws_root, ws_name)
+    ws, ws_root, ws_name = _get_workspace_context(args)
+    return _resolve_within_workspace_context(args, opts, ws, ws_root, ws_name)
 
 
 def run_location(

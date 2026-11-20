@@ -273,7 +273,8 @@ the resolved directory path(s) to standard output for use in scripts:
     $ ramble cd --input-dir my_experiment    # workload input directory ({workload_input_dir}) for an experiment
     $ ramble cd --input-dir hpcg.standard    # workload input directory ({workload_input_dir}) for a workload
     $ ramble cd --input-dir hpcg             # application input directory ({application_input_dir})
-    $ ramble cd -w other_ws/shared           # subdirectory inside another workspace
+    $ ramble -w other_ws cd shared           # subdirectory inside another workspace
+    $ ramble -D /path/to/ws cd configs       # subdirectory inside an anonymous workspace
     $ ramble cd --repo my_repo               # registered object repository
 
 Targeting experiments, software environments, and input directories uses the

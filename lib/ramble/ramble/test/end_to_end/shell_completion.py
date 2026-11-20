@@ -237,7 +237,7 @@ def test_cd_and_location_completion(tmpdir, supported_shell):
 
     no_ws = _run_completions(
         tmpdir,
-        ["ramble cd ''", f"ramble cd -D '{ws_dir}' ''"],
+        ["ramble cd ''", f"ramble -D '{ws_dir}' cd ''"],
         shell=supported_shell,
         setup_lines=["unset RAMBLE_WORKSPACE"],
     )
@@ -255,7 +255,7 @@ def test_cd_and_location_completion(tmpdir, supported_shell):
             "ramble cd shared/",
             "ramble location root/share/",
             "ramble cd repos/",
-            "ramble cd -W ''",
+            "ramble -W cd ''",
             "ramble cd -r share/",
             "ramble cd --fg two-nodes ''",
         ],

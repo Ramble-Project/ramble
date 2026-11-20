@@ -163,7 +163,7 @@ case cd:
             set _rmb_cd_help = 1
             break
         endif
-        if ( "$_rmb_cd_arg" =~ -[esrmW]*h* && "$_rmb_cd_arg" !~ -*[wDi]*h* ) then
+        if ( "$_rmb_cd_arg" =~ -[esrm]*h* && "$_rmb_cd_arg" !~ -*i*h* ) then
             set _rmb_cd_help = 1
             break
         endif
