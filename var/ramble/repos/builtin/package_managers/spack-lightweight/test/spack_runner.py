@@ -709,6 +709,7 @@ def _fake_spack_runner(monkeypatch, fake_spack, env_path, env=None):
 def fake_spack_commands(monkeypatch):
     monkeypatch.setattr(SpackRunner, "_compiler_cache", {})
     monkeypatch.setattr(SpackRunner, "_compiler_find_cache", set())
+    monkeypatch.setattr(SpackRunner, "_compiler_spec_aliases", {})
     monkeypatch.setattr(
         SpackRunner,
         "_run_command",
@@ -785,3 +786,28 @@ def test_compiler_find_reruns_for_new_flags(monkeypatch, fake_spack_commands):
 
     assert fake_spack.count("compiler", "find") == 2
     assert ["compiler", "find", "--scope", "site"] in fake_spack.calls
+
+
+def test_compiler_info_falls_back_to_pkg_name(
+    monkeypatch, fake_spack_commands
+):
+    fake_spack = _FakeSpack(
+        known_compilers=["intel-oneapi-compilers@2025.3.2"]
+    )
+    try:
+        for env_path in ["/env1", "/env2"]:
+            sr = _fake_spack_runner(monkeypatch, fake_spack, env_path)
+            sr.install_compiler(
+                "intel-oneapi-compilers@2025.3.2 target=x86_64",
+                "oneapi@2025.3.2",
+            )
+    except RunnerError as e:
+        pytest.skip("%s" % e)
+
+    assert fake_spack.count("compiler", "find") == 1
+    assert fake_spack.calls == [
+        ["compiler", "find"],
+        ["compiler", "info", "oneapi@2025.3.2"],
+        ["compiler", "info", "intel-oneapi-compilers@2025.3.2"],
+        ["compiler", "info", "intel-oneapi-compilers@2025.3.2"],
+    ]

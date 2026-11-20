@@ -737,6 +737,9 @@ class SpackRunner(CommandRunner):
     # This cache is to avoid duplicate `spack compiler find` calls across envs
     _compiler_find_cache: set = set()
 
+    # This cache maps compiler specs to resolved `spack compiler info` names
+    _compiler_spec_aliases: dict = {}
+
     _allowed_config_files = [
         "compilers.yaml",
         "concretizer.yaml",
@@ -1006,6 +1009,48 @@ class SpackRunner(CommandRunner):
         self._run_command(self.spack, compiler_find_args)
         self._compiler_find_cache.add(find_key)
 
+    _spec_name_regex = re.compile(r"^\s*(?P<name>[\w-]+)(?P<rest>.*)$")
+
+    def _compiler_info_exists(self, comp_info_args, compiler_spec, pkg_spec):
+        """
+        Check if a compiler is registered via `spack compiler info`.
+
+        In Spack >= 1.0, compilers are registered under their package name
+        (e.g., `intel-oneapi-compilers`) instead of legacy aliases (e.g.,
+        `oneapi`), so fall back to the package name from `pkg_spec` if
+        `compiler_spec` is not found.
+        """
+        # Collect candidate specs: cached match, or alias then package name
+        alias_key = (compiler_spec, pkg_spec)
+        if alias_key in self._compiler_spec_aliases:
+            specs_to_check = [self._compiler_spec_aliases[alias_key]]
+        else:
+            specs_to_check = [compiler_spec]
+            comp_match = self._spec_name_regex.match(compiler_spec)
+            pkg_match = self._spec_name_regex.match(pkg_spec)
+            if (
+                comp_match
+                and pkg_match
+                and comp_match.group("name") != pkg_match.group("name")
+            ):
+                specs_to_check.append(
+                    f"{pkg_match.group('name')}{comp_match.group('rest')}"
+                )
+
+        # Query `spack compiler info` for each candidate and cache the match
+        prefix_args = comp_info_args[:-1]
+        for spec in specs_to_check:
+            args = prefix_args + [spec]
+            try:
+                self._cmd_start(self.spack, args)
+                self.spack(*args, output=os.devnull, error=os.devnull)
+                self._cmd_end(self.spack, args)
+                self._compiler_spec_aliases[alias_key] = spec
+                return True
+            except ProcessError:
+                continue
+        return False
+
     def install_compiler(self, pkg_spec, compiler_spec):
         """
         Ensure a compiler is installed, before using it to install packages
@@ -1048,15 +1093,9 @@ class SpackRunner(CommandRunner):
             if not self.dry_run:
                 self._find_compilers(compiler_find_args)
 
-            try:
-                self._cmd_start(self.spack, comp_info_args)
-                self.spack(
-                    *comp_info_args, output=os.devnull, error=os.devnull
-                )
-                self._cmd_end(self.spack, comp_info_args)
-                has_compiler = True
-            except ProcessError:
-                has_compiler = False
+            has_compiler = self._compiler_info_exists(
+                comp_info_args, compiler_spec, pkg_spec
+            )
             self._compiler_cache[cache_key] = has_compiler
 
         if has_compiler:
