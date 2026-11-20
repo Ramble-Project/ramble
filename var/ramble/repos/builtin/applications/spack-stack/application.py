@@ -208,7 +208,7 @@ class SpackStack(ExecutableApplication):
         return cmds
 
     def evaluate_success(self):
-        import ramble.util.ramble_yaml as syaml
+        import ramble.util.ramble_yaml as ryaml
 
         if not self.expander.satisfies("package_manager_family=spack"):
             return True
@@ -227,7 +227,7 @@ class SpackStack(ExecutableApplication):
             return False
 
         with open(spack_file, encoding="utf-8") as f:
-            spack_data = syaml.load_config(f)
+            spack_data = ryaml.load_config(f)
 
         logger.debug(f"Spack data: {spack_data}")
 

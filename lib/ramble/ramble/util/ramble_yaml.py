@@ -37,7 +37,7 @@ __all__ = ["load", "dump", "RambleYAMLError"]
 
 # Make new classes so we can add custom attributes.
 # Also, use OrderedDict instead of just dict.
-class syaml_dict(collections.OrderedDict):
+class ryaml_dict(collections.OrderedDict):
     _start_mark: Any = None
     _end_mark: Any = None
 
@@ -46,31 +46,31 @@ class syaml_dict(collections.OrderedDict):
         return "{%s}" % ", ".join(mappings)
 
 
-class syaml_list(list):
+class ryaml_list(list):
     _start_mark: Any = None
     _end_mark: Any = None
     __repr__ = list.__repr__
 
 
-class syaml_str(str):
+class ryaml_str(str):
     override: bool = False
     _start_mark: Any = None
     _end_mark: Any = None
     __repr__ = str.__repr__
 
 
-class syaml_int(int):
+class ryaml_int(int):
     _start_mark: Any = None
     _end_mark: Any = None
     __repr__ = int.__repr__
 
 
-class syaml_bool(int):
+class ryaml_bool(int):
     string_val: Optional[str] = None
     _start_mark: Any = None
     _end_mark: Any = None
 
-    def __new__(cls, val: Any, string_val: Optional[str] = None) -> "syaml_bool":
+    def __new__(cls, val: Any, string_val: Optional[str] = None) -> "ryaml_bool":
         obj = super().__new__(cls, val)
         obj.string_val = string_val
         return obj
@@ -82,16 +82,16 @@ class syaml_bool(int):
         return self.string_val if self.string_val else ("True" if self else "False")
 
 
-#: mapping from syaml type -> primitive type
-syaml_types = {
-    syaml_str: str,
-    syaml_int: int,
-    syaml_bool: bool,
-    syaml_dict: dict,
-    syaml_list: list,
+#: mapping from ryaml type -> primitive type
+ryaml_types = {
+    ryaml_str: str,
+    ryaml_int: int,
+    ryaml_bool: bool,
+    ryaml_dict: dict,
+    ryaml_list: list,
 }
 
-markable_types = set(syaml_types) | {
+markable_types = set(ryaml_types) | {
     yaml.comments.CommentedSeq,
     yaml.comments.CommentedMap,
 }
@@ -117,15 +117,15 @@ def _commented_map_deepcopy(self: Any, memo: Any) -> Any:
 yaml.comments.CommentedMap.__deepcopy__ = _commented_map_deepcopy
 
 
-def syaml_type(obj: Any) -> Any:
-    """Get the corresponding syaml wrapper type for a primitive type.
+def ryaml_type(obj: Any) -> Any:
+    """Get the corresponding ryaml wrapper type for a primitive type.
 
     Return:
-        (object): syaml-typed copy of object, or the obj if no wrapper
+        (object): ryaml-typed copy of object, or the obj if no wrapper
     """
-    for syaml_t, t in syaml_types.items():
+    for ryaml_t, t in ryaml_types.items():
         if type(obj) is not bool and isinstance(obj, t):
-            return syaml_t(obj) if type(obj) is not syaml_t else obj
+            return ryaml_t(obj) if type(obj) is not ryaml_t else obj
     return obj
 
 
@@ -198,13 +198,13 @@ class OrderedLineLoader(RoundTripLoader):
 
         return super().construct_mapping(node, maptyp, deep=deep)
 
-    def construct_yaml_bool(self, node: Any) -> syaml_bool:
+    def construct_yaml_bool(self, node: Any) -> ryaml_bool:
         value = super().construct_yaml_bool(node)
-        b = syaml_bool(value, string_val=node.value)
+        b = ryaml_bool(value, string_val=node.value)
         mark(b, node)
         return b
 
-    def construct_yaml_str(self, node: Any) -> syaml_str:
+    def construct_yaml_str(self, node: Any) -> ryaml_str:
         value = super().construct_yaml_str(node)
         # There is no specific marker to indicate that we are parsing a key,
         # so this assumes we are talking about a config override key if
@@ -212,10 +212,10 @@ class OrderedLineLoader(RoundTripLoader):
         # in config values that refer to Spack specs)
         # and is not quoted (identified by a non-empty node.style)
         if value and value.endswith(":") and "@" not in value and not node.style:
-            s = syaml_str(value[:-1])
+            s = ryaml_str(value[:-1])
             s.override = True
         else:
-            s = syaml_str(value)
+            s = ryaml_str(value)
         mark(s, node)
         return s
 
@@ -244,11 +244,11 @@ OrderedLineLoader.add_constructor("tag:yaml.org,2002:str", OrderedLineLoader.con
 
 
 class OrderedLineDumper(RoundTripDumper):
-    """Dumper that preserves ordering and formats ``syaml_*`` objects.
+    """Dumper that preserves ordering and formats ``ryaml_*`` objects.
 
-    This dumper preserves insertion ordering ``syaml_dict`` objects
+    This dumper preserves insertion ordering ``ryaml_dict`` objects
     when they're written out. It also has some custom formatters
-    for ``syaml_*`` objects so that they are formatted like their
+    for ``ryaml_*`` objects so that they are formatted like their
     regular Python equivalents, instead of ugly YAML pyobjects.
     """
 
@@ -259,7 +259,7 @@ class OrderedLineDumper(RoundTripDumper):
     def represent_data(self, data: Any) -> Any:
         result = super().represent_data(data)
         if data is None:
-            result.value = syaml_str("null")
+            result.value = ryaml_str("null")
         return result
 
     def represent_bool(self, data: Any) -> Any:
@@ -287,17 +287,17 @@ class SafeDumper(RoundTripDumper):
 
 
 # Make our special objects look like normal YAML ones.
-RoundTripDumper.add_representer(syaml_dict, RoundTripDumper.represent_dict)
-RoundTripDumper.add_representer(syaml_list, RoundTripDumper.represent_list)
-RoundTripDumper.add_representer(syaml_int, RoundTripDumper.represent_int)
-RoundTripDumper.add_representer(syaml_bool, RoundTripDumper.represent_bool)
-RoundTripDumper.add_representer(syaml_str, RoundTripDumper.represent_str)
+RoundTripDumper.add_representer(ryaml_dict, RoundTripDumper.represent_dict)
+RoundTripDumper.add_representer(ryaml_list, RoundTripDumper.represent_list)
+RoundTripDumper.add_representer(ryaml_int, RoundTripDumper.represent_int)
+RoundTripDumper.add_representer(ryaml_bool, RoundTripDumper.represent_bool)
+RoundTripDumper.add_representer(ryaml_str, RoundTripDumper.represent_str)
 RoundTripDumper.add_multi_representer(
     enum.Enum, lambda dumper, data: dumper.represent_data(data.value)
 )
-OrderedLineDumper.add_representer(syaml_bool, OrderedLineDumper.represent_bool)
-OrderedLineDumper.add_representer(syaml_str, OrderedLineDumper.represent_str)
-SafeDumper.add_representer(syaml_bool, SafeDumper.represent_bool)
+OrderedLineDumper.add_representer(ryaml_bool, OrderedLineDumper.represent_bool)
+OrderedLineDumper.add_representer(ryaml_str, OrderedLineDumper.represent_str)
+SafeDumper.add_representer(ryaml_bool, SafeDumper.represent_bool)
 
 
 #: Max integer helps avoid passing too large a value to cyaml.
@@ -357,12 +357,12 @@ class LineAnnotationDumper(OrderedLineDumper):
             self.saved = self.event.value
 
     def represent_data(self, data: Any) -> Any:
-        """Force syaml_str to be passed through with marks."""
+        """Force ryaml_str to be passed through with marks."""
         result = super().represent_data(data)
         if data is None:
-            result.value = syaml_str("null")
+            result.value = ryaml_str("null")
         elif isinstance(result.value, str):
-            result.value = syaml_str(data)
+            result.value = ryaml_str(data)
         if markable(result.value):
             mark(result.value, data)
         return result

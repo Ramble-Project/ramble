@@ -14,7 +14,7 @@ import shutil
 from llnl.util import tty
 
 import ramble.caches
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 from ramble.paths import lib_path, var_path
 from ramble.util.logger import logger
 
@@ -107,7 +107,7 @@ def remove_reports_files():
 
             try:
                 with open(inventory_file, encoding="utf-8") as f:
-                    inventory = syaml.load(f)
+                    inventory = ryaml.load(f)
             except FileNotFoundError:
                 continue
 

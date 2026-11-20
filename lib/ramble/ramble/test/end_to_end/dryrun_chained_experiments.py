@@ -13,7 +13,7 @@ import pytest
 
 import ramble.filters
 import ramble.pipeline
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
 from ramble.main import RambleCommand
 from ramble.util import json_util
@@ -203,7 +203,7 @@ ramble:
         ]
 
         names = ["results.latest.json", "results.latest.yaml"]
-        loaders = [json_util.load, syaml.load]
+        loaders = [json_util.load, ryaml.load]
         for name, loader in zip(names, loaders):
             with open(os.path.join(ws.root, name), encoding="utf-8") as f:
                 data = loader(f)

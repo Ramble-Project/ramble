@@ -69,7 +69,7 @@ import ramble.schema.workspace
 import ramble.schema.zips
 
 # Hacked yaml for configuration files preserves line numbers.
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 from ramble.error import RambleError
 from ramble.util import cpus
 from ramble.util.logger import logger
@@ -214,7 +214,7 @@ class ConfigScope:
     def __init__(self, name, path):
         self.name = name  # scope name.
         self.path = path  # path to directory containing configs.
-        self.sections = syaml.syaml_dict()  # sections read from config files.
+        self.sections = ryaml.ryaml_dict()  # sections read from config files.
 
     @property
     def is_platform_dependent(self):
@@ -242,13 +242,13 @@ class ConfigScope:
         try:
             mkdirp(self.path)
             with open(filename, "w", encoding="utf-8") as f:
-                syaml.dump_config(data, stream=f, default_flow_style=False)
+                ryaml.dump_config(data, stream=f, default_flow_style=False)
         except (yaml.YAMLError, OSError) as e:
             raise ConfigFileError("Error writing to config file") from e
 
     def clear(self):
         """Empty cached config information."""
-        self.sections = syaml.syaml_dict()
+        self.sections = ryaml.ryaml_dict()
 
     def __repr__(self):
         return f"<ConfigScope: {self.name}: {self.path}>"
@@ -370,7 +370,7 @@ class SingleFileScope(ConfigScope):
 
             tmp = os.path.join(parent, f".{os.path.basename(self.path)}.tmp")
             with open(tmp, "w", encoding="utf-8") as f:
-                syaml.dump_config(data_to_write, stream=f, default_flow_style=False)
+                ryaml.dump_config(data_to_write, stream=f, default_flow_style=False)
             rename(tmp, self.path)
 
         except (yaml.YAMLError, OSError) as e:
@@ -403,14 +403,14 @@ class InternalConfigScope(ConfigScope):
 
     def __init__(self, name, data=None):
         super().__init__(name, None)
-        self.sections = syaml.syaml_dict()
+        self.sections = ryaml.ryaml_dict()
 
         if data:
             data = InternalConfigScope._process_dict_keyname_overrides(data)
             for section in data:
                 dsec = data[section]
                 validate({section: dsec}, section_schemas[section])
-                self.sections[section] = _mark_internal(syaml.syaml_dict({section: dsec}), name)
+                self.sections[section] = _mark_internal(ryaml.ryaml_dict({section: dsec}), name)
 
     def get_section_filename(self, section):
         raise NotImplementedError("Cannot get filename for InternalConfigScope.")
@@ -441,7 +441,7 @@ class InternalConfigScope(ConfigScope):
         result = {}
         for sk, sv in data.items():
             if sk.endswith(":"):
-                key = syaml.syaml_str(sk[:-1])
+                key = ryaml.ryaml_str(sk[:-1])
                 key.override = True
             else:
                 key = sk
@@ -627,7 +627,7 @@ class Configuration:
             )
 
         # read only the requested section's data.
-        scope.sections[section] = syaml.syaml_dict({section: update_data})
+        scope.sections[section] = ryaml.ryaml_dict({section: update_data})
         if need_comment_copy and comments:
             setattr(scope.sections[section][section], yaml.comments.Comment.attrib, comments)
 
@@ -674,7 +674,7 @@ class Configuration:
         else:
             scopes = [self._validate_scope(scope)]
 
-        merged_section = syaml.syaml_dict()
+        merged_section = ryaml.ryaml_dict()
         for cfg_scope in scopes:
             # read potentially cached data from the scope.
 
@@ -697,12 +697,12 @@ class Configuration:
 
         # no config files -- empty config.
         if section not in merged_section:
-            return syaml.syaml_dict()
+            return ryaml.ryaml_dict()
 
         # take the top key off before returning.
         ret = merged_section[section]
         if isinstance(ret, dict):
-            ret = syaml.syaml_dict(ret)
+            ret = ryaml.ryaml_dict(ret)
         return ret
 
     def get(self, path, default=None, scope=None):
@@ -763,7 +763,7 @@ class Configuration:
 
             if isinstance(new, dict):
                 # Make it an ordered dict
-                new = syaml.syaml_dict(new)
+                new = ryaml.ryaml_dict(new)
                 # reattach to parent object
                 data[key] = new
             data = new
@@ -783,9 +783,9 @@ class Configuration:
     def print_section(self, section, blame=False):
         """Print a configuration to stdout."""
         try:
-            data = syaml.syaml_dict()
+            data = ryaml.ryaml_dict()
             data[section] = self.get_config(section)
-            syaml.dump_config(data, stream=sys.stdout, default_flow_style=False, blame=blame)
+            ryaml.dump_config(data, stream=sys.stdout, default_flow_style=False, blame=blame)
         except (yaml.YAMLError, OSError):
             raise ConfigError(f"Error reading configuration: {section}") from None
 
@@ -1102,15 +1102,15 @@ def _mark_internal(data, name):
     This is used by `ramble config blame` to show where config lines came from.
     """
     if isinstance(data, dict):
-        d = syaml.syaml_dict(
+        d = ryaml.ryaml_dict(
             (_mark_internal(k, name), _mark_internal(v, name)) for k, v in data.items()
         )
     elif isinstance(data, list):
-        d = syaml.syaml_list(_mark_internal(e, name) for e in data)
+        d = ryaml.ryaml_list(_mark_internal(e, name) for e in data)
     else:
-        d = syaml.syaml_type(data)
+        d = ryaml.ryaml_type(data)
 
-    if syaml.markable(d):
+    if ryaml.markable(d):
         d._start_mark = yaml.Mark(name, None, None, None, None, None)
         d._end_mark = yaml.Mark(name, None, None, None, None, None)
 
@@ -1127,7 +1127,7 @@ def get_valid_type(path):
     """
     types = {
         "array": list,
-        "object": syaml.syaml_dict,
+        "object": ryaml.ryaml_dict,
         "string": str,
         "boolean": bool,
         "integer": int,
@@ -1244,7 +1244,7 @@ def process_config_path(path):
                     f"Meaningless second override indicator `::' in path `{path}'", ""
                 )
             path = path.lstrip(":")
-            front = syaml.syaml_str(front)
+            front = ryaml.ryaml_str(front)
             front.override = True
             seen_override_in_path = True
         result.append(front)

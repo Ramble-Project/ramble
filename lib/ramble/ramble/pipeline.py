@@ -30,7 +30,7 @@ import ramble.uploader
 import ramble.util.file_editor
 import ramble.util.hashing
 import ramble.util.path
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
 from ramble.namespace import namespace
 from ramble.util import json_util
@@ -841,7 +841,7 @@ class PushDeploymentPipeline(Pipeline):
                     for k in keys_to_remove:
                         del ramble_block[k]
                     with open(ramble_yaml, "w", encoding="utf-8") as f:
-                        syaml.dump_config(data, stream=f, default_flow_style=False)
+                        ryaml.dump_config(data, stream=f, default_flow_style=False)
 
     def _execute(self):
         configs_dir = os.path.join(

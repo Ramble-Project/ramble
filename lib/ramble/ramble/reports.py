@@ -17,7 +17,7 @@ import ramble.config
 import ramble.expander
 import ramble.repository
 import ramble.util.path
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 from ramble.experiment_result import ExperimentStatus, ResultKeys
 from ramble.keywords import keywords
 from ramble.namespace import namespace
@@ -749,7 +749,7 @@ class PlotGenerator:
 
     def write_inventory(self):
         with open(self.get_inventory_path(), "w+", encoding="utf-8") as f:
-            syaml.dump(self.inventory, stream=f)
+            ryaml.dump(self.inventory, stream=f)
 
     def draw(self, perf_measure, scale_var, series, pdf_report, y_label=None):
         series_data = self.output_df.query(f'series == "{series}"').copy()

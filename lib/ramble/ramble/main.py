@@ -561,14 +561,14 @@ def send_warning_to_tty(message, *args):
 
 
 def mock_repositories(objects):
-    import ramble.util.ramble_yaml as syaml
+    import ramble.util.ramble_yaml as ryaml
 
     for obj in objects:
         obj_section = ramble.repository.type_definitions[obj]["config_section"]
-        key = syaml.syaml_str(obj_section)
+        key = ryaml.ryaml_str(obj_section)
         key.override = True
 
-        ramble.config.config.scopes["command_line"].sections[obj_section] = syaml.syaml_dict(
+        ramble.config.config.scopes["command_line"].sections[obj_section] = ryaml.ryaml_dict(
             [(key, [ramble.paths.mock_builtin_path])]
         )
 

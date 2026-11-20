@@ -11,7 +11,7 @@ import copy
 import ramble.error
 import ramble.util.colors as color
 import ramble.util.matrices
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 from ramble.namespace import namespace
 
 
@@ -50,8 +50,8 @@ class Context:
         Create a Context object, which holds context attributes.
         """
         self.env_variables = []
-        self.variables = syaml.syaml_dict()
-        self.variants = syaml.syaml_dict()
+        self.variables = ryaml.ryaml_dict()
+        self.variants = ryaml.ryaml_dict()
         self.version = None
         self.internals = {}
         self.templates = None

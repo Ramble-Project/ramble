@@ -19,7 +19,7 @@ import ramble.cmd.workspace
 import ramble.config
 import ramble.filters
 import ramble.pipeline
-import ramble.util.ramble_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
 from ramble.error import RambleCommandError
 from ramble.main import RambleCommand, main
@@ -53,7 +53,7 @@ def add_basic(ws):
 
 
 def remove_basic(ws):
-    ramble.config.set("applications", syaml.syaml_dict(), scope=ws.ws_file_config_scope_name())
+    ramble.config.set("applications", ryaml.ryaml_dict(), scope=ws.ws_file_config_scope_name())
 
     ws.write()
     ws._re_read()
@@ -3910,7 +3910,7 @@ def test_workspace_manage_no_active_workspace_dry_run(tmpdir):
             "pkg1",
             global_args=["-W"],
         )
-        parsed = syaml.load(soft_out)
+        parsed = ryaml.load(soft_out)
         assert "software" not in parsed
         assert parsed["ramble"]["software"]["packages"]["pkg1"]["pkg_spec"] == "pkg1@1.0"
         assert parsed["ramble"]["software"]["environments"]["env1"]["packages"] == ["pkg1"]
@@ -4026,7 +4026,7 @@ def test_workspace_manage_experiments_include_default_variables(workspace_name):
         assert "\n                # Variable to print for testing\n" in content
         assert "\n                 \n" not in content
 
-        parsed = syaml.load(content)
+        parsed = ryaml.load(content)
         apps = parsed["ramble"]["applications"]
 
         # Verify basic.test_wl.generated
