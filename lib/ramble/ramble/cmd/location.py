@@ -6,6 +6,34 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+"""Implement ``ramble location`` (and the path-resolution backend for ``ramble cd``).
+
+Resolution flow
+---------------
+1. ``location()`` (or ``ramble.cmd.cd.cd()``) calls ``run_location()``, which
+   redirects incidental logging/warnings to ``stderr`` so ``stdout`` contains
+   only resolved directory paths (one per line).
+2. ``_resolve_locations()`` handles explicit static-path flags (``-r``, ``-m``,
+   ``--user-config``, ``--builtin-repo``, ``--repos-dir``), then retrieves the
+   active workspace context via ``_get_workspace_context()`` and delegates to
+   ``_resolve_within_workspace_context()``.
+3. ``_resolve_within_workspace_context()`` dispatches across:
+   - Explicit repository mode (``--repo``).
+   - Explicit experiment mode (``-e``, ``-s``, ``--input-dir``, ``-i``,
+     ``--where``/``--exclude-where``, ``--filter-tags``, ``--fg``/``--efg``,
+     or ``--first-failed``), which filters the workspace's ``ExperimentSet``
+     via ``_build_and_filter_experiments()``, optionally matches a positional
+     target via ``_match_in_experiment_set()``, and maps matches to run,
+     software-env, or input directories via ``_extract_experiment_set_paths()``.
+   - Default no-target mode (active workspace root, or ``$RAMBLE_ROOT``).
+   - Lazy first-match-wins positional resolution (supporting ``<target>/<subpath>``):
+     active workspace subdir -> active workspace experiment/workload/app ->
+     named/directory workspace -> Ramble path keyword -> repository namespace.
+4. All candidate lists pass through ``_finalize_candidates()`` to enforce
+   ``--existing``, apply ``--first``/``--limit-one``, and emit ambiguity
+   warnings when ``ramble cd`` implicitly picks the first of multiple matches.
+"""
+
 import contextlib
 import fnmatch
 import operator
@@ -40,19 +68,22 @@ _MAX_WARN_ALTERNATIVES = 5
 
 
 class _SelectionOpts(NamedTuple):
+    """Post-resolution filtering options shared between ``location`` and ``cd``."""
+
     limit_one: bool
     existing: bool
     warn_implicit_first: bool = False
 
 
 def setup_parser(subparser):
+    """Configure CLI arguments for ``ramble location`` and ``ramble cd``."""
     subparser.add_argument(
         "-e",
         "--experiment",
         action="store_true",
         dest="as_experiment",
         default=False,
-        help="treat target as an experiment, workload, or application filter",
+        help="treat target as an experiment, workload, or application (bypassing subdirs)",
     )
 
     modes = subparser.add_mutually_exclusive_group()
@@ -194,11 +225,18 @@ def setup_parser(subparser):
     )
 
 
+# ---------------------------------------------------------------------------
+# Option predicates, static lookups, and target path helpers
+# ---------------------------------------------------------------------------
+
+
 def _cmd_name(args) -> str:
+    """Return the invoked subcommand name (``'cd'`` or ``'location'``) for messages."""
     return "cd" if getattr(args, "command", None) == "cd" else "location"
 
 
 def _ramble_keywords() -> Dict[str, str]:
+    """Return mapping of positional Ramble path keywords to installation directories."""
     return {
         "root": ramble.paths.prefix,
         "module": ramble.paths.module_path,
@@ -210,6 +248,7 @@ def _ramble_keywords() -> Dict[str, str]:
 
 
 def _workspace_subdirs(ws_root: str) -> Dict[str, str]:
+    """Return mapping of standard workspace subdirectory names to paths under ``ws_root``."""
     subdirs = {
         os.path.basename(p): p
         for p in ramble.workspace.Workspace.get_workspace_paths(ws_root).values()
@@ -220,6 +259,7 @@ def _workspace_subdirs(ws_root: str) -> Dict[str, str]:
 
 
 def _has_experiment_selection_flags(args) -> bool:
+    """Return True if any flag that explicitly selects or filters experiments is set."""
     return bool(
         args.as_experiment
         or args.index is not None
@@ -233,12 +273,19 @@ def _has_experiment_selection_flags(args) -> bool:
 
 
 def _has_experiment_mode(args) -> bool:
+    """Return True if arguments require resolving against the active workspace's ExperimentSet."""
     return bool(args.software_env or args.input_dir or _has_experiment_selection_flags(args))
 
 
 def _get_workspace_context(
     args,
 ) -> Tuple[Optional[ramble.workspace.Workspace], Optional[str], Optional[str]]:
+    """Return ``(workspace_obj, workspace_root, workspace_name)`` for the current invocation.
+
+    Falls back to ``find_workspace_path()`` when the workspace directory exists
+    but failed to load (e.g., broken ``ramble.yaml``), returning ``ws=None``
+    alongside its root so workspace-root and subdirectory navigation still work.
+    """
     ws = ramble.workspace.active_workspace()
     if ws is not None:
         return ws, ws.root, ws.name
@@ -256,12 +303,18 @@ def _get_workspace_context(
 
 
 def _normalize_target(raw_target: Optional[str]) -> Optional[str]:
+    """Strip trailing slashes from a positional target while preserving ``'/'`` and ``None``."""
     if raw_target is None or raw_target == "/":
         return raw_target
     return raw_target.rstrip("/") or raw_target
 
 
 def _split_head_and_subpath(norm_target: str) -> Tuple[str, Optional[str]]:
+    """Split a relative ``<head>/<subpath>`` target into its leading token and remainder.
+
+    Absolute paths and explicit relative filesystem paths (``./``, ``../``) are
+    returned unchanged with ``subpath=None``.
+    """
     if (
         "/" in norm_target
         and not os.path.isabs(norm_target)
@@ -274,10 +327,16 @@ def _split_head_and_subpath(norm_target: str) -> Tuple[str, Optional[str]]:
 
 
 def _join_subpath(base_path: str, subpath: Optional[str]) -> str:
+    """Join an optional relative ``subpath`` onto ``base_path`` and normalize with ``abspath``."""
     return os.path.abspath(os.path.join(base_path, subpath) if subpath else base_path)
 
 
 def _walk_ancestor_dir(stripped: str, predicate: Callable[[str], bool]) -> Optional[str]:
+    """Walk parent directories of ``stripped`` and return its absolute path if an ancestor matches.
+
+    Used to resolve paths pointing inside an anonymous workspace directory or
+    unregistered repository directory (e.g., ``/path/to/ws/configs``).
+    """
     if "/" not in stripped:
         return None
     cur = os.path.dirname(stripped)
@@ -291,7 +350,13 @@ def _walk_ancestor_dir(stripped: str, predicate: Callable[[str], bool]) -> Optio
     return None
 
 
+# ---------------------------------------------------------------------------
+# Workspace and repository lookup helpers
+# ---------------------------------------------------------------------------
+
+
 def _resolve_workspace_target(target: str) -> Optional[str]:
+    """Resolve ``target`` as a named workspace, workspace directory, or subpath inside one."""
     stripped = target.rstrip("/") or target
     if ramble.workspace.exists(stripped):
         return ramble.workspace.root(stripped)
@@ -305,7 +370,7 @@ def _resolve_workspace_target(target: str) -> Optional[str]:
 
 
 def _iter_registered_repos() -> List[Tuple[str, str]]:
-    """Return (namespace, root_path) pairs for all configured repos in precedence order."""
+    """Return ``(namespace, root_path)`` pairs for all configured repos in precedence order."""
     seen_roots = set()
     entries: List[Tuple[str, str]] = []
     obj_types = [ramble.repository.default_type] + [
@@ -327,6 +392,7 @@ def _iter_registered_repos() -> List[Tuple[str, str]]:
 
 
 def _is_repo_dir(path: str) -> bool:
+    """Return True if ``path`` is a valid Ramble repository for any ``ObjectTypes`` entry."""
     if not os.path.isdir(path):
         return False
     for obj_type in ramble.repository.ObjectTypes:
@@ -339,6 +405,7 @@ def _is_repo_dir(path: str) -> bool:
 
 
 def _resolve_repo_targets(target: str) -> List[str]:
+    """Resolve ``target`` as a registered repo namespace, repo directory, or subpath inside one."""
     stripped = target.rstrip("/")
     if not stripped:
         return []
@@ -358,7 +425,13 @@ def _resolve_repo_targets(target: str) -> List[str]:
     return [ancestor_hit] if ancestor_hit else []
 
 
+# ---------------------------------------------------------------------------
+# Experiment-set fast-path check, filtering, and matching
+# ---------------------------------------------------------------------------
+
+
 def _template_to_glob(key: str) -> str:
+    """Convert a templated config key (e.g., ``scale_{n_nodes}``) into an ``fnmatch`` glob."""
     prev = None
     cur = key
     while prev != cur:
@@ -368,6 +441,7 @@ def _template_to_glob(key: str) -> str:
 
 
 def _iter_raw_config_names(app_dict: Dict[Any, Any]) -> Iterator[str]:
+    """Yield raw application, workload, and experiment key names from the workspace config dict."""
     for app_key, app_contents in app_dict.items():
         app_key_str = str(app_key)
         app_base, _, _ = app_key_str.partition("@")
@@ -390,7 +464,12 @@ def _iter_raw_config_names(app_dict: Dict[Any, Any]) -> Iterator[str]:
 
 
 def _may_match_in_workspace_config(target: str) -> bool:
-    """Fast conservative check against raw workspace config before building ExperimentSet."""
+    """Fast conservative check against raw workspace config before building ExperimentSet.
+
+    Avoids the cost of instantiating an ``ExperimentSet`` when resolving
+    non-experiment positional targets such as ``root`` or another workspace name.
+    Dotted targets and globs always return True so full namespace matching runs.
+    """
     if not target or "." in target or any(c in _GLOB_CHARS for c in target):
         return True
     app_dict = ramble.config.get(namespace.application)
@@ -405,6 +484,16 @@ def _may_match_in_workspace_config(target: str) -> bool:
 def _build_and_filter_experiments(
     ws: ramble.workspace.Workspace, args
 ) -> Tuple[Any, List[Tuple[str, Any, int]]]:
+    """Build ``ws``'s ``ExperimentSet`` and apply CLI experiment filters.
+
+    Applies ``--where``, ``--exclude-where``, ``--filter-tags``, ``--fg``/``--efg``,
+    ``--first-failed``, and ``-i``/``--index``, excluding templates and repeat base
+    entries (which do not own concrete run directories).
+
+    Returns:
+        Tuple of ``(experiment_set, filtered)`` where ``filtered`` is a list of
+        ``(experiment_namespace, app_inst, experiment_index)`` tuples.
+    """
     where_filter = [[v] if isinstance(v, str) else list(v) for v in (args.where or [])]
     where_filter = ramble.filters.resolve_and_apply_filter_groups(args, where_filter)
     exclude_filter = [[v] if isinstance(v, str) else list(v) for v in (args.exclude_where or [])]
@@ -452,6 +541,10 @@ def _build_and_filter_experiments(
 
 
 def _die_missing_index(ws: ramble.workspace.Workspace, experiment_set, target_index: int) -> None:
+    """Exit with an informative error when ``-i/--index`` matched no runnable experiment.
+
+    Distinguishes template and repeat-base indices from nonexistent indices.
+    """
     for exp, app_inst in experiment_set.experiments.items():
         exp_idx_str = app_inst.expander.expand_var_name(app_inst.keywords.experiment_index)
         try:
@@ -476,6 +569,12 @@ def _die_missing_index(ws: ramble.workspace.Workspace, experiment_set, target_in
 def _repeat_base_identifiers(
     exp: str, app_inst: Any
 ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Return ``(base_exp_ns, base_simplified_ns, base_exp_name)`` for a repeat instance.
+
+    Strips the trailing ``.<repeat_index>`` suffix so targeting a repeat base name
+    (e.g., ``rep_exp``) matches all of its repeat instances (``rep_exp.1``, ...).
+    Returns ``(None, None, None)`` for non-repeat experiments.
+    """
     repeat_idx = getattr(app_inst.repeats, "repeat_index", 0)
     if not repeat_idx:
         return None, None, None
@@ -494,6 +593,24 @@ def _repeat_base_identifiers(
 def _match_in_experiment_set(
     ws: ramble.workspace.Workspace, args, target: str
 ) -> Tuple[Optional[str], List[Tuple[str, Any, int]]]:
+    """Match ``target`` against filtered experiments at experiment, workload, or application level.
+
+    Applies CLI filters via ``_build_and_filter_experiments()`` first, then
+    matches ``target`` in strict precedence order:
+      1. Exact experiment match (full/simplified namespace > short name >
+         repeat-base namespace > repeat-base short name)
+      2. Exact workload match (full/simplified namespace > short name)
+      3. Exact application match (full/simplified namespace or short name)
+      4. Glob match (if ``target`` contains ``*``, ``?``, or ``[``) in the same
+         experiment > workload > application order. Dotted globs match against
+         full/simplified namespaces and short names; dotless globs match only
+         against short names so e.g. ``*hpcg*`` selects the application dir.
+
+    Returns:
+        Tuple of ``(match_kind, matches)`` where ``match_kind`` is one of
+        ``'experiment'``, ``'experiment_glob'``, ``'workload'``, ``'application'``,
+        or ``None`` if nothing matched.
+    """
     _, filtered = _build_and_filter_experiments(ws, args)
     if not filtered:
         return None, []
@@ -589,7 +706,13 @@ def _match_in_experiment_set(
     return None, []
 
 
+# ---------------------------------------------------------------------------
+# Candidate extraction and finalization
+# ---------------------------------------------------------------------------
+
+
 def _die_missing_path(path: str, needs_setup_hint: bool) -> None:
+    """Exit with a missing-directory error, optionally suggesting ``ramble workspace setup``."""
     if needs_setup_hint:
         logger.die(
             f"Target directory '{path}' does not exist. Has the workspace "
@@ -605,6 +728,13 @@ def _finalize_candidates(
     noun_plural: Optional[str] = None,
     ws_name: Optional[str] = None,
 ) -> List[str]:
+    """Filter, validate, and optionally truncate resolved ``(label, path, needs_setup)`` tuples.
+
+    When ``opts.existing`` is set, filters to directories that exist on disk
+    before applying ``opts.limit_one``. When ``opts.warn_implicit_first`` is set
+    and multiple candidates remain, logs a warning naming the selected match and
+    listing up to ``_MAX_WARN_ALTERNATIVES`` alternative labels.
+    """
     if opts.existing:
         existing_candidates = [c for c in candidates if os.path.isdir(c[1])]
         if not existing_candidates:
@@ -640,17 +770,20 @@ def _finalize_candidates(
 
 
 def _finalize_one(path: str, opts: _SelectionOpts) -> List[str]:
+    """Finalize a single non-experiment directory path through ``_finalize_candidates()``."""
     abs_path = os.path.abspath(path)
     return _finalize_candidates([(abs_path, abs_path, False)], opts)
 
 
 def _dedupe_pairs(pairs: Iterable[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    """Deduplicate ``(label, path)`` pairs while preserving first-seen order by ``path``."""
     return list(dedupe(pairs, key=operator.itemgetter(1)))
 
 
 def _software_env_label(
     ws: ramble.workspace.Workspace, app_inst: Any, env_path: str, fallback: str
 ) -> str:
+    """Format a human-readable label for a software environment (e.g., ``spack/my_env``)."""
     try:
         rel = os.path.relpath(os.path.abspath(env_path), os.path.abspath(ws.software_dir))
     except ValueError:
@@ -668,6 +801,14 @@ def _extract_experiment_set_paths(
     matches: List[Tuple[str, Any, int]],
     subpath: Optional[str] = None,
 ) -> List[str]:
+    """Map matched ``ExperimentSet`` items to concrete directory paths and finalize them.
+
+    Projects matches to:
+      - ``{env_path}`` when ``-s/--software-env`` is set
+      - ``{application_input_dir}`` or ``{workload_input_dir}`` when ``--input-dir`` is set
+      - ``{experiment_run_dir}``, ``{workload_run_dir}``, or ``{application_run_dir}``
+        corresponding to ``match_kind`` otherwise
+    """
     if args.software_env:
         unexpanded_env = Expander.expansion_str(ramble.keywords.keywords.env_path)
         env_pairs = (
@@ -732,6 +873,11 @@ def _extract_experiment_set_paths(
     return _finalize_candidates(candidates, opts, noun_plural=noun, ws_name=ws.name)
 
 
+# ---------------------------------------------------------------------------
+# Main resolution flow and command entry points
+# ---------------------------------------------------------------------------
+
+
 def _resolve_within_workspace_context(
     args,
     opts: _SelectionOpts,
@@ -739,6 +885,12 @@ def _resolve_within_workspace_context(
     ws_root: Optional[str],
     ws_name: Optional[str],
 ) -> List[str]:
+    """Resolve target directory path(s) given the active workspace context.
+
+    Handles ``--repo`` mode, explicit experiment mode (``-e``, ``-s``,
+    ``--input-dir``, or filter flags), default no-target mode, and lazy
+    first-match-wins positional resolution.
+    """
     # Explicit repository mode (--repo [REPO])
     sub_repo = getattr(args, "sub_repo", None)
     if sub_repo is not None:
@@ -878,6 +1030,19 @@ def run_location(
     existing: Optional[bool] = None,
     warn_implicit_first: bool = False,
 ) -> int:
+    """Resolve and print target directory path(s) to stdout.
+
+    Shared backend for both ``ramble location`` and ``ramble cd``. All
+    diagnostic output and aggregated warnings are redirected to ``stderr`` so
+    shell wrappers and scripts can safely capture ``stdout``.
+
+    Args:
+        args: Parsed CLI argument namespace.
+        limit_one: Override ``args.limit_one`` / ``args.first_failed`` when set.
+        existing: Override ``args.existing`` when set.
+        warn_implicit_first: Emit a warning when ``limit_one`` truncates
+            multiple matches (used by ``ramble cd`` when ``--first`` wasn't passed).
+    """
     opts = _SelectionOpts(
         limit_one=bool(args.limit_one or args.first_failed) if limit_one is None else limit_one,
         existing=bool(getattr(args, "existing", False)) if existing is None else existing,
@@ -904,4 +1069,5 @@ def run_location(
 
 
 def location(parser, args):
+    """Entry point for the ``ramble location`` subcommand."""
     return run_location(args)

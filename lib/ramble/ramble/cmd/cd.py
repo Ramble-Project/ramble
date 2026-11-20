@@ -24,6 +24,7 @@ def setup_parser(subparser):
 
 
 def cd(parser, args):
+    """Resolve a single existing target directory for the ``ramble cd`` shell wrapper."""
     if not os.environ.get(_CD_WRAPPER_ENV):
         ramble.cmd.common.shell_init_instructions(
             "ramble cd",
