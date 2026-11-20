@@ -37,6 +37,7 @@ level = "short"
 
 _INNER_BRACE_RE = re.compile(r"\{[^{}]*\}")
 _GLOB_CHARS = frozenset("*?[")
+_MAX_WARN_ALTERNATIVES = 5
 
 
 class _SelectionOpts(NamedTuple):
@@ -75,8 +76,7 @@ def setup_parser(subparser):
         help="run without any workspaces activated",
     )
 
-    modes = subparser.add_mutually_exclusive_group()
-    modes.add_argument(
+    subparser.add_argument(
         "-e",
         "--experiment",
         action="store_true",
@@ -84,13 +84,18 @@ def setup_parser(subparser):
         default=False,
         help="treat target as an experiment, workload, or application filter",
     )
+
+    modes = subparser.add_mutually_exclusive_group()
     modes.add_argument(
         "-s",
         "--software-env",
         action="store_true",
         dest="software_env",
         default=False,
-        help="locate the software environment directory for the matched experiment or workload",
+        help=(
+            "locate the software environment directory ({env_path}) "
+            "for the matched experiment or workload"
+        ),
     )
     modes.add_argument(
         "--input-dir",
@@ -213,7 +218,7 @@ def setup_parser(subparser):
         "target",
         nargs="?",
         default=None,
-        help="workspace subdirectory, experiment/workload/application name or glob, "
+        help="workspace subdirectory, experiment/workload/application name, namespace, or glob, "
         "workspace name, repository namespace, or ramble path keyword "
         "(root, module, lib, user-config, builtin, repos)",
     )
@@ -246,7 +251,8 @@ def _workspace_subdirs(ws_root: str) -> Dict[str, str]:
 
 def _has_experiment_selection_flags(args) -> bool:
     return bool(
-        args.index is not None
+        args.as_experiment
+        or args.index is not None
         or args.where
         or args.exclude_where
         or args.filter_tags
@@ -257,12 +263,7 @@ def _has_experiment_selection_flags(args) -> bool:
 
 
 def _has_experiment_mode(args) -> bool:
-    return bool(
-        args.as_experiment
-        or args.software_env
-        or args.input_dir
-        or _has_experiment_selection_flags(args)
-    )
+    return bool(args.software_env or args.input_dir or _has_experiment_selection_flags(args))
 
 
 def _get_workspace_context(
@@ -709,9 +710,14 @@ def _finalize_candidates(
 
     if opts.limit_one:
         if opts.warn_implicit_first and len(candidates) > 1 and noun_plural and ws_name:
+            others = [c[0] for c in candidates[1:]]
+            shown = ", ".join(f"'{name}'" for name in others[:_MAX_WARN_ALTERNATIVES])
+            remaining = len(others) - _MAX_WARN_ALTERNATIVES
+            other_str = f"{shown} (+{remaining} more)" if remaining > 0 else shown
             logger.warn(
                 f"Matched {len(candidates)} {noun_plural} in workspace '{ws_name}'; "
-                f"navigating to first match '{candidates[0][0]}'."
+                f"navigating to first match '{candidates[0][0]}'. "
+                f"Other matches: {other_str}."
             )
         candidates = candidates[:1]
 
@@ -727,6 +733,18 @@ def _dedupe_pairs(pairs: Iterable[Tuple[str, str]]) -> List[Tuple[str, str]]:
     return list(dedupe(pairs, key=operator.itemgetter(1)))
 
 
+def _software_env_label(
+    ws: ramble.workspace.Workspace, app_inst: Any, env_path: str, fallback: str
+) -> str:
+    try:
+        rel = os.path.relpath(os.path.abspath(env_path), os.path.abspath(ws.software_dir))
+    except ValueError:
+        rel = ""
+    if rel and rel not in (".", "..") and not rel.startswith(".." + os.sep):
+        return rel
+    return app_inst.expander.expand_var_name(app_inst.keywords.env_name) or fallback
+
+
 def _extract_experiment_set_paths(
     ws: ramble.workspace.Workspace,
     args,
@@ -739,7 +757,7 @@ def _extract_experiment_set_paths(
         unexpanded_env = Expander.expansion_str(ramble.keywords.keywords.env_path)
         env_pairs = (
             (
-                app_inst.expander.expand_var_name(app_inst.keywords.env_name) or label,
+                _software_env_label(ws, app_inst, app_inst.expander.env_path, label),
                 app_inst.expander.env_path,
             )
             for label, app_inst, _ in matches

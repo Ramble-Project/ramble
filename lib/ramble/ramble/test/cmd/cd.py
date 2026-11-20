@@ -94,7 +94,80 @@ ramble:
     assert "does not exist" in str(exc_info.value)
     assert "ramble workspace setup" not in str(exc_info.value)
 
-    # Multiple matches emit a navigation warning and resolve to the first match
+    # Multiple matches emit a navigation warning listing alternatives and resolve to first match
     out_cd = cd("test_wl")
     assert "Matched 2 workloads" in out_cd
+    assert "Other matches: 'tagged-1.test_wl'." in out_cd
     assert out_cd.strip().splitlines()[-1] == basic_wl_dir
+
+
+def test_cd_multi_match_warning_capped_and_multi_package_managers(
+    make_workspace_from_config, monkeypatch
+):
+    monkeypatch.setenv("_RAMBLE_CD_WRAPPER", "1")
+
+    test_config = """
+ramble:
+  variables:
+    mpi_command: 'mpirun -n {n_ranks}'
+    batch_submit: '{execute_experiment}'
+  software:
+    packages:
+      zlib:
+        pkg_spec: zlib
+    environments:
+      shared_env:
+        packages:
+        - zlib
+  applications:
+    basic:
+      workloads:
+        test_wl:
+          experiments:
+            sweep_{n_ranks}:
+              variables:
+                n_ranks: ['1', '2', '3', '4', '5', '6', '7', '8']
+                n_nodes: '1'
+    zlib:
+      workloads:
+        ensure_installed:
+          experiments:
+            spack_run:
+              variants:
+                package_manager: spack
+              variables:
+                env_name: shared_env
+                n_ranks: '1'
+                n_nodes: '1'
+            pip_run:
+              variants:
+                package_manager: pip
+              variables:
+                env_name: shared_env
+                n_ranks: '1'
+                n_nodes: '1'
+"""
+    ws, _ = make_workspace_from_config(test_config, activate=True)
+    workspace("setup", "--dry-run")
+
+    sweep1_dir = os.path.abspath(os.path.join(ws.experiment_dir, "basic", "test_wl", "sweep_1"))
+    out_sweep = cd("sweep_*")
+    assert "Matched 8 experiments" in out_sweep
+    assert "navigating to first match 'basic.test_wl.sweep_1'" in out_sweep
+    assert "Other matches:" in out_sweep
+    assert "(+2 more)." in out_sweep
+    assert out_sweep.strip().splitlines()[-1] == sweep1_dir
+
+    spack_env_dir = os.path.abspath(os.path.join(ws.software_dir, "spack", "shared_env"))
+    pip_env_dir = os.path.abspath(os.path.join(ws.software_dir, "pip", "shared_env"))
+    fs.mkdirp(spack_env_dir)
+    fs.mkdirp(pip_env_dir)
+
+    out_sw = cd("-s")
+    assert "Matched 2 software environments" in out_sw
+    assert "navigating to first match 'spack/shared_env'" in out_sw
+    assert "Other matches: 'pip/shared_env'." in out_sw
+    assert out_sw.strip().splitlines()[-1] == spack_env_dir
+
+    assert cd("-s", "-e", "pip_run").strip() == pip_env_dir
+    assert cd("-s", "-i", "10").strip() == pip_env_dir

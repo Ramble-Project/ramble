@@ -427,11 +427,69 @@ def test_location_software_env_and_input_dirs(make_workspace_from_config):
         (["--existing", "--input-dir"], wl_in_dir),
         (["--software-env", "zlib"], sw_env_dir),
         (["--software-env", "run_2"], sw_env_dir),
+        (["-s", "-i", "2"], sw_env_dir),
+        (["-s", "-e", "run_2"], sw_env_dir),
         (["--input-dir", "ensure_installed"], wl_in_dir),
         (["--input-dir", "run_1"], wl_in_dir),
+        (["--input-dir", "-i", "1"], wl_in_dir),
+        (["--input-dir", "-e", "run_1"], wl_in_dir),
         (["--input-dir", "zlib"], app_in_dir),
     ]:
         assert location(*args).strip() == expected
+
+    with pytest.raises(RambleCommandError, match="Cannot combine experiment filter flags"):
+        location("-r", "-e", "run_1")
+    with pytest.raises(RambleCommandError, match="Cannot combine --repo with experiment filter"):
+        location("--repo", "-e", "run_1")
+
+
+def test_location_multiple_package_managers_software_envs(make_workspace_from_config):
+    ws, _ = make_workspace_from_config(
+        _basic_config(
+            """    zlib:
+      workloads:
+        ensure_installed:
+          experiments:
+            spack_run:
+              variants:
+                package_manager: spack
+              variables:
+                env_name: shared_env
+                n_ranks: '1'
+                n_nodes: '1'
+            pip_run:
+              variants:
+                package_manager: pip
+              variables:
+                env_name: shared_env
+                n_ranks: '1'
+                n_nodes: '1'
+""",
+            extra=(
+                "  software:\n"
+                "    packages:\n"
+                "      zlib:\n"
+                "        pkg_spec: zlib\n"
+                "    environments:\n"
+                "      shared_env:\n"
+                "        packages:\n"
+                "        - zlib\n"
+            ),
+        ),
+        activate=True,
+    )
+
+    spack_env_dir = os.path.abspath(os.path.join(ws.software_dir, "spack", "shared_env"))
+    pip_env_dir = os.path.abspath(os.path.join(ws.software_dir, "pip", "shared_env"))
+
+    assert location("-s").strip().splitlines() == [spack_env_dir, pip_env_dir]
+    assert location("-s", "-i", "1").strip() == spack_env_dir
+    assert location("-s", "-i", "2").strip() == pip_env_dir
+    assert location("-s", "-e", "pip_run").strip() == pip_env_dir
+    assert location("-s", "zlib.ensure_installed.pip_run").strip() == pip_env_dir
+    assert location("software/spack").strip() == os.path.abspath(
+        os.path.join(ws.software_dir, "spack")
+    )
 
 
 def test_location_repeats_templates_and_chains(make_workspace_from_config):
