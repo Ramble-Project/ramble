@@ -1110,21 +1110,22 @@ class SpackRunner(CommandRunner):
 
         args.append(pkg_spec)
 
-        self.execute(self.installer, args)
+        if pkg_spec not in self.compilers:
+            self.execute(self.installer, args)
 
-        self.load_compiler(pkg_spec)
+            self.load_compiler(pkg_spec)
 
-        self.execute(self.spack, compiler_find_args)
+            self.execute(self.spack, compiler_find_args)
+
+            if not self.dry_run:
+                self.compilers.append(pkg_spec)
 
         self._compiler_cache[cache_key] = True
 
-        if not self.dry_run:
-            self.compilers.append(pkg_spec)
-
-            if self.active:
-                self.spack.add_default_env(self.env_key, active_env)
-                self.installer.add_default_env(self.env_key, active_env)
-                self.concretizer.add_default_env(self.env_key, active_env)
+        if not self.dry_run and self.active:
+            self.spack.add_default_env(self.env_key, active_env)
+            self.installer.add_default_env(self.env_key, active_env)
+            self.concretizer.add_default_env(self.env_key, active_env)
 
     def activate(self):
         """

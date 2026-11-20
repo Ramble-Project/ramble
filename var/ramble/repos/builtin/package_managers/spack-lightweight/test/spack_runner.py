@@ -811,3 +811,24 @@ def test_compiler_info_falls_back_to_pkg_name(
         ["compiler", "info", "intel-oneapi-compilers@2025.3.2"],
         ["compiler", "info", "intel-oneapi-compilers@2025.3.2"],
     ]
+
+
+def test_compiler_install_not_repeated_across_envs(
+    monkeypatch, fake_spack_commands
+):
+    pkg_spec = "intel-oneapi-compilers@2025.3.2 target=x86_64"
+    compiler_spec = "oneapi@2025.3.2"
+    fake_spack = _FakeSpack()
+    try:
+        sr = _fake_spack_runner(monkeypatch, fake_spack, "/env1")
+        sr.install_compiler(pkg_spec, compiler_spec)
+        calls_after_env1 = len(fake_spack.calls)
+
+        sr.env_path = "/env2"
+        sr.install_compiler(pkg_spec, compiler_spec)
+    except RunnerError as e:
+        pytest.skip("%s" % e)
+
+    assert [
+        c for c in fake_spack.calls[calls_after_env1:] if c[-1] == pkg_spec
+    ] == []
