@@ -57,6 +57,16 @@ def deployment_push_setup_parser(subparser):
         help="URL to upload deployment into. Upload tar if `-t` is specified..",
     )
 
+    subparser.add_argument(
+        "--include-utilities",
+        action="store_true",
+        help=(
+            "If set, bootstrapped utilities are included in the deployment "
+            "(excluding paths matched by utility archive_exclude directives). "
+            "Default is false"
+        ),
+    )
+
     arguments.add_common_arguments(
         subparser,
         [
@@ -89,6 +99,7 @@ def deployment_push(args):
         create_tar=args.tar_archive,
         upload_url=args.upload_url,
         deployment_name=args.deployment_name,
+        include_utilities=args.include_utilities,
     )
 
     with ws.write_transaction():

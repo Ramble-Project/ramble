@@ -3538,7 +3538,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
 
             # Copy all archive patterns
             archive_patterns = set()
-            for _, obj_inst in self.objects():
+            for _, obj_inst in self.objects(include_utilities=True):
                 for when_set, patterns in getattr(
                     obj_inst, "archive_patterns", {}
                 ).items():
