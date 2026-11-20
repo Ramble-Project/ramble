@@ -734,6 +734,9 @@ class SpackRunner(CommandRunner):
     # This cache is to avoid duplicate spack compiler calls for pkg_specs within an env
     _compiler_cache: dict = {}
 
+    # This cache is to avoid duplicate `spack compiler find` calls across envs
+    _compiler_find_cache: set = set()
+
     _allowed_config_files = [
         "compilers.yaml",
         "concretizer.yaml",
@@ -983,6 +986,26 @@ class SpackRunner(CommandRunner):
                         env_var.group("var"), env_var.group("val")
                     )
 
+    def _find_compilers(self, compiler_find_args):
+        """
+        Run `spack compiler find` to register available compilers into Spack's
+        configuration, skipping duplicate runs when search paths (`PATH` or
+        arguments) and config flags have not changed.
+        """
+        runner_env = dict(self.env or os.environ)
+        runner_env.update(getattr(self.spack, "default_env", {}))
+        find_key = (
+            tuple(compiler_find_args),
+            ramble.config.get(f"{self.global_config_name}:flags"),
+            frozenset(runner_env.items()),
+        )
+        if find_key in self._compiler_find_cache:
+            logger.debug("Skipping spack compiler find, it was already run.")
+            return
+
+        self._run_command(self.spack, compiler_find_args)
+        self._compiler_find_cache.add(find_key)
+
     def install_compiler(self, pkg_spec, compiler_spec):
         """
         Ensure a compiler is installed, before using it to install packages
@@ -1023,7 +1046,7 @@ class SpackRunner(CommandRunner):
             has_compiler = self._compiler_cache[cache_key]
         else:
             if not self.dry_run:
-                self._run_command(self.spack, compiler_find_args)
+                self._find_compilers(compiler_find_args)
 
             try:
                 self._cmd_start(self.spack, comp_info_args)
