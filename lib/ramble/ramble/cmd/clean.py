@@ -11,8 +11,6 @@ import argparse
 import os
 import shutil
 
-from llnl.util import tty
-
 import ramble.caches
 from ramble.paths import lib_path, var_path
 from ramble.util.logger import logger
@@ -96,7 +94,7 @@ def remove_reports_files():
     reports_path = ramble.reports.get_reports_path()
     if reports_path:
 
-        answer = tty.get_yes_or_no(
+        answer = logger.get_yes_or_no(
             f"Really remove all reports and images from {reports_path}?",
             default=False,
         )

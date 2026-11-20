@@ -8,7 +8,8 @@
 """This module contains jsonschema files for all of Ramble's YAML formats."""
 
 import llnl.util.lang
-import llnl.util.tty
+
+from ramble.util.logger import logger
 
 # jsonschema is imported lazily as it is heavy to import
 # and increases the start-up time
@@ -35,7 +36,7 @@ def _make_validator():
 
         is_error = deprecated["error"]
         if not is_error:
-            llnl.util.tty.warn(msg)
+            logger.warn(msg)
         else:
             yield jsonschema.ValidationError(msg)
 

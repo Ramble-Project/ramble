@@ -13,6 +13,7 @@ import pytest
 
 import ramble.workspace
 from ramble.main import RambleCommand
+from ramble.util.logger import logger
 
 # everything here uses the mock_workspace_path
 pytestmark = pytest.mark.usefixtures("mutable_config", "mutable_mock_workspace_path")
@@ -22,12 +23,12 @@ workspace = RambleCommand("workspace")
 
 @pytest.fixture(scope="function")
 def enable_verbose():
-    import llnl.util.tty
-
-    old_setting = llnl.util.tty._verbose
-    llnl.util.tty._verbose = True
-    yield
-    llnl.util.tty._verbose = old_setting
+    old_setting = logger.is_verbose()
+    logger.set_verbose(True)
+    try:
+        yield
+    finally:
+        logger.set_verbose(old_setting)
 
 
 @pytest.mark.long

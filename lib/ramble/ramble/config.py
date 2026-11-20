@@ -108,8 +108,6 @@ class _RambleLineLoader(syaml.OrderedLineLoader):
     def construct_mapping(self, node, maptyp, deep=False):
         from builtins import set
 
-        import llnl.util.tty as tty
-
         seen_keys = set()
         for key_node, _ in node.value:
             key = self.construct_object(key_node, deep=True)
@@ -133,7 +131,7 @@ class _RambleLineLoader(syaml.OrderedLineLoader):
                 if key in seen_keys:
                     filename = node.start_mark.name
                     line = key_node.start_mark.line + 1
-                    tty.warn(
+                    logger.warn(
                         f'Duplicate key "{key}" detected in {filename} at line {line}. '
                         "This will overwrite the previous value."
                     )

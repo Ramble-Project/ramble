@@ -15,7 +15,6 @@ import stat
 from typing import Dict, List, Optional
 
 import llnl.util.filesystem as fs
-from llnl.util import tty
 from llnl.util.tty.colify import colify
 
 import ramble.config
@@ -241,8 +240,8 @@ class Pipeline:
             try:
                 self._construct_workspace_hash()
             except FileNotFoundError as e:
-                tty.warn("Unable to construct workspace hash due to missing file")
-                tty.warn(e)
+                logger.warn("Unable to construct workspace hash due to missing file")
+                logger.warn(e)
 
         self.workspace.write_metadata()
 

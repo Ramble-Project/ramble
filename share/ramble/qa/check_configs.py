@@ -14,7 +14,6 @@ import shutil
 import sys
 import tempfile
 
-import llnl.util.tty
 from ruamel.yaml.error import YAMLError
 
 import ramble.config
@@ -22,6 +21,7 @@ import ramble.error
 import ramble.paths
 import ramble.schema.workspace
 import ramble.workspace
+from ramble.util.logger import logger
 
 import spack.error
 import spack.util.spack_yaml as syaml
@@ -81,7 +81,7 @@ def validate_semantics(file_path):
         ws = ramble.workspace.Workspace(tmp_dir, read_default_template=False)
         ramble.workspace.activate(ws)
         try:
-            with llnl.util.tty.SuppressOutput(msg_enabled=False, warn_enabled=False):
+            with logger.suppress_output(msg_enabled=False, warn_enabled=False):
                 exp_set = ws.build_experiment_set()
             return len(exp_set.experiments)
         except SystemExit as e:

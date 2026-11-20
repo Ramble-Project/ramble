@@ -42,6 +42,76 @@ class Logger:
         """Control whether warnings are aggregated or not"""
         self._aggregated_warnings = on
 
+    def is_verbose(self):
+        """Return whether verbose logging is enabled."""
+        return tty.is_verbose()
+
+    def set_verbose(self, flag):
+        """Enable or disable verbose logging."""
+        tty.set_verbose(flag)
+
+    def debug_level(self):
+        """Return the current debug verbosity level."""
+        return tty.debug_level()
+
+    def is_debug(self, level=1):
+        """Return whether debug logging is enabled at or above ``level``."""
+        return tty.is_debug(level)
+
+    def set_debug(self, level=0):
+        """Set the debug verbosity level."""
+        tty.set_debug(level)
+
+    def set_stacktrace(self, flag):
+        """Enable or disable stacktraces on log output."""
+        tty.set_stacktrace(flag)
+
+    def set_timestamp(self, flag):
+        """Enable or disable timestamps on log output."""
+        tty.set_timestamp(flag)
+
+    def msg_enabled(self):
+        """Return whether standard message output is enabled."""
+        return tty.msg_enabled()
+
+    def set_msg_enabled(self, flag):
+        """Enable or disable standard message output."""
+        tty.set_msg_enabled(flag)
+
+    def warn_enabled(self):
+        """Return whether warning output is enabled."""
+        return tty.warn_enabled()
+
+    def set_warn_enabled(self, flag):
+        """Enable or disable warning output."""
+        tty.set_warn_enabled(flag)
+
+    def error_enabled(self):
+        """Return whether error output is enabled."""
+        return tty.error_enabled()
+
+    def set_error_enabled(self, flag):
+        """Enable or disable error output."""
+        tty.set_error_enabled(flag)
+
+    @contextmanager
+    def suppress_output(self, msg_enabled=False, warn_enabled=False, error_enabled=True):
+        """Context manager to temporarily configure output suppression.
+
+        By default, suppresses messages and warnings while keeping errors
+        enabled. Restores previous output settings on exit.
+        """
+        with tty.SuppressOutput(
+            msg_enabled=msg_enabled,
+            warn_enabled=warn_enabled,
+            error_enabled=error_enabled,
+        ):
+            yield
+
+    def get_yes_or_no(self, prompt, default=None):
+        """Prompt the user for a yes or no response."""
+        return tty.get_yes_or_no(prompt, default=default)
+
     def add_log(self, path):
         """Add a log to the current log stack
 
@@ -172,11 +242,21 @@ class Logger:
         print). Perform this action for all logs and the default log (to
         screen).
         """
+        if not self.msg_enabled():
+            return
+
         for idx, _ in enumerate(self.log_stack):
             st_kwargs = self._stream_kwargs(default_kwargs=kwargs, index=idx)
             with self.configure_colors(**st_kwargs):
                 tty.info(*args, **st_kwargs)
 
+        self.screen_msg(*args, **kwargs)
+
+    def screen_msg(self, *args, **kwargs):
+        """Print a message to the screen only, bypassing active log files.
+
+        Pass all args and kwargs to tty.msg.
+        """
         tty.msg(*args, **kwargs)
 
     def msg(self, *args, **kwargs):
@@ -185,6 +265,9 @@ class Logger:
         Pass all args and kwargs to tty.info (which will concatenate and
         print). Perform this action for the active log only.
         """
+        if not self.msg_enabled():
+            return
+
         st_kwargs = self._stream_kwargs(default_kwargs=kwargs)
         with self.configure_colors(**st_kwargs):
             tty.info(*args, **st_kwargs)
@@ -195,6 +278,9 @@ class Logger:
         Pass all args and kwargs to tty.info (which will concatenate and
         print). Perform this action for the active log only.
         """
+        if not self.msg_enabled():
+            return
+
         st_kwargs = self._stream_kwargs(default_kwargs=kwargs)
         with self.configure_colors(**st_kwargs):
             tty.info(*args, **st_kwargs)
@@ -205,9 +291,10 @@ class Logger:
         Pass all args and kwargs to tty.verbose (which will concatenate and
         print). Perform this action for the active log only.
         """
-        st_kwargs = self._stream_kwargs(default_kwargs=kwargs)
-        with self.configure_colors(**st_kwargs):
-            tty.verbose(*args, **st_kwargs)
+        if self.is_verbose():
+            st_kwargs = self._stream_kwargs(default_kwargs=kwargs)
+            with self.configure_colors(**st_kwargs):
+                tty.verbose(*args, **st_kwargs)
 
     def warn(self, *args, **kwargs):
         """Print a warning message to the active log
@@ -215,6 +302,8 @@ class Logger:
         Pass all args and kwargs to tty.warn (which will concatenate and
         print). Perform this action for the active log only.
         """
+        if not self.warn_enabled():
+            return
 
         st_kwargs = self._stream_kwargs(default_kwargs=kwargs)
         if self._aggregated_warnings:
@@ -262,7 +351,7 @@ class Logger:
         Pass all args and kwargs to tty.debug (which will concatenate and
         print). Perform this action for the active log only.
         """
-        if tty._debug:
+        if self.debug_level():
             st_kwargs = self._stream_kwargs(default_kwargs=kwargs)
             with self.configure_colors(**st_kwargs):
                 tty.debug(*args, **st_kwargs)

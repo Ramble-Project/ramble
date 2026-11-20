@@ -19,7 +19,6 @@ from typing import Optional, Set
 from ruamel import yaml
 
 import llnl.util.filesystem as fs
-from llnl.util import tty
 
 import ramble.config
 import ramble.context
@@ -1826,11 +1825,11 @@ cd "{experiment_run_dir}"
 
         insert_index = search_exp_index(self.results[namespace.experiment], insert_before_exp)
 
-        tty.debug(f"Attempting to insert result before experiment {insert_before_exp}")
+        logger.debug(f"Attempting to insert result before experiment {insert_before_exp}")
         if insert_index is not None:
             self.results[namespace.experiment].insert(insert_index, result)
         else:
-            tty.debug(f"Could not find {insert_before_exp}, appending result to end instead.")
+            logger.debug(f"Could not find {insert_before_exp}, appending result to end instead.")
             self.results[namespace.experiment].append(result)
 
     def symlink_result(self, out_file, latest_file):
@@ -2036,8 +2035,8 @@ cd "{experiment_run_dir}"
 
         if print_results:
             with open(results_written[0], encoding="utf-8") as f:
-                # Use tty directly to avoid cluttering the analyze log
-                tty.msg(f"Results from the analysis pipeline:\n{f.read()}")
+                # Print directly to screen to avoid cluttering the analyze log
+                logger.screen_msg(f"Results from the analysis pipeline:\n{f.read()}")
 
         return filename_base
 
@@ -2216,17 +2215,17 @@ cd "{experiment_run_dir}"
         if namespace.environments in software_dict:
             environments_dict = software_dict[namespace.environments]
 
-        tty.debug("Removing configurations that do not spark joy.")
+        logger.debug("Removing configurations that do not spark joy.")
         if package_dict:
             for pkg in software_environments.unused_packages():
                 if pkg.name in package_dict:
-                    tty.debug(f"Removing {pkg.name} from software packages")
+                    logger.debug(f"Removing {pkg.name} from software packages")
                     package_dict.pop(pkg.name)
                     changed = True
         if environments_dict:
             for env in software_environments.unused_environments():
                 if env.name in environments_dict:
-                    tty.debug(f"Removing {env.name} from software environments")
+                    logger.debug(f"Removing {env.name} from software environments")
                     environments_dict.pop(env.name)
                     changed = True
 
