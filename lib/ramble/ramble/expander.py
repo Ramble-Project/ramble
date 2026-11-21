@@ -324,6 +324,14 @@ class VformatDelimiter:
     right = "}"
 
 
+# Matches escaped braces (\{, \}) so they are consumed and skipped, or unescaped '{', '}', '\n'.
+_GRAPH_TOKEN_REGEX = re.compile(
+    rf"{re.escape(ExpansionDelimiter.escape)}"
+    rf"[{re.escape(ExpansionDelimiter.left)}{re.escape(ExpansionDelimiter.right)}]|"
+    rf"[{re.escape(ExpansionDelimiter.left)}{re.escape(ExpansionDelimiter.right)}\n]"
+)
+
+
 class ExpansionNode:
     """Class representing a node in a ramble expansion graph"""
 
@@ -406,20 +414,23 @@ class ExpansionNode:
         if used_vars is None:
             used_vars = set()
         if self.contents is not None:
-            parts = []
-            last_idx = 0
-            for child in self.children:
-                child_indices = child.relative_indices(self)
-                parts.append(self.contents[last_idx : child_indices[0]])
-                parts.append(str(child.value))
-                last_idx = child_indices[1] + 1
+            if self.children:
+                parts = []
+                last_idx = 0
+                self_left = self.left
+                contents = self.contents
+                for child in self.children:
+                    parts.append(contents[last_idx : child.left - self_left])
+                    parts.append(str(child.value))
+                    last_idx = child.right - self_left + 1
 
-            if last_idx != len(self.contents):
-                parts.append(self.contents[last_idx:])
-
-            if self != self.root:
+                if last_idx != len(contents):
+                    parts.append(contents[last_idx:])
                 replaced_contents = "".join(parts)
+            else:
+                replaced_contents = self.contents
 
+            if self is not self.root:
                 # Special case '{}'
                 if len(replaced_contents) == 2:
                     self.value = "{}"
@@ -429,7 +440,7 @@ class ExpansionNode:
                 format_match = None
 
                 # Only search for format specs if the keyword is not already a variable
-                if keyword not in expansion_dict:
+                if keyword not in expansion_dict and ":" in keyword:
                     format_match = format_spec_regex.search(keyword)
                 required_passthrough = False
 
@@ -487,14 +498,13 @@ class ExpansionNode:
                     if not allow_passthrough:
                         raise_passthrough_error(self.contents, self.value)
             else:
-                replaced_contents = "".join(parts)
                 try:
                     self.value = evaluation_func(replaced_contents)
                 except SyntaxError:
                     self.value = replaced_contents
 
                 # Replace escaped curly braces with curly braces
-                if replace_escaped_braces and isinstance(self.value, str):
+                if replace_escaped_braces and isinstance(self.value, str) and "\\" in self.value:
                     self.value = self.value.replace("\\{", "{").replace("\\}", "}")
 
 
@@ -503,40 +513,40 @@ class ExpansionGraph:
 
     def __init__(self, in_str):
         self.str = in_str
-        self.root = ExpansionNode(0, len(in_str) - 1)
-        self.root.contents = in_str
-        self.root.root = self.root
+        root = ExpansionNode(0, len(in_str) - 1)
+        root.contents = in_str
+        root.root = root
+        self.root = root
+
+        if ExpansionDelimiter.left not in in_str:
+            return
 
         opened = []
         children: List[List[ExpansionNode]] = []
-        escaped = False
-        for i, c in enumerate(self.str):
-            if c == ExpansionDelimiter.left and not escaped:
-                opened.append(i)
+        root_children = root.children
+        for match in _GRAPH_TOKEN_REGEX.finditer(in_str):
+            token = match.group()
+            if token == ExpansionDelimiter.left:
+                opened.append(match.start())
                 children.append([])
-            elif c == ExpansionDelimiter.right and len(opened) > 0 and not escaped:
+            elif token == ExpansionDelimiter.right and opened:
                 left_idx = opened.pop()
-                right_idx = i
+                right_idx = match.start()
 
                 cur_match = ExpansionNode(left_idx, right_idx)
-                cur_match.add_children(children.pop())
-                cur_match.contents = self.str[left_idx : right_idx + 1]  # Define contents
-                cur_match.root = self.root
+                cur_match.children = children.pop()
+                cur_match.contents = in_str[left_idx : right_idx + 1]  # Define contents
+                cur_match.root = root
 
                 if opened:
                     children[-1].append(cur_match)
                 else:
-                    self.root.add_children(cur_match)
-            elif c == "\n":  # Don't expand across new lines
-                opened = []
-
-            if c == ExpansionDelimiter.escape:
-                escaped = True
-            elif escaped:
-                escaped = False
+                    root_children.append(cur_match)
+            elif token == "\n":  # Don't expand across new lines
+                opened.clear()
 
         if opened:
-            self.root.add_children(children.pop())
+            root.add_children(children.pop())
 
     def walk(self, in_node=None):
         """Perform a DFS walk of the nodes in the graph
@@ -547,12 +557,13 @@ class ExpansionGraph:
         Yields:
             (ExpansionNode): nodes following a DFS traversal of the graph
         """
-        cur_node = in_node
-        if cur_node is None:
-            cur_node = self.root
+        cur_node = self.root if in_node is None else in_node
 
         for child in cur_node.children:
-            yield from self.walk(in_node=child)
+            if child.children:
+                yield from self.walk(in_node=child)
+            else:
+                yield child
 
         yield cur_node
 
