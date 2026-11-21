@@ -51,7 +51,8 @@ def find_all_matches(name, repo_path=None, namespace=None, obj_type=None):
     - 'path': path of the file
     - 'repo_namespace': namespace of the repository (if applicable, else None)
     """
-    matches = []
+    exact_matches = []
+    variant_matches = []
 
     extra_types = ["test", "command", "docs", "module"]
     allowed_types = ramble.repository.OBJECT_NAMES + extra_types
@@ -87,7 +88,11 @@ def find_all_matches(name, repo_path=None, namespace=None, obj_type=None):
             for repo in repos:
                 path = repo.filename_for_object_name(spec_name)
                 if os.path.isfile(path):
-                    matches.append({"type": t, "path": path, "repo_namespace": repo.namespace})
+                    match = {"type": t, "path": path, "repo_namespace": repo.namespace}
+                    if os.path.basename(os.path.dirname(path)) == spec_name:
+                        exact_matches.append(match)
+                    else:
+                        variant_matches.append(match)
         elif t in extra_types:
             # Check non-object type
             if repo_path or namespace:
@@ -107,7 +112,7 @@ def find_all_matches(name, repo_path=None, namespace=None, obj_type=None):
 
             full_path = os.path.join(path, name_file)
             if os.path.isfile(full_path):
-                matches.append({"type": t, "path": full_path, "repo_namespace": None})
+                exact_matches.append({"type": t, "path": full_path, "repo_namespace": None})
             else:
                 # Do a glob check (excluding backups/pyc)
                 files = glob.glob(full_path + ".*")
@@ -118,9 +123,9 @@ def find_all_matches(name, repo_path=None, namespace=None, obj_type=None):
                         files,
                     )
                 )
-                matches.extend({"type": t, "path": f, "repo_namespace": None} for f in files)
+                exact_matches.extend({"type": t, "path": f, "repo_namespace": None} for f in files)
 
-    return matches
+    return exact_matches if exact_matches else variant_matches
 
 
 def setup_parser(subparser):
