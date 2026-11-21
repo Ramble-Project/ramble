@@ -305,6 +305,7 @@ Specifically, this command can help you populate values in the ramble.yaml for:
   * Software definitions
   * Workspace includes
   * Workspace modifiers
+  * Workspace success criteria
 
 These can be combined over multiple invocations to express very powerful
 experiment configurations. The options are extensive, and are thus not covered
@@ -352,6 +353,15 @@ When performing the ``--remove`` action, the scope argument (``-s``) on these
 commands has a robust syntax that allows users to specify various scopes within
 a workspace (``workspace``, ``application``, ``application:workload``, or
 ``application:workload:experiment``).
+
+Success criteria can similarly be managed across scopes within a workspace
+using the ``ramble workspace manage success-criteria`` subcommand:
+
+.. code-block:: console
+
+  $ ramble workspace manage success-criteria --list
+  $ ramble workspace manage success-criteria --add -s workspace -n check_pass -m string --match "PASS"
+  $ ramble workspace manage success-criteria --remove -s workspace -n check_pass
 
 Finally, ``ramble workspace manage includes`` can be used to quickly and easy
 add includes when using a hierarchical workspace.
