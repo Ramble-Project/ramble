@@ -3154,12 +3154,16 @@ def test_exclude_removes_repeat_children(workspace_name):
         exp_path = "applications:basic:workloads:test_wl:experiments:exp_{n_nodes}"
         config("add", f"{exp_path}:n_repeats:2", global_args=global_args)
         config("add", f"{exp_path}:exclude:variables:n_nodes:[1]", global_args=global_args)
+        config(
+            "add",
+            f"{exp_path}:exclude:where:['{{repeat_index}} == 1']",
+            global_args=global_args,
+        )
 
         ws._re_read()
         exp_set = ws.build_experiment_set()
 
         assert set(exp_set.experiments.keys()) == {
             "basic.test_wl.exp_2",
-            "basic.test_wl.exp_2.1",
             "basic.test_wl.exp_2.2",
         }
