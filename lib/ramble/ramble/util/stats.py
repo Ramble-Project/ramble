@@ -23,7 +23,7 @@ def _decimal_places(value: float) -> int:
     exponent = d.as_tuple().exponent
     if not isinstance(exponent, int):
         raise ValueError(f"Invalid decimal value {value}")
-    return -exponent
+    return max(0, -exponent)
 
 
 def _max_decimal_places(values: List[float]) -> int:
@@ -101,7 +101,7 @@ class StatsVar(StatsBase):
         return f"{unit}^2"
 
     def compute(self, values: List[float]) -> float:
-        return round(statistics.variance(values), _max_decimal_places(values))
+        return round(statistics.variance(values), 2 * _max_decimal_places(values))
 
 
 class StatsStdev(StatsBase):
@@ -123,7 +123,7 @@ class StatsCoefficientOfVariation(StatsBase):
         # calculate anyway and leave the interpretation to individual experiments.
         if not mean:
             return NA
-        return round(statistics.stdev(values) / mean, _max_decimal_places(values))
+        return round(statistics.stdev(values) / mean, 4)
 
     def get_unit(self, unit: str) -> str:
         # `unit` unused
