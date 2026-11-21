@@ -86,6 +86,208 @@ def test_manage_experiments_no_overwrite_wm_vars(workspace_name):
         assert "mpi_command" not in content
 
 
+def _namespace_vars_absent(section):
+    return "variables" not in section
+
+
+def test_manage_variables_scopes_lists_and_removal(workspace_name):
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    global_args = ["-w", workspace_name]
+
+    # Seed an experiment so application, workload, and experiment scopes exist
+    workspace(
+        "manage",
+        "experiments",
+        "gromacs",
+        "--wf",
+        "water_bare",
+        "-e",
+        "exp1",
+        "--default-variable-value",
+        "1",
+        global_args=global_args,
+    )
+
+    # Add to workspace scope (default when -s is omitted), including list & '=' values
+    add_ws = workspace(
+        "manage",
+        "variables",
+        "--add",
+        "-v",
+        "omp=4",
+        "-v",
+        "ranks=[1, 2]",
+        "-v",
+        "expr=a=b",
+        global_args=global_args,
+    )
+    assert "Added 3 variables to workspace." in add_ws
+
+    # Add to application, workload, and experiment scopes
+    add_app = workspace(
+        "manage",
+        "variables",
+        "--add",
+        "-s",
+        "gromacs",
+        "-v",
+        "app_var=app_val",
+        global_args=global_args,
+    )
+    assert "Added 1 variable to workspace." in add_app
+
+    workspace(
+        "manage",
+        "variables",
+        "--add",
+        "-s",
+        "gromacs:water_bare",
+        "-v",
+        "wl_var=wl_val",
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "variables",
+        "--add",
+        "-s",
+        "gromacs:water_bare:exp1",
+        "-v",
+        "exp_var=exp_val",
+        global_args=global_args,
+    )
+
+    list_out = workspace("manage", "variables", "--list", global_args=global_args)
+    assert "Variable scope: workspace" in list_out
+    assert "omp = 4" in list_out
+    assert "ranks = ['1', '2']" in list_out
+    assert "expr = a=b" in list_out
+    assert "Variable scope: gromacs" in list_out
+    assert "app_var = app_val" in list_out
+    assert "Variable scope: gromacs:water_bare" in list_out
+    assert "wl_var = wl_val" in list_out
+    assert "Variable scope: gromacs:water_bare:exp1" in list_out
+    assert "exp_var = exp_val" in list_out
+    assert "Additional variables may come from other config scopes" in list_out
+
+    # Remove by glob across scopes
+    rem_glob = workspace(
+        "manage",
+        "variables",
+        "--remove",
+        "-s",
+        "gromacs*",
+        "-v",
+        "*_var",
+        global_args=global_args,
+    )
+    assert "Removed 3 variables from workspace." in rem_glob
+
+    # Remove by index (0 = omp)
+    rem_idx = workspace(
+        "manage",
+        "variables",
+        "--remove",
+        "-i",
+        "0",
+        global_args=global_args,
+    )
+    assert "Removed 1 variable from workspace." in rem_idx
+
+    # Remove remaining workspace variables with default pattern ('*') & verify cleanup
+    rem_rest = workspace(
+        "manage",
+        "variables",
+        "--remove",
+        "-s",
+        "workspace",
+        global_args=global_args,
+    )
+    assert "Removed " in rem_rest
+    assert "from workspace." in rem_rest
+
+    ramble.workspace.activate(ws)
+    ws._re_read()
+    assert _namespace_vars_absent(ws._get_scope_section("workspace"))
+    remaining_names = {name for _, name, _ in ws.index_variables()}
+    assert remaining_names.isdisjoint({"omp", "ranks", "expr", "app_var", "wl_var", "exp_var"})
+
+
+def test_manage_variables_overwrite_and_dry_run(workspace_name):
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    global_args = ["-w", workspace_name]
+
+    workspace("manage", "variables", "--add", "-v", "omp=4", global_args=global_args)
+
+    # Conflict without --overwrite fails
+    with pytest.raises((ramble.error.RambleCommandError, ramble.error.RambleError)):
+        workspace("manage", "variables", "--add", "-v", "omp=8", global_args=global_args)
+
+    # Overwrite updates value
+    workspace(
+        "manage",
+        "variables",
+        "--add",
+        "-o",
+        "-v",
+        "omp=8",
+        global_args=global_args,
+    )
+
+    # --dry-run prints config without persisting changes
+    dry_add = workspace(
+        "manage",
+        "variables",
+        "--add",
+        "--dry-run",
+        "-v",
+        "dryvar=1",
+        global_args=global_args,
+    )
+    assert "dryvar: '1'" in dry_add
+
+    dry_rem = workspace(
+        "manage",
+        "variables",
+        "--remove",
+        "--dry-run",
+        "-s",
+        "workspace",
+        "-v",
+        "omp",
+        global_args=global_args,
+    )
+    assert "Removed 1 variable from workspace." in dry_rem
+
+    ramble.workspace.activate(ws)
+    ws._re_read()
+    vars_after = ws.index_variables()
+    assert ("workspace", "omp", "8") in vars_after
+    assert all(name != "dryvar" for _, name, _ in vars_after)
+
+
+def test_manage_variables_validation_errors(workspace_name):
+    ws = ramble.workspace.create(workspace_name)
+    ws.write()
+    global_args = ["-w", workspace_name]
+
+    invalid_invocations = [
+        ("manage", "variables", "--add"),
+        ("manage", "variables", "--add", "-v", "justaname"),
+        ("manage", "variables", "--add", "-v", "application_name=x"),
+        ("manage", "variables", "--add", "-s", "nosuchapp", "-v", "a=1"),
+        ("manage", "variables", "--remove"),
+        ("manage", "variables", "--remove", "-i", "0", "-s", "workspace"),
+        ("manage", "variables", "--remove", "-i", "0", "-v", "a"),
+        ("manage", "variables", "--remove", "-i", "99"),
+    ]
+    for cmd_args in invalid_invocations:
+        with pytest.raises((ramble.error.RambleCommandError, ramble.error.RambleError)):
+            workspace(*cmd_args, global_args=global_args)
+
+
 _TEST_MODIFIERS = ["lscpu", "ethtool"]
 
 
