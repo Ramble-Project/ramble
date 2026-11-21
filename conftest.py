@@ -824,7 +824,7 @@ def _pytest_generate_tests_impl(metafunc):
         metafunc.parametrize("test_case_path", test_case_paths, ids=test_ids)
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def default_showwarning():
     """Fixture to restore original warnings.showwarning handler.
 
