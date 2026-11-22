@@ -13,7 +13,7 @@ from ramble.util.colors import colorize
 from spack.util.environment import EnvironmentModifications
 
 
-def activate_header(ws, shell, prompt=None, filter_group=None):
+def activate_header(ws, shell, prompt=None, filter_group=None, invalidate_workspace_cache=False):
     # Construct the commands to run
     cmds = ""
     if shell == "csh":
@@ -50,6 +50,8 @@ def activate_header(ws, shell, prompt=None, filter_group=None):
         cmds += f"export {ramble.workspace.RAMBLE_WORKSPACE_VAR}={ws.root};\n"
         if filter_group:
             cmds += f"export RAMBLE_ACTIVE_FILTER_GROUP={filter_group};\n"
+        if invalidate_workspace_cache:
+            cmds += "unset RAMBLE_WORKSPACES;\n"
         if prompt:
             cmds += "if [ -z ${RAMBLE_OLD_PS1+x} ]; then\n"
             cmds += "    if [ -z ${PS1+x} ]; then\n"

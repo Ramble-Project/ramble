@@ -229,6 +229,10 @@ To create a new Ramble workspace, you can use:
 
     $ ramble workspace create [<name>] [-d <path>]
 
+You can pass ``-a`` to ``ramble workspace create`` to create a new workspace
+and immediately activate it (for named workspaces, this fails if the workspace
+already exists).
+
 Once a workspace is created, you can activate the workspace. This allows some
 subsequent commands to work without explicitly passing in a workspace. This
 is done through:
@@ -236,6 +240,13 @@ is done through:
 .. code-block:: console
 
     $ ramble workspace activate [<name>/<path>]
+
+Alternatively, pass ``--create`` to ``ramble workspace activate`` to create
+the workspace if it does not already exist, or simply activate it if it does:
+
+.. code-block:: console
+
+    $ ramble workspace activate --create [<name>] [-d <path>]
 
 With an activated workspace, you can get information about the workspace with:
 

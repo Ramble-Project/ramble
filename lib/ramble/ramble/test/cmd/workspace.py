@@ -182,10 +182,10 @@ def test_workspace_activate_by_dir(tmpdir):
         assert f"export RAMBLE_WORKSPACE={ws_path}" in output
 
 
-def test_workspace_activate_temp():
-    """Test `ramble workspace activate --temp`."""
-    # Test without prompt decoration
-    output = workspace("activate", "--temp", "--sh")
+@pytest.mark.parametrize("extra_args", [[], ["--create"]])
+def test_workspace_activate_temp(extra_args):
+    """Test `ramble workspace activate --temp` (with and without `--create`)."""
+    output = workspace("activate", *extra_args, "--temp", "--sh")
 
     match = re.search(r"export RAMBLE_WORKSPACE=([^;]+)", output)
     workspace_path = match.group(1)
@@ -202,6 +202,186 @@ def test_workspace_activate_non_existent():
 def test_workspace_activate_no_args():
     output = workspace("activate", fail_on_error=False)
     assert "ramble workspace activate requires a workspace name, directory, or --temp" in output
+
+
+def test_workspace_activate_create_named(monkeypatch):
+    """Test `ramble workspace activate --create` for named workspaces."""
+    monkeypatch.delenv("TERM", raising=False)
+    ws_name = "create_or_activate_named"
+    assert not ramble.workspace.exists(ws_name)
+
+    # First call creates and activates the workspace
+    output = workspace("activate", "--create", "--prompt", ws_name, "--sh")
+    ws_root = ramble.workspace.root(ws_name)
+    assert ramble.workspace.exists(ws_name)
+    assert ramble.workspace.is_workspace_dir(ws_root)
+    assert f"export RAMBLE_WORKSPACE={ws_root};" in output
+    assert "unset RAMBLE_WORKSPACES;" in output
+    assert f"[{ws_name}]" in output
+    assert f"Created and activated workspace in {ws_name}" in output
+
+    # Modify ramble.yaml to verify subsequent --create call preserves existing config
+    cfg_path = ramble.workspace.config_file(ws_root)
+    with open(cfg_path, encoding="utf-8") as f:
+        original_cfg = f.read()
+    custom_cfg = original_cfg + "\n# marker comment\n"
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        f.write(custom_cfg)
+
+    # Second call activates existing workspace without recreating or invalidating cache
+    ramble.workspace.deactivate()
+    output = workspace("activate", "--create", ws_name, "--sh")
+    assert f"export RAMBLE_WORKSPACE={ws_root};" in output
+    assert "unset RAMBLE_WORKSPACES;" not in output
+    assert "Created and activated workspace" not in output
+    with open(cfg_path, encoding="utf-8") as f:
+        assert f.read() == custom_cfg
+
+    # Non-sh shells do not emit bash completion cache invalidation
+    for shell_flag, expected_cmd in [
+        ("--csh", "setenv RAMBLE_WORKSPACE"),
+        ("--fish", "set -gx RAMBLE_WORKSPACE"),
+        ("--bat", 'set "RAMBLE_WORKSPACE='),
+    ]:
+        ramble.workspace.deactivate()
+        out = workspace("activate", "--create", f"create_or_activate_{shell_flag[2:]}", shell_flag)
+        assert expected_cmd in out
+        assert "RAMBLE_WORKSPACES" not in out
+
+
+def test_workspace_activate_create_dir(tmpdir):
+    """Test `ramble workspace activate --create -d` for directory workspaces."""
+    with tmpdir.as_cwd():
+        # Explicit -d flag creates and activates an anonymous directory workspace
+        output = workspace("activate", "--create", "-d", "dir_ws", "--sh")
+        dir_ws_path = os.path.abspath("dir_ws")
+        assert ramble.workspace.is_workspace_dir(dir_ws_path)
+        assert f"export RAMBLE_WORKSPACE={dir_ws_path};" in output
+        assert "unset RAMBLE_WORKSPACES;" not in output
+        assert f"Created and activated workspace in {dir_ws_path}" in output
+
+        # Calling again preserves existing workspace and does not re-create
+        cfg_path = ramble.workspace.config_file(dir_ws_path)
+        with open(cfg_path, encoding="utf-8") as f:
+            custom_cfg = f.read() + "\n# keep me\n"
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            f.write(custom_cfg)
+
+        ramble.workspace.deactivate()
+        output = workspace("activate", "--create", "-d", "dir_ws", "--sh")
+        assert f"export RAMBLE_WORKSPACE={dir_ws_path};" in output
+        assert "Created and activated workspace" not in output
+        with open(cfg_path, encoding="utf-8") as f:
+            assert f.read() == custom_cfg
+
+        # Existing directory workspace can still be activated with --create without -d
+        ramble.workspace.deactivate()
+        output = workspace("activate", "--create", "./dir_ws", "--sh")
+        assert f"export RAMBLE_WORKSPACE={dir_ws_path};" in output
+        assert "Created and activated workspace" not in output
+
+        # Nested paths and '.' work with -d
+        nested_target = os.path.join("nested", "sub_ws")
+        ramble.workspace.deactivate()
+        output = workspace("activate", "--create", "-d", nested_target, "--sh")
+        abs_nested = os.path.abspath(nested_target)
+        assert ramble.workspace.is_workspace_dir(abs_nested)
+        assert f"export RAMBLE_WORKSPACE={abs_nested};" in output
+        assert "unset RAMBLE_WORKSPACES;" not in output
+        assert f"Created and activated workspace in {abs_nested}" in output
+
+        dot_dir = tmpdir.mkdir("dot_ws")
+        with dot_dir.as_cwd():
+            ramble.workspace.deactivate()
+            output = workspace("activate", "--create", "-d", ".", "--sh")
+            dot_path = os.path.abspath(".")
+            assert ramble.workspace.is_workspace_dir(dot_path)
+            assert f"export RAMBLE_WORKSPACE={dot_path};" in output
+
+
+def test_workspace_activate_create_parent_dir(tmpdir):
+    """Test `ramble workspace activate --create` with `--parent-dir`."""
+    with tmpdir.as_cwd():
+        wsdir1 = os.path.join(os.getcwd(), "ws1")
+        wsdir2 = os.path.join(os.getcwd(), "ws2")
+        os.makedirs(wsdir1)
+        os.makedirs(wsdir2)
+
+        # Also create a same-named directory workspace in CWD to ensure --parent-dir
+        # does not accidentally fall back to CWD
+        workspace("create", "-d", "shared_name")
+
+        with ramble.config.override("config:workspace_dirs", [wsdir1, wsdir2]):
+            # Create in wsdir2 via --parent-dir
+            output = workspace(
+                "activate", "--create", "--parent-dir", wsdir2, "shared_name", "--sh"
+            )
+            ws2_path = os.path.join(wsdir2, "shared_name")
+            assert ramble.workspace.is_workspace_dir(ws2_path)
+            assert f"export RAMBLE_WORKSPACE={ws2_path};" in output
+            assert "Created and activated workspace in shared_name" in output
+
+            # Second call activates wsdir2/shared_name without recreating
+            ramble.workspace.deactivate()
+            output = workspace(
+                "activate", "--create", "--parent-dir", wsdir2, "shared_name", "--sh"
+            )
+            assert f"export RAMBLE_WORKSPACE={ws2_path};" in output
+            assert "Created and activated workspace" not in output
+
+            # Create in wsdir1 via --parent-dir even though wsdir2/shared_name exists
+            ramble.workspace.deactivate()
+            output = workspace(
+                "activate", "--create", "--parent-dir", wsdir1, "shared_name", "--sh"
+            )
+            ws1_path = os.path.join(wsdir1, "shared_name")
+            assert ramble.workspace.is_workspace_dir(ws1_path)
+            assert f"export RAMBLE_WORKSPACE={ws1_path};" in output
+            assert "Created and activated workspace in shared_name" in output
+
+
+def test_workspace_activate_create_switches_active_workspace():
+    """Test activating/creating a new workspace while another workspace is active."""
+    ws1 = ramble.workspace.create("active_ws1")
+    ws1.write()
+    ramble.workspace.activate(ws1)
+
+    output = workspace("activate", "--create", "active_ws2", "--sh")
+    ws2_root = ramble.workspace.root("active_ws2")
+    assert "unset RAMBLE_WORKSPACE;" in output
+    assert f"export RAMBLE_WORKSPACE={ws2_root};" in output
+    assert "unset RAMBLE_WORKSPACES;" in output
+    assert ramble.workspace.active_workspace().root == ws2_root
+
+
+def test_workspace_activate_create_errors(tmpdir):
+    """Test error cases for `ramble workspace activate --create`."""
+    # Missing shell flag fails before creating anything on disk
+    output = workspace("activate", "--create", "no_shell_ws", fail_on_error=False)
+    assert workspace.returncode == 1
+    assert "To set up shell support" in output
+    assert not ramble.workspace.exists("no_shell_ws")
+
+    # Missing target
+    output = workspace("activate", "--create", "--sh", fail_on_error=False)
+    assert workspace.returncode != 0
+    assert "ramble workspace activate requires a workspace name, directory, or --temp" in output
+
+    # Conflicting --parent-dir with -d or --temp
+    for extra_args in [["-d", "some_dir"], ["--temp"]]:
+        output = workspace(
+            "activate", "--parent-dir", "/tmp", "--sh", *extra_args, fail_on_error=False
+        )
+        assert workspace.returncode != 0
+        assert "--parent-dir can only be used with a named workspace" in output
+
+    # Invalid workspace names (including paths without -d) fail without creating a directory
+    with tmpdir.as_cwd():
+        for bad_name in ["bad@name", "./non_existent_dir"]:
+            output = workspace("activate", "--create", bad_name, "--sh", fail_on_error=False)
+            assert workspace.returncode != 0
+            assert not ramble.workspace.exists(bad_name)
+            assert not os.path.exists(bad_name)
 
 
 def test_workspace_deactivate(workspace_name, working_env):

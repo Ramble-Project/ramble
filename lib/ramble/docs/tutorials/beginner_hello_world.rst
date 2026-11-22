@@ -69,6 +69,15 @@ so subsequent Ramble commands automatically apply to it:
 
     $ ramble workspace activate hello_world
 
+.. tip::
+   You can also combine creating and activating a workspace into a single command:
+
+   * ``ramble workspace create -a hello_world`` creates a new workspace and immediately activates
+     it (failing if a named workspace with that name already exists).
+   * ``ramble workspace activate --create hello_world`` (or
+     ``ramble workspace activate --create -d <path>`` for an anonymous workspace) creates the
+     workspace if it does not exist yet, or simply activates it if it already exists.
+
 To verify the workspace is active and inspect its current configuration, run:
 
 .. code-block:: console
