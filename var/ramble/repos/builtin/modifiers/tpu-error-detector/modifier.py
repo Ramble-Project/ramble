@@ -16,7 +16,7 @@ class TpuErrorDetector(BasicModifier):
 
     tags("tpu", "diagnostics")
 
-    maintainers("simrankaurb", "tileggett")
+    maintainers("tileggett")
 
     mode("standard", description="Standard TPU error detection mode")
     default_mode("standard")

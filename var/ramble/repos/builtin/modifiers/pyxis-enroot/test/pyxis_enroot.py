@@ -7,11 +7,12 @@
 # except according to those terms.
 
 import os
+import re
 
 import pytest
 
-import ramble.repository
 from ramble.main import RambleCommand
+from ramble.workspace import WORKSPACE_EXECUTION_SCRIPT
 
 workspace = RambleCommand("workspace")
 
@@ -22,11 +23,57 @@ pytestmark = pytest.mark.usefixtures(
 
 
 def test_pyxis_enroot_forwards_slurm_env_vars(make_workspace_from_config):
-    """Test pyxis-enroot includes Slurm task variables and container_path."""
-    pyxis_cls = ramble.repository.paths[
-        ramble.repository.ObjectTypes.modifiers
-    ].get_obj_class("pyxis-enroot")
-    for slurm_var in (
+    """Test pyxis-enroot forwards Slurm task variables and sets container_path."""
+    ws, ws_name = make_workspace_from_config()
+    global_args = ["-w", ws_name]
+
+    workspace(
+        "manage",
+        "experiments",
+        "hostname",
+        "--wf",
+        "parallel",
+        "-e",
+        "test_pyxis",
+        "-V",
+        "workflow_manager=slurm-pyxis",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        "-v",
+        "container_uri=docker://alpine:latest",
+        "-v",
+        "container_name=alpine",
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "-n",
+        "pyxis-enroot",
+        global_args=global_args,
+    )
+    workspace("setup", "--dry-run", global_args=global_args)
+
+    exec_path = os.path.join(
+        ws.experiment_dir,
+        "hostname",
+        "parallel",
+        "test_pyxis",
+        WORKSPACE_EXECUTION_SCRIPT,
+    )
+    with open(exec_path, encoding="utf-8") as f:
+        content = f.read()
+
+    assert "--container-image" in content
+    assert "alpine.sqsh" in content
+
+    match = re.search(r"--container-env\s+(\S+)", content)
+    assert match is not None, f"Missing --container-env in:\n{content}"
+    forwarded = set(match.group(1).split(","))
+    expected_slurm_vars = {
         "SLURM_JOB_ID",
         "SLURM_JOB_NODELIST",
         "SLURM_STEP_NODELIST",
@@ -35,40 +82,5 @@ def test_pyxis_enroot_forwards_slurm_env_vars(make_workspace_from_config):
         "SLURM_PROCID",
         "SLURM_NODEID",
         "SLURM_LOCALID",
-    ):
-        assert slurm_var in pyxis_cls._SLURM_CONTAINER_ENV_VARS
-
-    test_config = """
-ramble:
-  variants:
-    workflow_manager: slurm-pyxis
-  variables:
-    processes_per_node: 1
-    n_nodes: 1
-    container_uri: docker://alpine:latest
-    container_name: alpine
-  modifiers:
-  - name: pyxis-enroot
-  applications:
-    hostname:
-      workloads:
-        parallel:
-          experiments:
-            test_pyxis: {}
-"""
-    ws, _ = make_workspace_from_config(test_config)
-    workspace("setup", "--dry-run", global_args=["-D", ws.root])
-
-    exec_path = os.path.join(
-        ws.experiment_dir,
-        "hostname",
-        "parallel",
-        "test_pyxis",
-        "execute_experiment",
-    )
-    with open(exec_path, encoding="utf-8") as f:
-        content = f.read()
-        assert "--container-image" in content
-        assert "alpine.sqsh" in content
-        assert "SLURM_JOB_NODELIST" in content
-        assert "SLURM_PROCID" in content
+    }
+    assert expected_slurm_vars.issubset(forwarded)

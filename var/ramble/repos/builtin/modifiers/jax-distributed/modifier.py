@@ -43,9 +43,8 @@ class JaxDistributed(BasicModifier):
         modes=["standard"],
     )
 
-    modifier_variable(
+    required_variable(
         "node_local_libtpu_init_args",
-        default="--xla_tpu_use_enhanced_launch_barrier=false --megascale_error_reporter_abort_on_hang=true",
         description="LIBTPU_INIT_ARGS flags for node-local (single-host) TPU initialization",
         modes=["node-local"],
     )
@@ -53,7 +52,7 @@ class JaxDistributed(BasicModifier):
     # Register environment variable modifications so ContainerBase forwards them into container_env_vars
     env_var_modification(
         "JAX_COORDINATOR_ADDRESS",
-        modification="{jax_coordinator_address}",
+        modification="${JAX_COORDINATOR_ADDRESS:-{jax_coordinator_address}}",
         method="set",
         modes=["standard"],
     )

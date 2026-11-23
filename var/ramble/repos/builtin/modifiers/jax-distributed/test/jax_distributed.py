@@ -7,12 +7,13 @@
 # except according to those terms.
 
 import os
+import re
 
 import pytest
 
-import ramble.repository
+from ramble.experiment_set import RambleVariableDefinitionError
 from ramble.main import RambleCommand
-from ramble.util.executable import CommandExecutable
+from ramble.workspace import WORKSPACE_EXECUTION_SCRIPT
 
 workspace = RambleCommand("workspace")
 
@@ -22,138 +23,326 @@ pytestmark = pytest.mark.usefixtures(
 )
 
 
-@pytest.fixture
-def jax_dist_mod_cls():
-    return ramble.repository.paths[
-        ramble.repository.ObjectTypes.modifiers
-    ].get_obj_class("jax-distributed")
-
-
-def test_jax_distributed_modifier_definition(jax_dist_mod_cls):
-    """Test jax-distributed modifier variables and basic properties."""
-    inst = jax_dist_mod_cls("/mock/path")
-    assert inst.name == "jax-distributed"
-    assert "tpu" in inst.tags
-    assert "jax" in inst.tags
-    assert "slurm" not in inst.tags
-    assert "distributed" not in inst.tags
-
-    mod_vars = {
-        var.name
-        for var_list in inst.object_variables.values()
-        for var in var_list
-    }
-    assert "jax_coordinator_port" in mod_vars
-    assert "jax_coordinator_address" in mod_vars
-    assert "node_local_libtpu_init_args" in mod_vars
-    assert "jax_export_node_rank" not in mod_vars
-
-    env_vars = [
-        name
-        for when_set in inst.env_var_modifications.values()
-        for name in when_set
-    ]
-    assert "JAX_COORDINATOR_ADDRESS" in env_vars
-    assert "JAX_COORDINATOR_PORT" in env_vars
-    assert "JAX_NUM_PROCESSES" in env_vars
-    assert "JAX_PROCESS_ID" in env_vars
-    assert "TPU_HOST_BOUNDS" in env_vars
-    assert "TPU_SKIP_MDS_QUERY" in env_vars
-    assert "TPU_WORKER_ID" in env_vars
-    assert "TPU_WORKER_HOSTNAMES" in env_vars
-    assert "LIBTPU_INIT_ARGS" in env_vars
-    assert "SLURM_PROCID" not in env_vars
-    assert "SLURM_NTASKS" not in env_vars
-    assert "SLURM_NODEID" not in env_vars
-
-
-def test_jax_coordinator_setup(jax_dist_mod_cls):
-    """Test jax_coordinator_setup injects multi-WLM discovery script."""
-    inst = jax_dist_mod_cls("/mock/path")
-    exec_cmd = CommandExecutable(
-        "test_exec",
-        template=["python3 test.py"],
-        mpi=True,
-    )
-    pre_cmds, post_cmds = inst.jax_coordinator_setup("test_exec", exec_cmd)
-    assert len(pre_cmds) == 1
-    assert len(post_cmds) == 0
-    script = pre_cmds[0].template[0]
-    assert "MEGASCALE_COORDINATOR_ADDRESS" in script
-    assert "TPU_WORKER_HOSTNAMES" in script
-    assert "scontrol show hostnames" in script
-    assert "BATCH_HOSTS_FILE" in script
-    assert "/etc/mpi/hostfile" in script
-    assert "PBS_NODEFILE" in script
-    assert "LSB_HOSTS" in script
-    assert "JAX_COORDINATOR_ADDRESS" in script
-    assert "JAX_COORDINATOR_PORT" in script
-    assert exec_cmd.template == ["python3 test.py"]
-
-    # In node-local mode, coordinator bootstrap script is skipped
-    inst.set_usage_mode("node-local")
-    pre_cmds_local, _ = inst.jax_coordinator_setup("test_exec", exec_cmd)
-    assert len(pre_cmds_local) == 0
-
-
-def test_jax_distributed_dry_run_modes(make_workspace_from_config):
-    """Test jax-distributed modifier in standard and node-local modes."""
-    test_config = """
-ramble:
-  variables:
-    processes_per_node: 1
-    n_nodes: 1
-    mpi_command: ''
-    batch_submit: '{execute_experiment}'
-  applications:
-    hostname:
-      workloads:
-        local:
-          experiments:
-            test_standard:
-              modifiers:
-              - name: jax-distributed
-                mode: standard
-            test_node_local:
-              modifiers:
-              - name: jax-distributed
-                mode: node-local
-"""
-    ws, _ = make_workspace_from_config(test_config)
-    workspace("setup", "--dry-run", global_args=["-D", ws.root])
-
-    std_exec = os.path.join(
+def _exec_script_path(ws, app, workload, experiment):
+    return os.path.join(
         ws.experiment_dir,
-        "hostname",
-        "local",
-        "test_standard",
-        "execute_experiment",
+        app,
+        workload,
+        experiment,
+        WORKSPACE_EXECUTION_SCRIPT,
     )
-    with open(std_exec, encoding="utf-8") as f:
-        std_content = f.read()
-        assert (
-            'export JAX_COORDINATOR_PORT="${JAX_COORDINATOR_PORT:-8471}";'
-            in std_content
-        )
-        assert (
-            "export JAX_COORDINATOR_PORT=${JAX_COORDINATOR_PORT:-8471}"
-            in std_content
-        )
-        assert "scontrol show hostnames" in std_content
-        assert "TPU_HOST_BOUNDS" not in std_content
 
-    local_exec = os.path.join(
-        ws.experiment_dir,
+
+def _read_execute_experiment(ws, app, workload, experiment):
+    with open(
+        _exec_script_path(ws, app, workload, experiment), encoding="utf-8"
+    ) as f:
+        return f.read()
+
+
+def test_jax_distributed_standard_mode(make_workspace_from_config):
+    """Test jax-distributed standard (default) mode script generation and isolation."""
+    ws, ws_name = make_workspace_from_config()
+    global_args = ["-w", ws_name]
+
+    # Default mode on 2-executable workload (verifies usage_filter="once").
+    workspace(
+        "manage",
+        "experiments",
         "hostname",
+        "--wf",
+        "local_bg",
+        "-e",
+        "test_default",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "-n",
+        "jax-distributed",
+        "-s",
+        "hostname:local_bg:test_default",
+        global_args=global_args,
+    )
+
+    # Explicit standard mode with coordinator address and port overrides.
+    workspace(
+        "manage",
+        "experiments",
+        "hostname",
+        "--wf",
         "local",
+        "-e",
+        "test_overrides",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        "-v",
+        "jax_coordinator_address=10.0.0.1",
+        "-v",
+        "jax_coordinator_port=9999",
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "-n",
+        "jax-distributed",
+        "-m",
+        "standard",
+        "-s",
+        "hostname:local:test_overrides",
+        global_args=global_args,
+    )
+
+    workspace("setup", "--dry-run", global_args=global_args)
+
+    # Default mode exports preserve any caller-supplied values.
+    default_content = _read_execute_experiment(
+        ws, "hostname", "local_bg", "test_default"
+    )
+    assert (
+        'export JAX_COORDINATOR_ADDRESS="${JAX_COORDINATOR_ADDRESS:-}"'
+        in default_content
+    )
+    assert (
+        'export JAX_COORDINATOR_PORT="${JAX_COORDINATOR_PORT:-8471}"'
+        in default_content
+    )
+    assert (
+        'export JAX_NUM_PROCESSES="${JAX_NUM_PROCESSES:-}"' in default_content
+    )
+    assert 'export JAX_PROCESS_ID="${JAX_PROCESS_ID:-}"' in default_content
+
+    # Bootstrap injects once across the 2-executable local_bg workload.
+    assert (
+        default_content.count('if [ -z "${JAX_COORDINATOR_ADDRESS:-}" ]; then')
+        == 1
+    )
+
+    # Verify coordinator discovery branches and expanded default port are present.
+    for token in (
+        "MEGASCALE_COORDINATOR_ADDRESS",
+        "TPU_WORKER_HOSTNAMES",
+        "SLURM_JOB_NODELIST",
+        "BATCH_HOSTS_FILE",
+        "/etc/mpi/hostfile",
+        "PBS_NODEFILE",
+        "LSB_HOSTS",
+        "OMPI_MCA_orte_hnp_uri",
+        "KUBERNETES_SERVICE_HOST",
+        "export JAX_COORDINATOR_PORT=${JAX_COORDINATOR_PORT:-8471}",
+    ):
+        assert token in default_content
+
+    # Mode isolation: node-local env vars must not be set in standard mode.
+    for node_local_var in (
+        "TPU_HOST_BOUNDS",
+        "TPU_SKIP_MDS_QUERY",
+        "TPU_WORKER_ID",
+        "LIBTPU_INIT_ARGS",
+    ):
+        assert node_local_var not in default_content
+    assert "export TPU_WORKER_HOSTNAMES=" not in default_content
+
+    # Standard mode variable overrides expand into both exports and bootstrap.
+    override_content = _read_execute_experiment(
+        ws, "hostname", "local", "test_overrides"
+    )
+    assert (
+        'export JAX_COORDINATOR_ADDRESS="${JAX_COORDINATOR_ADDRESS:-10.0.0.1}"'
+        in override_content
+    )
+    assert (
+        'export JAX_COORDINATOR_PORT="${JAX_COORDINATOR_PORT:-9999}"'
+        in override_content
+    )
+    assert (
+        "export JAX_COORDINATOR_PORT=${JAX_COORDINATOR_PORT:-9999}"
+        in override_content
+    )
+
+
+def test_jax_distributed_node_local_mode(make_workspace_from_config):
+    """Test jax-distributed node-local mode, required var, and isolation."""
+    ws, ws_name = make_workspace_from_config()
+    global_args = ["-w", ws_name]
+
+    workspace(
+        "manage",
+        "experiments",
+        "hostname",
+        "--wf",
+        "local",
+        "-e",
         "test_node_local",
-        "execute_experiment",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=global_args,
     )
-    with open(local_exec, encoding="utf-8") as f:
-        local_content = f.read()
-        assert "export TPU_HOST_BOUNDS=1,1,1;" in local_content
-        assert "export TPU_SKIP_MDS_QUERY=true;" in local_content
-        assert "export TPU_WORKER_ID=0;" in local_content
-        assert "export TPU_WORKER_HOSTNAMES=localhost;" in local_content
-        assert "--xla_tpu_use_enhanced_launch_barrier=false" in local_content
-        assert "scontrol show hostnames" not in local_content
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "-n",
+        "jax-distributed",
+        "-m",
+        "node-local",
+        global_args=global_args,
+    )
+
+    # Without a TPU platform or explicit variable, setup rejects missing
+    # required variable node_local_libtpu_init_args.
+    with pytest.raises(RambleVariableDefinitionError):
+        workspace("setup", "--dry-run", global_args=global_args)
+
+    workspace(
+        "manage",
+        "experiments",
+        "hostname",
+        "--wf",
+        "local",
+        "-e",
+        "test_node_local",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        "-v",
+        "node_local_libtpu_init_args=--custom_flag=true",
+        "--overwrite",
+        global_args=global_args,
+    )
+    workspace("setup", "--dry-run", global_args=global_args)
+
+    local_content = _read_execute_experiment(
+        ws, "hostname", "local", "test_node_local"
+    )
+    for node_local_var in (
+        "TPU_HOST_BOUNDS",
+        "TPU_SKIP_MDS_QUERY",
+        "TPU_WORKER_ID",
+        "TPU_WORKER_HOSTNAMES",
+    ):
+        assert f"export {node_local_var}=" in local_content
+    assert (
+        'export LIBTPU_INIT_ARGS="${LIBTPU_INIT_ARGS} --custom_flag=true"'
+        in local_content
+    )
+    for standard_var in (
+        "JAX_COORDINATOR_ADDRESS",
+        "JAX_COORDINATOR_PORT",
+        "JAX_NUM_PROCESSES",
+        "JAX_PROCESS_ID",
+    ):
+        assert standard_var not in local_content
+
+
+@pytest.mark.parametrize(
+    "mode,extra_vars,expected_vars,excluded_vars",
+    [
+        pytest.param(
+            "standard",
+            [],
+            {
+                "JAX_COORDINATOR_ADDRESS",
+                "JAX_COORDINATOR_PORT",
+                "JAX_NUM_PROCESSES",
+                "JAX_PROCESS_ID",
+            },
+            {
+                "TPU_HOST_BOUNDS",
+                "TPU_SKIP_MDS_QUERY",
+                "TPU_WORKER_ID",
+                "TPU_WORKER_HOSTNAMES",
+                "LIBTPU_INIT_ARGS",
+            },
+            id="standard",
+        ),
+        pytest.param(
+            "node-local",
+            ["-v", "node_local_libtpu_init_args=--custom_flag=true"],
+            {
+                "TPU_HOST_BOUNDS",
+                "TPU_SKIP_MDS_QUERY",
+                "TPU_WORKER_ID",
+                "TPU_WORKER_HOSTNAMES",
+                "LIBTPU_INIT_ARGS",
+            },
+            {
+                "JAX_COORDINATOR_ADDRESS",
+                "JAX_COORDINATOR_PORT",
+                "JAX_NUM_PROCESSES",
+                "JAX_PROCESS_ID",
+            },
+            id="node-local",
+        ),
+    ],
+)
+def test_jax_distributed_container_env_forwarding(
+    make_workspace_from_config, mode, extra_vars, expected_vars, excluded_vars
+):
+    """Test ContainerBase forwards jax-distributed env vars for the active mode."""
+    ws, ws_name = make_workspace_from_config()
+    global_args = ["-w", ws_name]
+
+    workspace(
+        "manage",
+        "experiments",
+        "hostname",
+        "--wf",
+        "parallel",
+        "-e",
+        "test_container",
+        "-V",
+        "workflow_manager=slurm-pyxis",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        "-v",
+        "container_uri=docker://alpine:latest",
+        "-v",
+        "container_name=alpine",
+        *extra_vars,
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "-n",
+        "jax-distributed",
+        "-m",
+        mode,
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "-n",
+        "pyxis-enroot",
+        global_args=global_args,
+    )
+    workspace("setup", "--dry-run", global_args=global_args)
+
+    content = _read_execute_experiment(
+        ws, "hostname", "parallel", "test_container"
+    )
+    match = re.search(r"--container-env\s+(\S+)", content)
+    assert match is not None, f"Missing --container-env in:\n{content}"
+
+    forwarded = set(match.group(1).split(","))
+    assert expected_vars.issubset(forwarded)
+    assert excluded_vars.isdisjoint(forwarded)

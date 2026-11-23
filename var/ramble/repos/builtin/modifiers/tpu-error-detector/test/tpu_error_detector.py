@@ -119,30 +119,38 @@ def test_tpu_error_detector_profiler_env_benchmark(tpu_error_mod_cls):
 
 def test_tpu_error_detector_workspace_analyze(make_workspace_from_config):
     """Test tpu-error-detector FOM extraction during workspace analysis."""
-    test_config = """
-ramble:
-  modifiers:
-  - name: tpu-error-detector
-  variables:
-    processes_per_node: 1
-    n_nodes: 1
-    mpi_command: ''
-    batch_submit: '{execute_experiment}'
-  applications:
-    hostname:
-      workloads:
-        local:
-          experiments:
-            test_error: {}
-"""
-    ws, _ = make_workspace_from_config(test_config)
-    workspace("setup", "--dry-run", global_args=["-D", ws.root])
+    ws, ws_name = make_workspace_from_config()
+    global_args = ["-w", ws_name]
+
+    workspace(
+        "manage",
+        "experiments",
+        "hostname",
+        "--wf",
+        "local",
+        "-e",
+        "test_error",
+        "-v",
+        "n_nodes=1",
+        "-v",
+        "processes_per_node=1",
+        global_args=global_args,
+    )
+    workspace(
+        "manage",
+        "modifiers",
+        "--add",
+        "-n",
+        "tpu-error-detector",
+        global_args=global_args,
+    )
+    workspace("setup", "--dry-run", global_args=global_args)
 
     run_dir = os.path.join(
         ws.experiment_dir, "hostname", "local", "test_error"
     )
     with open(
-        os.path.join(run_dir, "test_error.out"), "w+", encoding="utf-8"
+        os.path.join(run_dir, "test_error.out"), "w", encoding="utf-8"
     ) as f:
         f.write(
             "node0.local\n"
@@ -151,7 +159,7 @@ ramble:
             "RuntimeError: Failed to initialize PJRT client\n"
         )
 
-    workspace("analyze", global_args=["-D", ws.root])
+    workspace("analyze", global_args=global_args)
     with open(
         os.path.join(ws.results_dir, "results.latest.txt"), encoding="utf-8"
     ) as f:
