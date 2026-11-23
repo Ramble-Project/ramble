@@ -8,12 +8,12 @@
 
 import pytest
 
-import ramble.util.naming
+from ramble.util import naming
 
 
 @pytest.fixture()
 def trie():
-    return ramble.util.naming.NamespaceTrie()
+    return naming.NamespaceTrie()
 
 
 def test_add_single(trie):

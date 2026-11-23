@@ -363,8 +363,8 @@ class URLFetchStrategy(FetchStrategy):
         else:
             # Telling urllib to check if url is accessible
             try:
-                url, _, response = ramble.util.web.read_from_url(url)
-            except ramble.util.web.RambleWebError as werr:
+                url, _, response = web_util.read_from_url(url)
+            except web_util.RambleWebError as werr:
                 msg = f"Urllib fetch failed to verify url {url}\n with error {werr}"
                 raise FailedDownloadError(url, msg) from None
             return response.getcode() is None or response.getcode() == 200
@@ -398,8 +398,8 @@ class URLFetchStrategy(FetchStrategy):
 
         # Run urllib but grab the mime type from the http headers
         try:
-            url, headers, response = ramble.util.web.read_from_url(url)
-        except ramble.util.web.RambleWebError as e:
+            url, headers, response = web_util.read_from_url(url)
+        except web_util.RambleWebError as e:
             # clean up archive on failure.
             if self.archive_file:
                 os.remove(self.archive_file)
@@ -1354,12 +1354,12 @@ class S3FetchStrategy(URLFetchStrategy):
         basename = os.path.basename(parsed_url.path)
 
         with working_dir(self.stage.path):
-            _, headers, stream = ramble.util.web.read_from_url(self.url)
+            _, headers, stream = web_util.read_from_url(self.url)
 
             with open(basename, "wb") as f:
                 shutil.copyfileobj(stream, f)
 
-            content_type = ramble.util.web.get_header(headers, "Content-type")
+            content_type = web_util.get_header(headers, "Content-type")
 
         if content_type == "text/html":
             warn_content_type_mismatch(self.archive_file or "the archive")
@@ -1386,8 +1386,6 @@ class GCSFetchStrategy(URLFetchStrategy):
 
     @_needs_stage
     def fetch(self):
-        import ramble.util.web as web_util
-
         if self.archive_file:
             logger.debug(f"Already downloaded {self.archive_file}")
             return

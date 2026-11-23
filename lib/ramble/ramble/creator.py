@@ -12,7 +12,7 @@ import llnl.util.filesystem as fs
 
 import ramble.paths
 import ramble.repository
-import ramble.util.naming as nm
+from ramble.util import naming
 
 
 def get_template(object_type):
@@ -66,7 +66,7 @@ def create_object(
     object_type, name, repo_name_or_path=None, base_class=None, maintainers=None, tags=None
 ):
     """Generates directory and template stub for a new object definition."""
-    nm.validate_module_name(name)
+    naming.validate_module_name(name)
 
     # Retrieve/validate repository
     repo = get_target_repo(repo_name_or_path, object_type)
@@ -80,7 +80,7 @@ def create_object(
         raise FileExistsError(f"Object directory already exists: '{obj_dir}'")
 
     # Determine Class Name
-    class_name = nm.mod_to_class(name)
+    class_name = naming.mod_to_class(name)
 
     # Choose template & default base class
     template = get_template(object_type)

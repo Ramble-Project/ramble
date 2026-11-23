@@ -9,24 +9,24 @@
 
 import pytest
 
-from ramble.util import web
+import ramble.util.web as web_util
 
-from spack.util import url as url_util
+import spack.util.url as url_util
 
 
 def test_get_header():
     headers = {"Content-type": "text/plain"}
 
-    assert web.get_header(headers, "Content-type") == "text/plain"
+    assert web_util.get_header(headers, "Content-type") == "text/plain"
 
     # test fuzzy lookup
-    assert web.get_header(headers, "contentType") == "text/plain"
+    assert web_util.get_header(headers, "contentType") == "text/plain"
     headers["contentType"] = "text/html"
-    assert web.get_header(headers, "contentType") == "text/html"
+    assert web_util.get_header(headers, "contentType") == "text/html"
 
     # test no match
     with pytest.raises(KeyError):
-        web.get_header(headers, "ContentLength")
+        web_util.get_header(headers, "ContentLength")
 
 
 def test_gcs_url_exists(monkeypatch):
@@ -39,7 +39,7 @@ def test_gcs_url_exists(monkeypatch):
     monkeypatch.setattr(spack.util.gcs, "gcs_client", _get_client)
     test_url = "gs://abc/xyz.txt"
     with pytest.raises(MockGcsClientError, match="Mock error for bucket abc"):
-        web.url_exists(test_url)
+        web_util.url_exists(test_url)
 
 
 class MockGcsClient:
@@ -54,44 +54,44 @@ class MockGcsClientError(Exception):
 def test_uses_ssl(monkeypatch):
     # Test https
     url = url_util.parse("https://example.com")
-    assert web.uses_ssl(url)
+    assert web_util.uses_ssl(url)
 
     # Test http
     url = url_util.parse("http://example.com")
-    assert not web.uses_ssl(url)
+    assert not web_util.uses_ssl(url)
 
     # Test s3 without S3_ENDPOINT_URL
     url = url_util.parse("s3://my-bucket/key")
-    assert web.uses_ssl(url)
+    assert web_util.uses_ssl(url)
 
     # Test s3 with http S3_ENDPOINT_URL
     monkeypatch.setenv("S3_ENDPOINT_URL", "http://s3.local")
     url = url_util.parse("s3://my-bucket/key")
-    assert not web.uses_ssl(url)
+    assert not web_util.uses_ssl(url)
 
     # Test s3 with https S3_ENDPOINT_URL
     monkeypatch.setenv("S3_ENDPOINT_URL", "https://s3.local")
     url = url_util.parse("s3://my-bucket/key")
-    assert web.uses_ssl(url)
+    assert web_util.uses_ssl(url)
     monkeypatch.delenv("S3_ENDPOINT_URL")
 
     # Test gs
     url = url_util.parse("gs://my-bucket/key")
-    assert web.uses_ssl(url)
+    assert web_util.uses_ssl(url)
 
     # Test file
     url = url_util.parse("file:///path/to/file")
-    assert not web.uses_ssl(url)
+    assert not web_util.uses_ssl(url)
 
 
 def test_url_exists_file(tmpdir):
     # Test existing file
     p = tmpdir.join("exists.txt")
     p.write("content")
-    assert web.url_exists(f"file://{str(p)}")
+    assert web_util.url_exists(f"file://{str(p)}")
 
     # Test non-existing file
-    assert not web.url_exists(f"file://{str(p)}/nonexistent.txt")
+    assert not web_util.url_exists(f"file://{str(p)}/nonexistent.txt")
 
 
 def test_push_to_url_file(tmpdir):
@@ -101,14 +101,14 @@ def test_push_to_url_file(tmpdir):
     remote_file_path = remote_dir.join("remote.txt")
 
     # Test copy
-    web.push_to_url(str(local_file), f"file://{str(remote_file_path)}", keep_original=True)
+    web_util.push_to_url(str(local_file), f"file://{str(remote_file_path)}", keep_original=True)
     assert local_file.exists()
     assert remote_file_path.exists()
     assert remote_file_path.read() == "some data"
     remote_file_path.remove()
 
     # Test move
-    web.push_to_url(str(local_file), f"file://{str(remote_file_path)}", keep_original=False)
+    web_util.push_to_url(str(local_file), f"file://{str(remote_file_path)}", keep_original=False)
     assert not local_file.exists()
     assert remote_file_path.exists()
     assert remote_file_path.read() == "some data"
@@ -118,14 +118,14 @@ def test_remove_url_file(tmpdir):
     # Test remove file
     p = tmpdir.join("file.txt")
     p.write("content")
-    web.remove_url(f"file://{str(p)}")
+    web_util.remove_url(f"file://{str(p)}")
     assert not p.exists()
 
     # Test remove directory recursively
     d = tmpdir.mkdir("dir")
     f = d.join("file.txt")
     f.write("content")
-    web.remove_url(f"file://{str(d)}", recursive=True)
+    web_util.remove_url(f"file://{str(d)}", recursive=True)
     assert not d.exists()
 
 
@@ -140,7 +140,7 @@ def test_push_dir_to_url_file(tmpdir):
     remote_dir = tmpdir.mkdir("dest_dir")
     dest_url = f"file://{str(remote_dir)}"
 
-    web.push_dir_to_url(str(local_dir), dest_url)
+    web_util.push_dir_to_url(str(local_dir), dest_url)
 
     assert remote_dir.join("file1.txt").exists()
     assert remote_dir.join("file1.txt").read() == "data1"
@@ -179,7 +179,7 @@ def test_push_dir_to_url_gcs(monkeypatch, tmpdir):
     monkeypatch.setattr(gcs_util, "GCSBucket", MockGCSBucket)
     monkeypatch.setattr(tm, "upload_many_from_filenames", mock_upload_many)
 
-    web.push_dir_to_url(str(local_dir), "gs://mock-bucket/prefix/path")
+    web_util.push_dir_to_url(str(local_dir), "gs://mock-bucket/prefix/path")
 
     assert uploaded_args["bucket"] == "mock_bucket_obj"
     assert "file1.txt" in uploaded_args["filenames"]
@@ -188,20 +188,20 @@ def test_push_dir_to_url_gcs(monkeypatch, tmpdir):
 
 
 def test_check_push_scheme():
-    url_file = web.check_push_scheme("file:///path/to/file")
+    url_file = web_util.check_push_scheme("file:///path/to/file")
     assert url_file.scheme == "file"
 
-    url_s3 = web.check_push_scheme("s3://bucket/key")
+    url_s3 = web_util.check_push_scheme("s3://bucket/key")
     assert url_s3.scheme == "s3"
 
-    url_gs = web.check_push_scheme("gs://bucket/key")
+    url_gs = web_util.check_push_scheme("gs://bucket/key")
     assert url_gs.scheme == "gs"
 
     with pytest.raises(NotImplementedError, match="Unrecognized URL scheme: http"):
-        web.check_push_scheme("http://example.com/file")
+        web_util.check_push_scheme("http://example.com/file")
 
     with pytest.raises(NotImplementedError, match="Unrecognized URL scheme: ftp"):
-        web.check_push_scheme("ftp://example.com/file")
+        web_util.check_push_scheme("ftp://example.com/file")
 
 
 def test_push_dir_to_url_unsupported_scheme(tmpdir):
@@ -210,22 +210,22 @@ def test_push_dir_to_url_unsupported_scheme(tmpdir):
     f1.write("content")
 
     with pytest.raises(NotImplementedError, match="Unrecognized URL scheme: http"):
-        web.push_dir_to_url(str(local_dir), "http://example.com/remote_dir")
+        web_util.push_dir_to_url(str(local_dir), "http://example.com/remote_dir")
 
 
 def test_read_from_url_and_url_exists_web_error(monkeypatch):
     def _mock_urlopen(*args, **kwargs):
-        raise web.URLError("mock connection error")
+        raise web_util.URLError("mock connection error")
 
-    monkeypatch.setattr(web, "_urlopen", _mock_urlopen)
+    monkeypatch.setattr(web_util, "_urlopen", _mock_urlopen)
 
-    with pytest.raises(web.RambleWebError, match="Download failed"):
-        web.read_from_url("http://example.com/nonexistent")
+    with pytest.raises(web_util.RambleWebError, match="Download failed"):
+        web_util.read_from_url("http://example.com/nonexistent")
 
-    with pytest.raises(web.RambleWebError, match="Download failed"):
-        web.read_from_url("http://example.com/nonexistent", accept_content_type="text/html")
+    with pytest.raises(web_util.RambleWebError, match="Download failed"):
+        web_util.read_from_url("http://example.com/nonexistent", accept_content_type="text/html")
 
-    assert not web.url_exists("http://example.com/nonexistent")
+    assert not web_util.url_exists("http://example.com/nonexistent")
 
 
 def test_gcs_open_missing_blob_raises_ramble_web_error(monkeypatch):
@@ -240,7 +240,7 @@ def test_gcs_open_missing_blob_raises_ramble_web_error(monkeypatch):
 
     monkeypatch.setattr(spack.util.gcs, "GCSBlob", DummyGCSBlob)
 
-    with pytest.raises(web.RambleWebError, match="Download failed"):
-        web.read_from_url("gs://my-bucket/missing/blob.tar.gz")
+    with pytest.raises(web_util.RambleWebError, match="Download failed"):
+        web_util.read_from_url("gs://my-bucket/missing/blob.tar.gz")
 
-    assert not web.url_exists("gs://my-bucket/missing/blob.tar.gz")
+    assert not web_util.url_exists("gs://my-bucket/missing/blob.tar.gz")

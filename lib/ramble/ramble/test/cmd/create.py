@@ -13,9 +13,9 @@ import sys
 import pytest
 
 import ramble.repository
-import ramble.util.naming as nm
 from ramble.error import RambleCommandError
 from ramble.main import RambleCommand
+from ramble.util import naming
 
 repo_cmd = RambleCommand("repo")
 create_cmd = RambleCommand("create")
@@ -419,7 +419,7 @@ def test_create_object_type_alias(mutable_config, tmpdir, type_alias):
     obj_name = f"alias-{type_alias.replace('_', '-')}"
     expected_dir = tdef["dir_name"]
     expected_file = tdef["file_name"]
-    expected_content = f"class {nm.mod_to_class(obj_name)}({tdef['default_base']}):"
+    expected_content = f"class {naming.mod_to_class(obj_name)}({tdef['default_base']}):"
 
     try:
         for t in ramble.repository.ObjectTypes:

@@ -21,7 +21,6 @@ from html import escape
 from typing import Dict, Optional
 
 import llnl.util.filesystem as fs
-from llnl.util.tty import color
 
 import ramble.config
 import ramble.expander
@@ -33,7 +32,7 @@ import ramble.repeats
 import ramble.repository
 import ramble.stage
 import ramble.success_criteria
-import ramble.util.colors as rucolor
+import ramble.util.colors as color
 import ramble.util.env
 import ramble.util.executable
 import ramble.util.hashing
@@ -1206,33 +1205,33 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
             return
 
         if namespace.custom_executables in self.internals:
-            header = rucolor.nested_4("Custom Executables")
+            header = color.nested_4("Custom Executables")
             color.cprint(f"{indent}{header}:")
 
             for name in self.internals[namespace.custom_executables]:
                 color.cprint(f"{indent}  {name}")
 
         if namespace.executables in self.internals:
-            header = rucolor.nested_4("Executable Order")
+            header = color.nested_4("Executable Order")
             color.cprint(
                 f"{indent}{header}: {str(self.internals[namespace.executables])}"
             )
 
         if namespace.executable_injection in self.internals:
-            header = rucolor.nested_4("Executable Injection")
+            header = color.nested_4("Executable Injection")
             color.cprint(
                 f"{indent}{header}: {str(self.internals[namespace.executable_injection])}"
             )
 
         if namespace.custom_inputs in self.internals:
-            header = rucolor.nested_4("Custom Inputs")
+            header = color.nested_4("Custom Inputs")
             color.cprint(f"{indent}{header}:")
 
             for name in self.internals[namespace.custom_inputs]:
                 color.cprint(f"{indent}  {name}")
 
         if namespace.custom_workloads in self.internals:
-            header = rucolor.nested_4("Custom Workloads")
+            header = color.nested_4("Custom Workloads")
             color.cprint(f"{indent}{header}:")
 
             for name in self.internals[namespace.custom_workloads]:
@@ -1242,7 +1241,7 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         if not self.chain_order:
             return
 
-        header = rucolor.nested_4("Experiment Chain")
+        header = color.nested_4("Experiment Chain")
         color.cprint(f"{indent}{header}:")
         for exp in self.chain_order:
             color.cprint(f"{indent}- {exp}")
