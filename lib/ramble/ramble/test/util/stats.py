@@ -32,8 +32,11 @@ from ramble.util import stats
             "s",
             ("NA", "s", "summary::harmonic_mean"),
         ),
+        # Test for large scientific-notation floats (>= 1e16)
+        (stats.StatsMean(), [1e16, 2e16], "flops", (1.5e16, "flops", "summary::mean")),
         (stats.StatsMedian(), [-2, 0, 2, 5.5], "s", (1.0, "s", "summary::median")),
-        (stats.StatsVar(), [-2, 0, 2, 5.5], "s", (10.2, "s^2", "summary::variance")),
+        (stats.StatsVar(), [-2, 0, 2, 5.5], "s", (10.23, "s^2", "summary::variance")),
+        (stats.StatsVar(), [0.1, 0.2], "s", (0.01, "s^2", "summary::variance")),
         (stats.StatsVar(), [3], "s", ("NA", "", "summary::variance")),
         (stats.StatsStdev(), [-2, 0, 2, 5.5], "s", (3.2, "s", "summary::stdev")),
         (stats.StatsStdev(), [3], "s", ("NA", "", "summary::stdev")),
@@ -43,7 +46,19 @@ from ramble.util import stats
             stats.StatsCoefficientOfVariation(),
             [6.79, 5.6, 4.31, 5.5],
             "s",
-            (0.18, "", "summary::cv"),
+            (0.1826, "", "summary::cv"),
+        ),
+        (
+            stats.StatsCoefficientOfVariation(),
+            [100.1, 104.2, 97.5],
+            "s",
+            (0.0336, "", "summary::cv"),
+        ),
+        (
+            stats.StatsCoefficientOfVariation(),
+            [100, 105, 95],
+            "s",
+            (0.05, "", "summary::cv"),
         ),
         (
             stats.StatsConfidenceIntervalLower95(),
