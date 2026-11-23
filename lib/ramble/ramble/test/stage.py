@@ -56,7 +56,7 @@ _include_extra = StageInclude.extra
 # to have the following structure:
 #
 # TMPDIR/                 temp stage dir
-#     spack-src/          well-known stage source directory
+#     input/              well-known stage input directory
 #         _readme_fn      Optional test_readme (contains _readme_contents)
 #     _hidden_fn          Optional hidden file (contains _hidden_contents)
 #     _archive_fn         archive_url = file:///path/to/_archive_fn
@@ -64,7 +64,7 @@ _include_extra = StageInclude.extra
 # while exploding tarball directories are expected to be structured as follows:
 #
 # TMPDIR/                 temp stage dir
-#     spack-src/          well-known stage source directory
+#     input/              well-known stage input directory
 #         archive_name/   archive dir
 #             _readme_fn  test_readme (contains _readme_contents)
 #         _extra_fn       test_extra file (contains _extra_contents)

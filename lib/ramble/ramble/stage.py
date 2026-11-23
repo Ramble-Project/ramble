@@ -151,9 +151,8 @@ class InputStage:
         # Flag to decide whether to delete the stage folder on exit or not
         self.keep = keep
 
-        # File lock for the stage directory.  We use one file for all
-        # stage locks. See spack.database.Database.prefix_lock for
-        # details on this approach.
+        # File lock for the stage directory.  We use one lock file for all
+        # stage locks, keyed by hashed byte-range offsets.
         self._lock = None
         if lock:
             if self.name not in InputStage.stage_locks:

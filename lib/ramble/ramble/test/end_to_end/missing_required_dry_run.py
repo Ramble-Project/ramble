@@ -20,7 +20,7 @@ workspace = RambleCommand("workspace")
 
 
 def test_missing_required_dry_run(make_workspace_from_config):
-    """Tests tty.die at end of ramble.application_types.spack._create_software_env"""
+    """Tests that dry-run setup fails when a required spec is missing from the environment."""
     test_config = """
 ramble:
   variants:
