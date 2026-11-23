@@ -57,6 +57,9 @@ class Version:
             return NotImplemented
         return self._version < coerced._version
 
+    def __hash__(self) -> int:
+        return hash(self._version)
+
     def __str__(self) -> str:
         return self.raw
 

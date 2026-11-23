@@ -351,13 +351,13 @@ def test_class_level_attribute_preservation():
 
 def test_instance_preferred_version_preservation_on_clone(mutable_mock_apps_repo):
     """Verify that setting preferred_version on an instance is preserved across clone."""
-    import spack.version
+    from ramble.util.version import Version
 
     app = mutable_mock_apps_repo.get("basic")
     app.set_variables_and_variants({"workload_name": "test_wl"}, {}, None, None)
 
     class CustomVer:
-        version = spack.version.Version("99.99")
+        version = Version("99.99")
 
     app.preferred_version = CustomVer()
     assert str(app.preferred_version.version) == "99.99"

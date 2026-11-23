@@ -49,13 +49,12 @@ from llnl.util.filesystem import (
 import ramble.config
 import ramble.util.web as web_util
 from ramble.util.logger import logger
+from ramble.util.version import Version
 
 import spack.util.url as url_util
-import spack.version
 from spack.util import crypto, pattern
 from spack.util.compression import decompressor_for, extension
 from spack.util.executable import CommandNotFoundError, which
-from spack.version import ver
 
 _CONTENT_TYPE_RE = re.compile(r"Content-Type:[^\r\n]+", flags=re.IGNORECASE)
 
@@ -777,7 +776,7 @@ class GitFetchStrategy(VCSFetchStrategy):
         "submodules_delete",
     ]
 
-    git_version_re = r"git version (\S+)"
+    git_version_re = r"git version (\d+(?:\.\d+)*)"
 
     submodules: bool = False
     submodules_delete: bool = False
@@ -806,7 +805,9 @@ class GitFetchStrategy(VCSFetchStrategy):
         """
         version_output = git_exe("--version", output=str)
         m = re.search(GitFetchStrategy.git_version_re, version_output)
-        return spack.version.Version(m.group(1))
+        if not m:
+            raise ValueError(f"Could not parse git version from: {version_output!r}")
+        return Version(m.group(1))
 
     @property
     def git(self):
@@ -815,7 +816,7 @@ class GitFetchStrategy(VCSFetchStrategy):
 
             # Disable advice for a quieter fetch
             # https://github.com/git/git/blob/master/Documentation/RelNotes/1.7.2.txt
-            if self.git_version >= spack.version.Version("1.7.2"):
+            if self.git_version >= Version("1.7.2"):
                 self._git.add_default_arg("-c")
                 self._git.add_default_arg("advice.detachedHead=false")
 
@@ -917,12 +918,12 @@ class GitFetchStrategy(VCSFetchStrategy):
             # If we want a particular branch ask for it.
             if self.branch:
                 args.extend(["--branch", self.branch])
-            elif self.tag and self.git_version >= ver("1.8.5.2"):
+            elif self.tag and self.git_version >= Version("1.8.5.2"):
                 args.extend(["--branch", self.tag])
 
             # Try to be efficient if we're using a new enough git.
             # This checks out only one branch's history
-            if self.git_version >= ver("1.7.10"):
+            if self.git_version >= Version("1.7.10"):
                 if self.get_full_repo:
                     args.append("--no-single-branch")
                 else:
@@ -933,7 +934,7 @@ class GitFetchStrategy(VCSFetchStrategy):
                 # tree, if the in-use git and protocol permit it.
                 if (
                     (not self.get_full_repo)
-                    and self.git_version >= ver("1.7.1")
+                    and self.git_version >= Version("1.7.1")
                     and self.protocol_supports_shallow_clone()
                 ):
                     args.extend(["--depth", "1"])
@@ -949,7 +950,7 @@ class GitFetchStrategy(VCSFetchStrategy):
                 # For tags, be conservative and check them out AFTER
                 # cloning.  Later git versions can do this with clone
                 # --branch, but older ones fail.
-                if self.tag and self.git_version < ver("1.8.5.2"):
+                if self.tag and self.git_version < Version("1.8.5.2"):
                     # pull --tags returns a "special" error code of 1 in
                     # older versions that we have to ignore.
                     # see: https://github.com/git/git/commit/19d122b
