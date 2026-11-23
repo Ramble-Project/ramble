@@ -23,11 +23,16 @@ class JaxDistributed(BasicModifier):
     maintainers("tteggelit")
 
     mode("standard", description="Standard JAX distributed launcher mode")
-    mode(
-        "node-local",
-        description="Configure node-local TPU initialization for single-host workloads",
-    )
     default_mode("standard")
+
+    conflict(
+        "modifier=tpu-node-local",
+        msg=(
+            "jax-distributed cannot be used with tpu-node-local. "
+            "Remove one of the modifiers, or set 'tpu-node-local' mode to "
+            "'disabled' to suppress automatic injection."
+        ),
+    )
 
     modifier_variable(
         "jax_coordinator_port",
@@ -41,12 +46,6 @@ class JaxDistributed(BasicModifier):
         default="",
         description="Override JAX coordinator IP/hostname (auto-discovered if empty)",
         modes=["standard"],
-    )
-
-    required_variable(
-        "node_local_libtpu_init_args",
-        description="LIBTPU_INIT_ARGS flags for node-local (single-host) TPU initialization",
-        modes=["node-local"],
     )
 
     # Register environment variable modifications so ContainerBase forwards them into container_env_vars
@@ -75,39 +74,6 @@ class JaxDistributed(BasicModifier):
         modes=["standard"],
     )
 
-    # Node-local mode environment variables for single-host execution on multi-host TPU slices
-    env_var_modification(
-        "TPU_HOST_BOUNDS",
-        modification="1,1,1",
-        method="set",
-        modes=["node-local"],
-    )
-    env_var_modification(
-        "TPU_SKIP_MDS_QUERY",
-        modification="true",
-        method="set",
-        modes=["node-local"],
-    )
-    env_var_modification(
-        "TPU_WORKER_ID",
-        modification="0",
-        method="set",
-        modes=["node-local"],
-    )
-    env_var_modification(
-        "TPU_WORKER_HOSTNAMES",
-        modification="localhost",
-        method="set",
-        modes=["node-local"],
-    )
-    env_var_modification(
-        "LIBTPU_INIT_ARGS",
-        modification="{node_local_libtpu_init_args}",
-        method="append",
-        separator=" ",
-        modes=["node-local"],
-    )
-
     executable_modifier("jax_coordinator_setup", usage_filter="once")
 
     def jax_coordinator_setup(
@@ -115,9 +81,6 @@ class JaxDistributed(BasicModifier):
     ):
         pre_cmds = []
         post_cmds = []
-
-        if self._usage_mode == "node-local":
-            return pre_cmds, post_cmds
 
         coord_script = (
             'if [ -z "${JAX_COORDINATOR_ADDRESS:-}" ]; then\n'
