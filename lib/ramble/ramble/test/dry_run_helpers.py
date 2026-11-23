@@ -8,7 +8,7 @@
 
 from enum import Enum
 
-import spack.util.spack_yaml as syaml
+import ramble.util.ramble_yaml as ryaml
 
 SCOPES = Enum("SCOPES", ["workspace", "application", "workload", "experiment"])
 
@@ -28,22 +28,22 @@ def dry_run_config(
 
     config_path is the path to the config file that should be written
     """
-    ramble_dict = syaml.syaml_dict()
-    ramble_dict["ramble"] = syaml.syaml_dict()
+    ramble_dict = ryaml.ryaml_dict()
+    ramble_dict["ramble"] = ryaml.ryaml_dict()
     test_dict = ramble_dict["ramble"]
 
-    test_dict["variants"] = syaml.syaml_dict()
-    test_dict["variables"] = syaml.syaml_dict()
-    test_dict["applications"] = syaml.syaml_dict()
-    test_dict["applications"][app_name] = syaml.syaml_dict()
-    test_dict["software"] = syaml.syaml_dict()
+    test_dict["variants"] = ryaml.ryaml_dict()
+    test_dict["variables"] = ryaml.ryaml_dict()
+    test_dict["applications"] = ryaml.ryaml_dict()
+    test_dict["applications"][app_name] = ryaml.ryaml_dict()
+    test_dict["software"] = ryaml.ryaml_dict()
 
     variants_dict = test_dict["variants"]
     variants_dict["package_manager"] = "spack"
 
     software_dict = test_dict["software"]
-    software_dict["packages"] = syaml.syaml_dict()
-    software_dict["environments"] = syaml.syaml_dict()
+    software_dict["packages"] = ryaml.ryaml_dict()
+    software_dict["environments"] = ryaml.ryaml_dict()
 
     ws_var_dict = test_dict["variables"]
     ws_var_dict["mpi_command"] = "mpirun -n {n_ranks} -ppn {processes_per_node}"
@@ -54,15 +54,15 @@ def dry_run_config(
     ws_var_dict["modeless_required_var"] = "1"
 
     app_dict = test_dict["applications"][app_name]
-    app_dict["workloads"] = syaml.syaml_dict()
-    app_dict["workloads"][wl_name] = syaml.syaml_dict()
+    app_dict["workloads"] = ryaml.ryaml_dict()
+    app_dict["workloads"][wl_name] = ryaml.ryaml_dict()
 
     workload_dict = app_dict["workloads"][wl_name]
-    workload_dict["experiments"] = syaml.syaml_dict()
-    workload_dict["experiments"]["test_exp"] = syaml.syaml_dict()
+    workload_dict["experiments"] = ryaml.ryaml_dict()
+    workload_dict["experiments"]["test_exp"] = ryaml.ryaml_dict()
 
     exp_dict = workload_dict["experiments"]["test_exp"]
-    exp_dict["variables"] = syaml.syaml_dict()
+    exp_dict["variables"] = ryaml.ryaml_dict()
     exp_dict["variables"]["n_nodes"] = "1"
 
     for scope, injection_dict in injections:
@@ -76,12 +76,12 @@ def dry_run_config(
             dict_to_mod = exp_dict
 
         if section_name not in dict_to_mod:
-            dict_to_mod[section_name] = syaml.syaml_list()
+            dict_to_mod[section_name] = ryaml.ryaml_list()
 
         dict_to_mod[section_name].append(injection_dict.copy())
 
     with open(config_path, "w+", encoding="utf-8") as f:
-        syaml.dump(ramble_dict, stream=f)
+        ryaml.dump(ramble_dict, stream=f)
 
 
 def search_files_for_string(file_list, string):

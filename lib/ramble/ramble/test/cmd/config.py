@@ -16,9 +16,8 @@ import llnl.util.filesystem as fs
 
 import ramble.config
 import ramble.main
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
-
-import spack.util.spack_yaml as syaml
 
 config = ramble.main.RambleCommand("config")
 workspace = ramble.main.RambleCommand("workspace")
@@ -30,7 +29,7 @@ def _create_config(scope=None, data=None, section="repos"):
     scope = scope or ramble.config.default_modify_scope()
     cfg_file = ramble.config.config.get_config_filename(scope, section)
     with open(cfg_file, "w", encoding="utf-8") as f:
-        syaml.dump(data, stream=f)
+        ryaml.dump(data, stream=f)
     return cfg_file
 
 
@@ -625,9 +624,9 @@ ramble:  # comment
     assert output == expected
 
     # Verify copy.deepcopy preserves comments on nested CommentedMaps
-    parsed = syaml.load_config(expected)
+    parsed = ryaml.load_config(expected)
     copied = copy.deepcopy(parsed)
-    assert syaml.dump_config(copied, default_flow_style=False) == expected
+    assert ryaml.dump_config(copied, default_flow_style=False) == expected
 
 
 def test_config_add_to_workspace_preserve_multiline_str(

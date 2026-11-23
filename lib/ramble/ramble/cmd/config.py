@@ -17,10 +17,9 @@ from llnl.util import tty
 import ramble.cmd.common.arguments
 import ramble.config
 import ramble.util.editor
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
 from ramble.util.logger import logger
-
-import spack.util.spack_yaml as syaml
 
 description = "get and set configuration options"
 section = "config"
@@ -232,7 +231,7 @@ def config_remove(args):
         path, _, value = path.rpartition(":")
         existing = ramble.config.get(path, scope=scope)
 
-    value = syaml.load(value)
+    value = ryaml.load(value)
 
     if isinstance(existing, list):
         values = value if isinstance(value, list) else [value]

@@ -14,12 +14,11 @@ import pytest
 import ramble.cmd.repo
 import ramble.config
 import ramble.repository
+import ramble.util.ramble_yaml as ryaml
 from ramble.cmd.repo import format_types
 from ramble.error import RambleCommandError
 from ramble.main import RambleCommand
 from ramble.repository import BadRepoError
-
-import spack.util.spack_yaml as syaml
 
 repo = RambleCommand("repo")
 
@@ -178,7 +177,7 @@ def test_add_repo_missing_config_file(mutable_config, tmpdir):
     # Create a dummy repo.yaml and then remove it to simulate the missing file
     repo_config_file = os.path.join(str(repo_path), "repo.yaml")
     with open(repo_config_file, "w", encoding="utf-8") as f:
-        syaml.dump({"repo": {"namespace": "test_namespace"}}, f)
+        ryaml.dump({"repo": {"namespace": "test_namespace"}}, f)
     os.remove(repo_config_file)
 
     with pytest.raises(BadRepoError) as e:  # Catch BadRepoError directly
@@ -349,7 +348,7 @@ def test_repo_list_compact_skips_invalid_repos(mutable_config, tmpdir):
 
     missing_path = str(tmpdir.join("does_not_exist"))
     roots = ramble.config.get("repos", scope="site")
-    ramble.config.set("repos", syaml.syaml_list([missing_path] + list(roots)), scope="site")
+    ramble.config.set("repos", ryaml.ryaml_list([missing_path] + list(roots)), scope="site")
 
     output = repo("list", "--format=compact", output=str)
     assert repo.returncode == 0

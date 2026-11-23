@@ -26,11 +26,11 @@ from llnl.util.compat import Mapping
 import ramble.config
 import ramble.error
 import ramble.fetch_strategy as fs
+import ramble.util.ramble_yaml as ryaml
 from ramble.util.logger import logger
+from ramble.util.ramble_yaml import ryaml_dict
 
 import spack.url
-import spack.util.spack_yaml
-from spack.util.spack_yaml import syaml_dict
 
 
 def _is_string(url):
@@ -65,7 +65,7 @@ class Mirror:
     @staticmethod
     def from_yaml(stream, name=None):
         try:
-            data = spack.util.spack_yaml.load(stream)
+            data = ryaml.load(stream)
             return Mirror.from_dict(data, name)
         except yaml_error.MarkedYAMLError as e:
             raise MirrorError(f"error parsing YAML mirror: {e}") from e
@@ -263,7 +263,7 @@ def add(name, url, scope):
     """Add a named mirror in the given scope"""
     mirrors = ramble.config.get("mirrors", scope=scope)
     if not mirrors:
-        mirrors = syaml_dict()
+        mirrors = ryaml_dict()
 
     if name in mirrors:
         logger.die(f"Mirror with name {name} already exists.")
@@ -271,7 +271,7 @@ def add(name, url, scope):
     items = [(n, u) for n, u in mirrors.items()]
     mirror_data = url
     items.insert(0, (name, mirror_data))
-    mirrors = syaml_dict(items)
+    mirrors = ryaml_dict(items)
     ramble.config.set("mirrors", mirrors, scope=scope)
 
 
@@ -279,7 +279,7 @@ def remove(name, scope):
     """Remove the named mirror in the given scope"""
     mirrors = ramble.config.get("mirrors", scope=scope)
     if not mirrors:
-        mirrors = syaml_dict()
+        mirrors = ryaml_dict()
 
     if name not in mirrors:
         logger.die(f"No mirror with name {name}")

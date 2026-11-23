@@ -14,9 +14,8 @@ from llnl.util.tty.colify import colified
 import ramble.cmd
 import ramble.uploader
 import ramble.util.colors as color
+import ramble.util.ramble_yaml as ryaml
 from ramble.util.logger import logger
-
-import spack.util.spack_yaml as syaml
 
 description = "take actions on experiment results"
 section = "results"
@@ -188,7 +187,7 @@ def import_results_file(filename):
                 logger.die("Unable to parse file: Invalid JSON formatting.")
         elif ext.lower() in (".yml", ".yaml"):
             try:
-                results_dict = syaml.load(imported_file)
+                results_dict = ryaml.load(imported_file)
                 # Check if data contains an experiment
                 if results_dict.get("experiments"):
                     return results_dict

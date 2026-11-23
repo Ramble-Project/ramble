@@ -14,17 +14,18 @@ import shutil
 import sys
 import tempfile
 
-import llnl.util.tty
 from ruamel.yaml.error import YAMLError
+
+import llnl.util.tty
 
 import ramble.config
 import ramble.error
 import ramble.paths
 import ramble.schema.workspace
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
 
 import spack.error
-import spack.util.spack_yaml as syaml
 
 ramble_root = ramble.paths.prefix
 
@@ -54,8 +55,8 @@ def validate_schema(file_path):
     """Validate file against workspace schema."""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            data = syaml.load(f)
-    except (syaml.SpackYAMLError, YAMLError) as e:
+            data = ryaml.load(f)
+    except (ryaml.RambleYAMLError, YAMLError) as e:
         raise ramble.config.ConfigError(f"Invalid YAML syntax: {e}") from e
 
     if data is None or not isinstance(data, dict):
@@ -125,7 +126,7 @@ def main(argv=None):
         # Schema validation
         try:
             validate_schema(file_path)
-        except (ramble.config.ConfigError, syaml.SpackYAMLError, YAMLError) as e:
+        except (ramble.config.ConfigError, ryaml.RambleYAMLError, YAMLError) as e:
             print(f"  FAILED [Schema]: {rel_path}\n    {e}", file=sys.stderr)
             schema_failures += 1
             continue

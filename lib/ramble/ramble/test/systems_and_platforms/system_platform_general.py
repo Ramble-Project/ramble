@@ -13,10 +13,9 @@ import re
 import pytest
 
 import ramble.software_info
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
 from ramble.main import RambleCommand
-
-import spack.util.spack_yaml as syaml
 
 workspace = RambleCommand("workspace")
 
@@ -66,7 +65,7 @@ def test_system_platform_works(workspace_name, mock_platforms, mock_systems, ens
     )
     # Verify the packages.yaml files were merged
     with open(env_file, encoding="utf-8") as f:
-        spack_config = syaml.load(stream=f)
+        spack_config = ryaml.load(stream=f)
 
     assert "spack" in spack_config
     assert "packages" in spack_config["spack"]

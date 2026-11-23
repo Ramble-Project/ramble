@@ -28,9 +28,8 @@ from typing import Any, Dict, Union
 
 from ruamel import yaml
 
+import ramble.util.ramble_yaml as ryaml
 from ramble.util.logger import logger
-
-import spack.util.spack_yaml as syaml
 
 
 def read_config_file(conf_path: str):
@@ -45,7 +44,7 @@ def read_config_file(conf_path: str):
     with open(conf_path, encoding="utf-8") as base_conf:
         logger.debug(f"Reading config from {conf_path}")
         try:
-            config_dict = syaml.load(base_conf)
+            config_dict = ryaml.load(base_conf)
         except yaml.YAMLError:
             logger.die(f"YAML Error: Failed to load data from {conf_path}")
 

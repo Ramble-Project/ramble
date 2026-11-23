@@ -16,8 +16,7 @@ import ramble.util.colors as color
 from ramble.expander import Expander
 from ramble.keywords import keywords
 from ramble.namespace import namespace
-
-from spack.util.spack_yaml import syaml_bool
+from ramble.util.ramble_yaml import ryaml_bool
 
 reserved_variants = {
     "modifier",
@@ -251,11 +250,11 @@ class VariantSet:
             default_var = self.default_variants[name]
 
         # If the default value is a boolean, convert the experiment value to a boolean
-        if default_var and isinstance(default_var.default, (bool, syaml_bool)):
+        if default_var and isinstance(default_var.default, (bool, ryaml_bool)):
             if isinstance(value, str):
                 value = value.lower() == "true"
         elif name in standard_variants and isinstance(
-            standard_variants[name].get("default"), (bool, syaml_bool)
+            standard_variants[name].get("default"), (bool, ryaml_bool)
         ):
             if isinstance(value, str):
                 value = value.lower() == "true"
@@ -522,7 +521,7 @@ class Variant:
         self._definitions = self._build_definitions()
 
     def _build_definitions(self) -> tuple:
-        if isinstance(self.default, (bool, syaml_bool)):
+        if isinstance(self.default, (bool, ryaml_bool)):
             val_str = str(self.default)
             return (
                 self._definition,
@@ -538,7 +537,7 @@ class Variant:
 
     def format_value(self, value: Any) -> str:
         """Format a value for this variant into Spack-like syntax"""
-        if isinstance(self.default, (bool, syaml_bool)):
+        if isinstance(self.default, (bool, ryaml_bool)):
             prefix = "+" if value else "~"
             return f"{prefix}{self.name}"
         else:

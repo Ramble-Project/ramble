@@ -10,9 +10,9 @@ import ramble.mirror
 import ramble.util.web as web_util
 from ramble.cmd.common import arguments
 from ramble.util.logger import logger
+from ramble.util.ramble_yaml import ryaml_dict
 
 import spack.util.url as url_util
-from spack.util.spack_yaml import syaml_dict
 
 description = "manage mirrors (inputs)"
 section = "config"
@@ -113,7 +113,7 @@ def mirror_set_url(args):
     url = url_util.format(args.url)
     mirrors = ramble.config.get("mirrors", scope=args.scope)
     if not mirrors:
-        mirrors = syaml_dict()
+        mirrors = ryaml_dict()
 
     if args.name not in mirrors:
         logger.die(f"No mirror found with name {args.name}.")
@@ -147,7 +147,7 @@ def mirror_set_url(args):
         for mirror_name, mirror_url in mirrors.items()
     ]
 
-    mirrors = syaml_dict(items)
+    mirrors = ryaml_dict(items)
     ramble.config.set("mirrors", mirrors, scope=args.scope)
 
     if changes_made:

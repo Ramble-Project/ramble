@@ -10,11 +10,10 @@ import os
 
 import pytest
 
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
 from ramble.main import RambleCommand
 from ramble.namespace import namespace
-
-import spack.util.spack_yaml as syaml
 
 # everything here uses the mock_workspace_path
 pytestmark = pytest.mark.usefixtures("mutable_config", "mutable_mock_workspace_path")
@@ -72,12 +71,12 @@ ramble:
 
             metadata_path = os.path.join(ws1.root, ramble.workspace.METADATA_FILE_NAME)
             with open(metadata_path, encoding="utf-8") as f:
-                data = syaml.load(f)
+                data = ryaml.load(f)
                 ws1_hash = data[namespace.metadata]["workspace_digest"]
 
             metadata_path = os.path.join(ws2.root, ramble.workspace.METADATA_FILE_NAME)
             with open(metadata_path, encoding="utf-8") as f:
-                data = syaml.load(f)
+                data = ryaml.load(f)
                 ws2_hash = data[namespace.metadata]["workspace_digest"]
 
             assert ws1_hash == ws2_hash

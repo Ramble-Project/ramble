@@ -36,6 +36,7 @@ import ramble.util.hashing
 import ramble.util.install_cache
 import ramble.util.lock as lk
 import ramble.util.path
+import ramble.util.ramble_yaml as ryaml
 import ramble.util.version
 import ramble.util.web as web_util
 from ramble.experiment_result import ResultKeys
@@ -48,7 +49,6 @@ from ramble.util.logger import logger
 from ramble.util.naming import NS_SEPARATOR
 from ramble.util.path import substitute_path_variables
 
-import spack.util.spack_yaml as syaml
 import spack.util.url as url_util
 
 # Workspace-related constants
@@ -422,7 +422,7 @@ def included_config_files(path):
 
     try:
         with open(cfg_file, encoding="utf-8") as f:
-            yaml_data = syaml.load_config(f)
+            yaml_data = ryaml.load_config(f)
         includes = config_dict(yaml_data).get(namespace.include, []) or []
     except Exception:
         return []
@@ -600,7 +600,7 @@ class Workspace:
         self.input_mirror_stats = None
         self.input_mirror_cache = None
         self.software_environments = None
-        self.metadata = syaml.syaml_dict()
+        self.metadata = ryaml.ryaml_dict()
         self.hash_inventory = {namespace.experiment: [], "versions": []}
         version = ramble.util.version.get_version()
         self.hash_inventory["versions"].append(
@@ -831,10 +831,10 @@ cd "{experiment_run_dir}"
 
         if os.path.exists(metadata_file_path):
             with open(metadata_file_path, encoding="utf-8") as f:
-                self.metadata = syaml.load(f)
+                self.metadata = ryaml.load(f)
         else:
-            self.metadata = syaml.syaml_dict()
-            self.metadata[namespace.metadata] = syaml.syaml_dict()
+            self.metadata = ryaml.ryaml_dict()
+            self.metadata[namespace.metadata] = ryaml.ryaml_dict()
 
     def write_metadata(self):
         """Write out workspace metadata file
@@ -845,7 +845,7 @@ cd "{experiment_run_dir}"
         metadata_file_path = os.path.join(self.root, METADATA_FILE_NAME)
 
         with open(metadata_file_path, "w+", encoding="utf-8") as f:
-            syaml.dump(self.metadata, stream=f)
+            ryaml.dump(self.metadata, stream=f)
 
     def _read_yaml(self, config, f, raw_yaml=None):
         if raw_yaml:
@@ -1061,7 +1061,7 @@ cd "{experiment_run_dir}"
 
     def print_config(self):
         workspace_dict = self._get_workspace_dict()
-        print(f"\n{syaml.dump(workspace_dict)}")
+        print(f"\n{ryaml.dump(workspace_dict)}")
 
     def manage_environments(
         self,
@@ -1098,9 +1098,9 @@ cd "{experiment_run_dir}"
         else:
             environments = None
 
-        # Ensure package dict is an syaml_dict, for formatting
+        # Ensure package dict is an ryaml_dict, for formatting
         if not environments:
-            software_dict[namespace.environments] = syaml.syaml_dict()
+            software_dict[namespace.environments] = ryaml.ryaml_dict()
             environments = software_dict[namespace.environments]
 
         if remove:
@@ -1124,7 +1124,7 @@ cd "{experiment_run_dir}"
                     )
 
             if env_name not in environments:
-                environments[env_name] = syaml.syaml_dict()
+                environments[env_name] = ryaml.ryaml_dict()
 
             if package_list:
                 environments[env_name][namespace.packages] = package_list.copy()
@@ -1139,7 +1139,7 @@ cd "{experiment_run_dir}"
         else:
             workspace_dict = self._get_workspace_dict()
             ws_software = workspace_dict[namespace.ramble].setdefault(
-                namespace.software, syaml.syaml_dict()
+                namespace.software, ryaml.ryaml_dict()
             )
             ws_software[namespace.environments] = environments
 
@@ -1176,9 +1176,9 @@ cd "{experiment_run_dir}"
         else:
             packages = None
 
-        # Ensure package dict is an syaml_dict, for formatting
+        # Ensure package dict is an ryaml_dict, for formatting
         if not packages:
-            software_dict[namespace.packages] = syaml.syaml_dict()
+            software_dict[namespace.packages] = ryaml.ryaml_dict()
             packages = software_dict[namespace.packages]
 
         if remove:
@@ -1188,7 +1188,7 @@ cd "{experiment_run_dir}"
             if not pkg_spec:
                 logger.die("Cannot define a package without a --pkg-spec attribute")
 
-            pkg_def = syaml.syaml_dict()
+            pkg_def = ryaml.ryaml_dict()
             prefix = ""
             if package_manager_prefix:
                 prefix = f"{package_manager_prefix}_"
@@ -1208,7 +1208,7 @@ cd "{experiment_run_dir}"
                         )
                         del pkg_def[attr]
             else:
-                packages[pkg_name] = syaml.syaml_dict()
+                packages[pkg_name] = ryaml.ryaml_dict()
 
             for attr, val in pkg_def.items():
                 packages[pkg_name][attr] = val
@@ -1220,7 +1220,7 @@ cd "{experiment_run_dir}"
         else:
             workspace_dict = self._get_workspace_dict()
             ws_software = workspace_dict[namespace.ramble].setdefault(
-                namespace.software, syaml.syaml_dict()
+                namespace.software, ryaml.ryaml_dict()
             )
             ws_software[namespace.packages] = packages
 
@@ -1250,7 +1250,7 @@ cd "{experiment_run_dir}"
                 if section_dict:
                     workspace_dict[namespace.ramble][section] = section_dict
 
-        print(f"\n{syaml.dump(workspace_dict, Dumper=syaml.OrderedLineDumper)}")
+        print(f"\n{ryaml.dump(workspace_dict, Dumper=ryaml.OrderedLineDumper)}")
 
     def add_experiments(
         self,
@@ -1378,8 +1378,8 @@ cd "{experiment_run_dir}"
         exp_context.variants = process_definitions(variant_definitions, def_type="variant")
 
         if application not in apps_dict:
-            apps_dict[application] = syaml.syaml_dict()
-            apps_dict[application][namespace.workload] = syaml.syaml_dict()
+            apps_dict[application] = ryaml.ryaml_dict()
+            apps_dict[application][namespace.workload] = ryaml.ryaml_dict()
 
         workloads_dict = apps_dict[application][namespace.workload]
 
@@ -1477,11 +1477,11 @@ cd "{experiment_run_dir}"
                 workloads_dict[workload_name] = {namespace.experiment: {}}
 
             exps_dict = workloads_dict[workload_name][namespace.experiment]
-            exps_dict[experiment_name] = syaml.syaml_dict()
+            exps_dict[experiment_name] = ryaml.ryaml_dict()
             exp_dict = exps_dict[experiment_name]
 
             if exp_context.variants:
-                exp_dict[namespace.variants] = syaml.syaml_dict()
+                exp_dict[namespace.variants] = ryaml.ryaml_dict()
                 variants_dict = exp_dict[namespace.variants]
                 for name, val in exp_context.variants.items():
                     variants_dict[name] = val
@@ -1532,7 +1532,7 @@ cd "{experiment_run_dir}"
                                 )
 
                 if default_env_vars:
-                    exp_dict[namespace.env_var] = syaml.syaml_dict()
+                    exp_dict[namespace.env_var] = ryaml.ryaml_dict()
                     env_vars_dict = exp_dict[namespace.env_var]
 
                     for env_var in default_env_vars.values():
@@ -1552,23 +1552,23 @@ cd "{experiment_run_dir}"
                                     break
 
                             if target_vars is None:
-                                append_group = syaml.syaml_dict()
+                                append_group = ryaml.ryaml_dict()
                                 append_group["var-separator"] = env_var.separator
-                                append_group["vars"] = syaml.syaml_dict()
+                                append_group["vars"] = ryaml.ryaml_dict()
                                 append_list.append(append_group)
                                 target_vars = append_group["vars"]
 
                             target_vars[env_var.name] = env_var.value
                         elif action == "prepend":
                             if "prepend" not in env_vars_dict:
-                                prepend_group = syaml.syaml_dict()
-                                prepend_group["paths"] = syaml.syaml_dict()
+                                prepend_group = ryaml.ryaml_dict()
+                                prepend_group["paths"] = ryaml.ryaml_dict()
                                 env_vars_dict["prepend"] = [prepend_group]
 
                             env_vars_dict["prepend"][0]["paths"][env_var.name] = env_var.value
                         else:
                             if "set" not in env_vars_dict:
-                                env_vars_dict["set"] = syaml.syaml_dict()
+                                env_vars_dict["set"] = ryaml.ryaml_dict()
 
                             env_vars_dict["set"][env_var.name] = env_var.value
 
@@ -1612,12 +1612,12 @@ cd "{experiment_run_dir}"
             namespace.packages not in full_software_dict
             or not full_software_dict[namespace.packages]
         ):
-            full_software_dict[namespace.packages] = syaml.syaml_dict()
+            full_software_dict[namespace.packages] = ryaml.ryaml_dict()
         if (
             namespace.environments not in full_software_dict
             or not full_software_dict[namespace.environments]
         ):
-            full_software_dict[namespace.environments] = syaml.syaml_dict()
+            full_software_dict[namespace.environments] = ryaml.ryaml_dict()
 
         packages_dict = full_software_dict[namespace.packages]
         environments_dict = full_software_dict[namespace.environments]
@@ -1669,7 +1669,7 @@ cd "{experiment_run_dir}"
 
                     if comp not in packages_dict or (force and comp not in newly_created_packages):
                         newly_created_packages.add(comp)
-                        packages_dict[comp] = syaml.syaml_dict()
+                        packages_dict[comp] = ryaml.ryaml_dict()
 
                     compiler_packages[comp] = False
                     packages_dict[comp].update(info.to_dict(apply_prefix=force_prefix))
@@ -1751,7 +1751,7 @@ cd "{experiment_run_dir}"
                 if spec_name not in packages_dict or (
                     force and spec_name not in newly_created_packages
                 ):
-                    packages_dict[spec_name] = syaml.syaml_dict()
+                    packages_dict[spec_name] = ryaml.ryaml_dict()
 
                 packages_dict[spec_name].update(info.to_dict(apply_prefix=force_prefix))
 
@@ -1763,7 +1763,7 @@ cd "{experiment_run_dir}"
 
             if app_packages:
                 if env_name not in environments_dict:
-                    environments_dict[env_name] = syaml.syaml_dict()
+                    environments_dict[env_name] = ryaml.ryaml_dict()
 
                 environments_dict[env_name][namespace.packages] = app_packages.copy()
 
@@ -2007,20 +2007,8 @@ cd "{experiment_run_dir}"
             out_file = os.path.join(self.results_dir, filename_base + file_extension)
             results_written.append(out_file)
 
-            from ruamel.yaml import RoundTripDumper
-
-            class RambleSafeDumper(RoundTripDumper):
-                def ignore_aliases(self, _data):
-                    """Make the dumper NEVER print YAML aliases."""
-                    return True
-
-            def call_value(dumper, data):
-                return dumper.represent_data(data.value)
-
-            RambleSafeDumper.add_representer(ramble.experiment_result.ExperimentStatus, call_value)
-
             with open(out_file, "w+", encoding="utf-8") as f:
-                syaml.dump(results, stream=f, Dumper=RambleSafeDumper)
+                ryaml.dump(results, stream=f)
 
             self._create_result_symlinks(out_file, latest_base, file_extension, symlinks_updated)
 
@@ -2702,7 +2690,7 @@ cd "{experiment_run_dir}"
 
         on_exec_list = None
         if on_executable is not None:
-            on_exec_list = syaml.syaml_list()
+            on_exec_list = ryaml.ryaml_list()
             on_exec_list.extend(on_executable[1:-1].split(","))
 
         base_section = self._get_scope_section(scope)
@@ -2714,11 +2702,11 @@ cd "{experiment_run_dir}"
             )
 
         if namespace.modifiers not in base_section:
-            base_section[namespace.modifiers] = syaml.syaml_list()
+            base_section[namespace.modifiers] = ryaml.ryaml_list()
 
         added = 0
         for mod_name in mod_names:
-            mod_def = syaml.syaml_dict()
+            mod_def = ryaml.ryaml_dict()
             mod_def["name"] = mod_name
             if spec_parts[2]:
                 mod_def["name"] += f"@{spec_parts[2]}"
@@ -2922,9 +2910,9 @@ def yaml_equivalent(first, second):
         return isinstance(second, dict) and _equiv_dict(first, second)
     elif isinstance(first, list):
         return isinstance(second, list) and _equiv_list(first, second)
-    elif isinstance(first, (bool, syaml.syaml_bool)):
-        return isinstance(second, (bool, syaml.syaml_bool)) and bool(first) == bool(second)
-    elif isinstance(second, (bool, syaml.syaml_bool)):
+    elif isinstance(first, (bool, ryaml.ryaml_bool)):
+        return isinstance(second, (bool, ryaml.ryaml_bool)) and bool(first) == bool(second)
+    elif isinstance(second, (bool, ryaml.ryaml_bool)):
         return False
     elif isinstance(first, str):
         return isinstance(second, str) and first == second
@@ -2967,7 +2955,7 @@ def _write_yaml(data, str_or_file, schema):
     """Write YAML to a file preserving comments and dict order."""
     filename = getattr(str_or_file, "name", None)
     ramble.config.validate(data, schema, filename)
-    syaml.dump_config(data, str_or_file, default_flow_style=False)
+    ryaml.dump_config(data, str_or_file, default_flow_style=False)
 
 
 @contextlib.contextmanager

@@ -12,10 +12,9 @@ import shutil
 
 import pytest
 
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
 from ramble.main import RambleCommand
-
-import spack.util.spack_yaml as syaml
 
 pytestmark = [
     pytest.mark.maybeslow,
@@ -79,7 +78,7 @@ def test_setup_analyze(test_case_path, workspace_name):
     src_setup_config = test_case_path / "setup.yaml"
     if src_setup_config.is_file():
         with open(src_setup_config, encoding="utf-8") as f:
-            setup_config = syaml.load(f).get("setup")
+            setup_config = ryaml.load(f).get("setup")
             if setup_config is not None:
                 cmds = setup_config.get("commands", [])
                 for cmd in cmds:

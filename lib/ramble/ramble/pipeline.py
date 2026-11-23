@@ -30,6 +30,7 @@ import ramble.uploader
 import ramble.util.file_editor
 import ramble.util.hashing
 import ramble.util.path
+import ramble.util.ramble_yaml as ryaml
 import ramble.workspace
 from ramble.namespace import namespace
 from ramble.util import json_util
@@ -37,7 +38,6 @@ from ramble.util.colors import cprint
 from ramble.util.file_util import create_symlink
 from ramble.util.logger import logger
 
-import spack.util.spack_yaml as syaml
 from spack.util.executable import Executable, which
 
 if not ramble.config.get("config:disable_progress_bar", False):
@@ -841,7 +841,7 @@ class PushDeploymentPipeline(Pipeline):
                     for k in keys_to_remove:
                         del ramble_block[k]
                     with open(ramble_yaml, "w", encoding="utf-8") as f:
-                        syaml.dump_config(data, stream=f, default_flow_style=False)
+                        ryaml.dump_config(data, stream=f, default_flow_style=False)
 
     def _execute(self):
         configs_dir = os.path.join(

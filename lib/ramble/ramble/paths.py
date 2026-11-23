@@ -47,4 +47,5 @@ mock_builtin_path: str = os.path.join(repos_path, "builtin.mock")
 user_config_path: str = os.path.expanduser("~/.ramble")
 
 etc_path: str = os.path.join(prefix, "etc")
+default_license_dir: str = os.path.join(etc_path, "ramble", "licenses")
 system_etc_path: str = "/etc"
