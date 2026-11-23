@@ -406,25 +406,34 @@ class ExperimentSet:
             if wl_name not in wl_stats:
                 wl_stats[wl_name] = {"passed_global": 0, "dropped_wl": 0}
 
-            # Skip explicitly excluded experiments
-            if final_exp_name not in excluded_experiments:
-                exclude_where = final_context.exclude.get(namespace.where, [])
-                if not any(app_inst.expander.evaluate_predicate(expr) for expr in exclude_where):
-                    wl_stats[wl_name]["passed_global"] += 1
-                    wl_inst = app_inst.get_workload()
-                    if wl_inst and (
-                        not all(
-                            app_inst.expander.evaluate_predicate(expr) for expr in wl_inst.where
-                        )
-                        or any(
-                            app_inst.expander.evaluate_predicate(expr)
-                            for expr in wl_inst.exclude_where
-                        )
-                    ):
-                        wl_stats[wl_name]["dropped_wl"] += 1
-                    else:
-                        app_inst.read_status()
-                        processed_experiments.append((app_inst, final_exp_namespace, n == 0))
+            # Skip excluded experiments; if the base experiment is excluded,
+            # skip its repeat children as well.
+            if final_exp_name in excluded_experiments:
+                if n == 0:
+                    break
+                continue
+
+            exclude_where = final_context.exclude.get(namespace.where, [])
+            if any(app_inst.expander.evaluate_predicate(expr) for expr in exclude_where):
+                if n == 0:
+                    break
+                continue
+
+            wl_stats[wl_name]["passed_global"] += 1
+            wl_inst = app_inst.get_workload()
+            if wl_inst and (
+                not all(app_inst.expander.evaluate_predicate(expr) for expr in wl_inst.where)
+                or any(
+                    app_inst.expander.evaluate_predicate(expr) for expr in wl_inst.exclude_where
+                )
+            ):
+                wl_stats[wl_name]["dropped_wl"] += 1
+                if n == 0:
+                    break
+                continue
+
+            app_inst.read_status()
+            processed_experiments.append((app_inst, final_exp_namespace, n == 0))
         return processed_experiments, wl_stats
 
     def render_experiment_set(

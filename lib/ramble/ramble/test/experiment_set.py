@@ -23,6 +23,7 @@ pytestmark = pytest.mark.usefixtures(
 )
 
 workspace = RambleCommand("workspace")
+config = RambleCommand("config")
 
 
 def test_single_experiment_in_set():
@@ -3126,3 +3127,43 @@ ramble:
         "basic.test_wl2.scaling_1",
         "basic.test_wl2.scaling_4",
     }
+
+
+def test_exclude_removes_repeat_children(workspace_name):
+    global_args = ["-w", workspace_name]
+
+    with ramble.workspace.create(workspace_name) as ws:
+        workspace(
+            "manage",
+            "experiments",
+            "basic",
+            "--wf",
+            "test_wl",
+            "-e",
+            "exp_{n_nodes}",
+            "-v",
+            "n_nodes=[1, 2]",
+            "-v",
+            "processes_per_node=1",
+            "-v",
+            "n_ranks={n_nodes}",
+            "--default-variable-value",
+            "1",
+            global_args=global_args,
+        )
+        exp_path = "applications:basic:workloads:test_wl:experiments:exp_{n_nodes}"
+        config("add", f"{exp_path}:n_repeats:2", global_args=global_args)
+        config("add", f"{exp_path}:exclude:variables:n_nodes:[1]", global_args=global_args)
+        config(
+            "add",
+            f"{exp_path}:exclude:where:['{{repeat_index}} == 1']",
+            global_args=global_args,
+        )
+
+        ws._re_read()
+        exp_set = ws.build_experiment_set()
+
+        assert set(exp_set.experiments.keys()) == {
+            "basic.test_wl.exp_2",
+            "basic.test_wl.exp_2.2",
+        }
