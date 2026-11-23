@@ -450,7 +450,7 @@ class ResultsTable:
         """Apply any grouping to this pandas dataframe"""
         if self.group_by and not self.transpose:
             try:
-                grouped_df = self._df.groupby(*self.group_by, as_index=False)
+                grouped_df = self._df.groupby(by=self.group_by, as_index=False)
 
                 group_func = getattr(grouped_df, self.group_method, grouped_df.max)
                 self._df = group_func()
