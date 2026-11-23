@@ -37,6 +37,54 @@ _STATUS_MAP = {
     "TIMEOUT": ExperimentStatus.TIMEOUT,
 }
 
+_TERMINAL_STATUSES = frozenset(
+    {
+        ExperimentStatus.COMPLETE,
+        ExperimentStatus.FAILED,
+        ExperimentStatus.CANCELLED,
+        ExperimentStatus.TIMEOUT,
+    }
+)
+
+
+def _parse_status(raw_status):
+    raw_status = (raw_status or "").strip()
+    if not raw_status:
+        return ExperimentStatus.UNRESOLVED
+    if raw_status in _STATUS_MAP:
+        return _STATUS_MAP[raw_status]
+    try:
+        return ExperimentStatus(raw_status)
+    except ValueError:
+        return _STATUS_MAP.get(
+            raw_status.split()[0], ExperimentStatus.UNRESOLVED
+        )
+
+
+def _read_job_info(run_dir):
+    info_file = os.path.join(run_dir, ".slurm_job_info")
+    if not os.path.isfile(info_file):
+        return {}
+    info = {}
+    try:
+        with open(info_file, encoding="utf-8") as f:
+            for line in f:
+                key, sep, val = line.partition(":")
+                if sep:
+                    info[key.strip()] = val.strip()
+    except OSError:
+        return {}
+    return info
+
+
+def _is_final_job_info(info, job_id):
+    return (
+        info.get("job_id") == job_id
+        and _parse_status(info.get("job_status")) in _TERMINAL_STATUSES
+        and info.get("job_end", "").lower()
+        not in ("", "unknown", "none", "n/a")
+    )
+
 
 class Slurm(WorkflowManagerBase):
     """Slurm workflow manager"""
@@ -53,6 +101,7 @@ class Slurm(WorkflowManagerBase):
         super().__init__(file_path)
 
         self.runner = SlurmRunner()
+        self._queried_job_id = None
 
     workflow_manager_variable(
         "workflow_banner",
@@ -218,38 +267,59 @@ class Slurm(WorkflowManagerBase):
             "workflow_hostfile_cmd": self.runner.get_hostfile_cmd(),
         }
 
+    def _read_job_id(self, run_dir):
+        job_id_file = os.path.join(run_dir, ".slurm_job")
+        if not os.path.isfile(job_id_file):
+            return None, "job_id file is missing"
+        try:
+            with open(job_id_file, encoding="utf-8") as f:
+                job_id = f.read().strip()
+        except OSError as e:
+            return None, f"Failed to read job_id file {job_id_file}: {e}"
+        if not job_id:
+            return None, f"job_id file {job_id_file} is empty"
+        return job_id, None
+
     def _prepare_analysis(self, workspace):
         if workspace.dry_run:
             return
         expander = self.app_inst.expander
+        run_dir = expander.experiment_run_dir
+        job_id, err = self._read_job_id(run_dir)
+        if err is not None:
+            return
+        if _is_final_job_info(_read_job_info(run_dir), job_id):
+            self._queried_job_id = job_id
+            return
         query_script = expander.expand_var_name("batch_query")
         query_cmd = Executable(query_script)
         try:
             query_cmd(output=os.devnull)
+            self._queried_job_id = job_id
         except (ProcessError, OSError) as e:
             # Only log a warning as this is not considered a critical step
             logger.warn(f"batch_query returns error {e}")
 
     def get_status(self, workspace):
-        expander = self.app_inst.expander
-        run_dir = expander.expand_var_name("experiment_run_dir")
-        job_id_file = os.path.join(run_dir, ".slurm_job")
-        if not os.path.isfile(job_id_file):
-            logger.warn("job_id file is missing")
-            return ExperimentStatus.UNRESOLVED
-        try:
-            with open(job_id_file, encoding="utf-8") as f:
-                job_id = f.read().strip()
-        except OSError as e:
-            logger.warn(f"Failed to read job_id file {job_id_file}: {e}")
-            return ExperimentStatus.UNRESOLVED
-        if not job_id:
-            logger.warn(f"job_id file {job_id_file} is empty")
+        run_dir = self.app_inst.expander.experiment_run_dir
+        job_id, err = self._read_job_id(run_dir)
+        if err is not None:
+            logger.warn(err)
             return ExperimentStatus.UNRESOLVED
 
-        self.runner.set_dry_run(workspace.dry_run)
-        wm_status_raw = self.runner.get_status(job_id)
-        status = _STATUS_MAP.get(wm_status_raw, ExperimentStatus.UNRESOLVED)
+        info = _read_job_info(run_dir)
+        if not workspace.dry_run and (
+            self._queried_job_id == job_id or _is_final_job_info(info, job_id)
+        ):
+            status = (
+                _parse_status(info.get("job_status"))
+                if info.get("job_id") == job_id
+                else ExperimentStatus.UNRESOLVED
+            )
+        else:
+            self.runner.set_dry_run(workspace.dry_run)
+            status = _parse_status(self.runner.get_status(job_id))
+
         if status == ExperimentStatus.UNRESOLVED:
             logger.warn(
                 f"The slurm workflow manager failed to resolve the status of job {job_id}. "
