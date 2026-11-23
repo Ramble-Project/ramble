@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import csv
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -197,6 +198,33 @@ class TestResultsTables(unittest.TestCase):
         table1.to_csv.assert_called_with("/tmp", "timestamp")
         table2.to_csv.assert_called_with("/tmp", "timestamp")
         self.assertGreater(mock_log.call_count, 0)
+
+
+def test_group_by_multiple_columns(tmp_path):
+    table = ResultsTable(
+        {
+            "name": "multi_group",
+            "group_by": ["app", "workload"],
+            "group_method": "min",
+            "sort_by": ["app", "workload"],
+        }
+    )
+    table._data = {
+        "app": ["app1", "app1", "app1", "app2", "app2"],
+        "workload": ["wl1", "wl1", "wl2", "wl1", "wl1"],
+        "score": ["30", "10", "50", "40", "20"],
+    }
+    table._num_rows = 5
+
+    file_path, _ = table.to_csv(tmp_path, "ts")
+    with open(file_path, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    assert rows == [
+        {"app": "app1", "workload": "wl1", "score": "10"},
+        {"app": "app1", "workload": "wl2", "score": "50"},
+        {"app": "app2", "workload": "wl1", "score": "20"},
+    ]
 
 
 if __name__ == "__main__":
