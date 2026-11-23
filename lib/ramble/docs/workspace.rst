@@ -225,6 +225,15 @@ will activate a workspace until it is deactivated, while
 
 will activate a workspace for the specific command.
 
+To create a workspace if it does not already exist and activate it in a single command (or simply activate it if it already exists), pass ``--create``:
+
+.. code-block:: console
+
+    $ ramble workspace activate --create <name_of_workspace>
+    $ ramble workspace activate --create -d <path_to_workspace>
+
+Unlike ``ramble workspace create -a``, which always expects to create a new workspace (and fails if a named workspace already exists), ``ramble workspace activate --create`` can be run repeatedly to ensure the workspace exists and is active, and supports activation options such as ``-p`` and ``--fg``.
+
 To indicate the activated workspace, an option ``-p`` can be supplied to the ``activate`` command.
 This updates the shell prompt to display the name of the currently active workspace.
 

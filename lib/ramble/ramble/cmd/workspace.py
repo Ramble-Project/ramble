@@ -30,6 +30,7 @@ import ramble.repository
 import ramble.software_environments
 import ramble.spec
 import ramble.util.colors as color
+import ramble.util.path
 import ramble.workspace
 import ramble.workspace.shell
 from ramble import ramble_version
@@ -121,6 +122,13 @@ def workspace_activate_setup_parser(subparser):
         help="decorate the command line prompt when activating",
     )
 
+    subparser.add_argument(
+        "--create",
+        action="store_true",
+        default=False,
+        help="create and activate the workspace if it does not exist",
+    )
+
     ws_options = subparser.add_mutually_exclusive_group()
     ws_options.add_argument(
         "--temp",
@@ -172,27 +180,47 @@ def workspace_activate(args):
 
     workspace_name_or_dir = args.activate_workspace or args.dir
 
-    # Temporary workspace
-    if args.temp:
-        workspace = create_temp_workspace_directory()
-        workspace_path = os.path.abspath(workspace)
-        short_name = os.path.basename(workspace_path)
-        ramble.workspace.Workspace(workspace).write()
+    if args.parent_dir and (args.dir or args.temp):
+        logger.die(
+            "ramble workspace activate --parent-dir can only be used with a named workspace"
+        )
 
-    # Named workspace
-    elif (
-        ramble.workspace.exists(workspace_name_or_dir, parent_dir=args.parent_dir) and not args.dir
+    active_workspace = None
+    created = False
+
+    if args.temp:
+        # Temporary workspace
+        active_workspace = ramble.workspace.Workspace(create_temp_workspace_directory())
+        active_workspace.write()
+        short_name = os.path.basename(active_workspace.root)
+    elif not args.dir and ramble.workspace.exists(
+        workspace_name_or_dir, parent_dir=args.parent_dir
     ):
+        # Existing named workspace
         workspace_path = ramble.workspace.root(workspace_name_or_dir, parent_dir=args.parent_dir)
         short_name = workspace_name_or_dir
-
-    # Workspace directory
-    elif ramble.workspace.is_workspace_dir(workspace_name_or_dir):
-        workspace_path = os.path.abspath(workspace_name_or_dir)
-        short_name = os.path.basename(workspace_path)
-
     else:
-        logger.die(f"No such workspace: '{workspace_name_or_dir}'")
+        dir_path = (
+            None if args.parent_dir else ramble.util.path.canonicalize_path(workspace_name_or_dir)
+        )
+        if dir_path and ramble.workspace.is_workspace_dir(dir_path):
+            # Existing workspace directory
+            workspace_path = dir_path
+            short_name = os.path.basename(workspace_path)
+        elif args.create:
+            # Create and activate if requested
+            active_workspace = _workspace_create(
+                workspace_name_or_dir,
+                dir=bool(args.dir),
+                parent_dir=args.parent_dir,
+                quiet=True,
+            )
+            created = True
+            short_name = (
+                os.path.basename(active_workspace.root) if args.dir else workspace_name_or_dir
+            )
+        else:
+            logger.die(f"No such workspace: '{workspace_name_or_dir}'")
 
     workspace_prompt = f"[{short_name}]"
 
@@ -205,16 +233,21 @@ def workspace_activate(args):
         env_mods = ramble.workspace.shell.deactivate()
 
     # Activate new workspace
-    active_workspace = ramble.workspace.Workspace(workspace_path)
+    if active_workspace is None:
+        active_workspace = ramble.workspace.Workspace(workspace_path)
     enable_prompt = args.prompt or ramble.config.get("config:enable_workspace_prompt")
     cmds += ramble.workspace.shell.activate_header(
         ws=active_workspace,
         shell=args.shell,
         prompt=workspace_prompt if enable_prompt else None,
         filter_group=args.filter_group,
+        invalidate_workspace_cache=created and not args.dir,
     )
     env_mods.extend(ramble.workspace.shell.activate(ws=active_workspace))
     cmds += env_mods.shell_modifications(args.shell)
+    if created:
+        ws_loc = active_workspace.root if args.dir else workspace_name_or_dir
+        logger.info(f"Created and activated workspace in {ws_loc}", stream=sys.stderr)
     sys.stdout.write(cmds)
 
 
@@ -343,6 +376,7 @@ def _workspace_create(
     activate=False,
     parent_dir=None,
     no_comments=False,
+    quiet=False,
 ):
     """Create a new workspace
 
@@ -362,6 +396,7 @@ def _workspace_create(
         activate (bool): if True, activate the created workspace. Default is False.
         parent_dir (str): parent directory for the new named workspace.
         no_comments (bool): if True, omit boilerplate comments in ramble.yaml.
+        quiet (bool): if True, suppress creation messages printed to stdout. Default is False.
     """
 
     # Sanity check file paths, to avoid half-creating an incomplete workspace
@@ -397,7 +432,7 @@ def _workspace_create(
         ws_loc = name_or_path
 
     activate_cmd = f"ramble workspace activate {ws_loc}"
-    if not activate:
+    if not activate and not quiet:
         logger.msg(f"Created workspace in {ws_loc}")
         logger.msg("You can activate this workspace with:")
         logger.msg(f"  {activate_cmd}")

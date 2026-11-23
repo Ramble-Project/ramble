@@ -226,3 +226,48 @@ ramble workspace remove -y {ws_name} > /dev/null 2>&1
     words = output.split()
     assert ws_name in words
     assert "Workspaces" not in words
+
+
+def test_workspace_activate_create_completion_cache_invalidation(tmpdir, supported_shell):
+    """Test `--create` flag completion and cache invalidation when creating a named workspace."""
+    setup_env = os.path.join(paths.share_path, "setup-env.sh")
+    script_path = str(tmpdir.join(f"test_ws_activate_create_comp.{supported_shell}"))
+    ws_name = f"test_ws_autocomp_create_{supported_shell}"
+    with open(script_path, "w", encoding="utf-8") as f:
+        f.write(f"""source "{setup_env}"
+echo "{_CASE_MARKER}_FLAGS:$(_ramble_completions ramble workspace activate -)"
+# Seed a stale RAMBLE_WORKSPACES cache before creating the workspace
+RAMBLE_WORKSPACES="stale_cached_ws"
+ramble workspace activate --create {ws_name} 2> /dev/null
+echo "{_CASE_MARKER}_AFTER:$(_ramble_completions ramble workspace activate '')"
+ramble workspace deactivate > /dev/null 2>&1
+""")
+
+    try:
+        process = subprocess.run(
+            [supported_shell, script_path],
+            capture_output=True,
+            text=True,
+            cwd=str(tmpdir),
+            env=os.environ.copy(),
+            check=False,
+        )
+        assert process.returncode == 0, f"{supported_shell} failed with {process.stderr}"
+        flags_output = ""
+        after_output = ""
+        for line in process.stdout.splitlines():
+            if line.startswith(f"{_CASE_MARKER}_FLAGS:"):
+                flags_output = line.partition(":")[2]
+            elif line.startswith(f"{_CASE_MARKER}_AFTER:"):
+                after_output = line.partition(":")[2]
+        assert "--create" in flags_output.split()
+        after_words = after_output.split()
+        assert "stale_cached_ws" not in after_words
+        assert ws_name in after_words
+    finally:
+        subprocess.run(
+            [paths.ramble_script, "workspace", "rm", "-y", ws_name],
+            capture_output=True,
+            text=True,
+            check=False,
+        )

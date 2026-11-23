@@ -706,7 +706,7 @@ _ramble_workspace() {
 _ramble_workspace_activate() {
     if $list_options
     then
-        RAMBLE_COMPREPLY="-h --help --sh --csh --fish --bat -p --prompt --temp -d --dir --parent-dir --fg --filter-group --dry-run"
+        RAMBLE_COMPREPLY="-h --help --sh --csh --fish --bat -p --prompt --create --temp -d --dir --parent-dir --fg --filter-group --dry-run"
     else
         _workspaces
     fi
