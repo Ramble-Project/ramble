@@ -21,17 +21,20 @@ level = "short"
 spec_guide = """\
 spec expression syntax:
 
-  application [constraint]
+  [namespace.][type.]name[@version]
 
-  application                       any application from 'ramble list'
-
-  constraints:
-    workloads:
-      @B{+workload}                      enable <workload>
+  name                              any object from 'ramble list'
+  namespace                         repository namespace (e.g., builtin)
+  type                              object type or abbreviation
+                                    (e.g., app, mod, pkg_man, wm, sys, plat, utility)
+  @version                          optional version suffix (e.g., gromacs@2024)
 
   examples:
-      hostname               the hostname application and all of its workloads
-      hostname +basic        the hostname application and its basic workload
+      @B{hostname}                      the hostname application
+      @B{builtin.hostname}              hostname from the builtin repository
+      @B{builtin.app.hostname}          hostname application from builtin
+      @B{mod.perf}                      the perf modifier
+      @B{builtin.wm.slurm}              the slurm workflow manager from builtin
 """
 
 
@@ -63,7 +66,7 @@ def setup_parser(subparser):
         dest="guide",
         const="spec",
         default=None,
-        help="help on the package specification syntax",
+        help="help on the object specification syntax",
     )
 
 

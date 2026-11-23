@@ -80,7 +80,6 @@ def deactivate_header(shell):
         # TODO: Color
         cmds += f'set "{ramble.workspace.RAMBLE_WORKSPACE_VAR}="\n'
         cmds += 'set "RAMBLE_ACTIVE_FILTER_GROUP="\n'
-        # TODO: despacktivate
         # TODO: prompt
     else:
         cmds += "if [ ! -z ${%s+x} ]; then\n" % (ramble.workspace.RAMBLE_WORKSPACE_VAR)
@@ -106,21 +105,17 @@ def deactivate_header(shell):
 
 def activate(ws):
     """
-    Activate an environment and append environment modifications
+    Activate a workspace and return environment modifications.
 
-    To activate an environment, we add its configuration scope to the
-    existing Spack configuration, and we set active to the current
-    environment.
+    To activate a workspace, we add its configuration scope to the
+    existing Ramble configuration, and set it as the active workspace.
 
     Arguments:
-        env (spack.environment.Environment): the environment to activate
-        use_env_repo (bool): use the packages exactly as they appear in the
-            environment's repository
-        add_view (bool): generate commands to add view to path variables
+        ws (ramble.workspace.Workspace): the workspace to activate
 
     Returns:
-        spack.util.environment.EnvironmentModifications: Environment variables
-        modifications to activate environment.
+        spack.util.environment.EnvironmentModifications: Environment variable
+        modifications to activate the workspace.
     """
     ramble.workspace.activate(ws)
 
@@ -138,15 +133,11 @@ def activate(ws):
 
 def deactivate():
     """
-    Deactivate an environment and collect corresponding environment modifications.
-
-    Note: unloads the environment in its current state, not in the state it was
-        loaded in, meaning that specs that were removed from the spack environment
-        after activation are not unloaded.
+    Deactivate the currently active workspace and return environment modifications.
 
     Returns:
-        spack.util.environment.EnvironmentModifications: Environment variables
-        modifications to activate environment.
+        spack.util.environment.EnvironmentModifications: Environment variable
+        modifications to deactivate the workspace.
     """
     env_mods = EnvironmentModifications()
     active = ramble.workspace.active_workspace()

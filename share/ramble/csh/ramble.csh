@@ -34,20 +34,16 @@ if ( "$_rmb_flags" =~ *h* || "$_rmb_flags" =~ *V* ) then
     goto _rmb_end
 endif
 
-# Set up args -- we want a subcommand and a spec.
+# Set up args -- extract the subcommand.
 set _rmb_subcommand=""
-set _rmb_spec=""
 if ($#_rmb_args > 0) then
     set _rmb_subcommand = ($_rmb_args[1])
-endif
-if ($#_rmb_args > 1) then
-    set _rmb_spec = ($_rmb_args[2-])
 endif
 
 # Run subcommand
 switch ($_rmb_subcommand)
 case workspace:
-    shift _rmb_args  # get rid of 'env'
+    shift _rmb_args  # get rid of 'workspace'
 
     set _rmb_arg=""
     if ($#_rmb_args > 0) then
@@ -65,7 +61,7 @@ case workspace:
                 endif
 
                 # Space needed here to differentiate between `-h`
-                # argument and environments with "-h" in the name.
+                # argument and workspaces with "-h" in the name.
                 if ( "$_rmb_env_arg" == "" || \
                      "$_rmb_args" =~ "* --sh*" || \
                      "$_rmb_args" =~ "* --csh*" || \
@@ -89,7 +85,7 @@ case workspace:
                 endif
 
                 # Space needed here to differentiate between `--sh`
-                # argument and environments with "--sh" in the name.
+                # argument and workspaces with "--sh" in the name.
                 if ( "$_rmb_args" =~ "* --sh*" || \
                      "$_rmb_args" =~ "* --csh*" ) then
                     # Args contain --sh or --csh: just execute.
@@ -137,7 +133,7 @@ default:
 endsw
 
 _rmb_end:
-unset _rmb_args _rmb_full_spec _rmb_sh_cmd _rmb_spec _rmb_subcommand _rmb_flags
+unset _rmb_args _rmb_subcommand _rmb_flags
 unset _rmb_arg _rmb_env_arg
 
 # The `endif` may swallow the subshell's exit status, so doing the eval at the very end.

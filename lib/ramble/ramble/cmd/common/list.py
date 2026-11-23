@@ -17,7 +17,7 @@ from llnl.util.tty.colify import colify
 
 import ramble.repository
 from ramble.cmd.common import arguments
-from ramble.util import object_utils
+from ramble.util import json_util, object_utils
 from ramble.util.logger import logger
 
 formatters: Dict[str, Callable] = {}
@@ -50,17 +50,10 @@ def rows_for_ncols(elts, ncols):
 
 
 @formatter
-def version_json(obj_names, out, object_type):
-    """Print all objects with their latest versions."""
-    objs = [ramble.repository.get(name, object_type=object_type) for name in obj_names]
-
-    out.write("[\n")
-
-    # output name and latest version for each object
-    obj_latest = ",\n".join([f'  {{"name": "{obj.name}"\n}}' for obj in objs])
-    out.write(obj_latest)
-    # important: no trailing comma in JSON arrays
-    out.write("\n]\n")
+def json(obj_names, out, object_type):
+    """Print all objects in JSON format."""
+    json_util.dump([{"name": name} for name in obj_names], out)
+    out.write("\n")
 
 
 @formatter

@@ -82,7 +82,7 @@ _bash_completion_ramble() {
     # In all following examples, let the cursor be denoted by brackets, i.e. []
 
     # For our purposes, flags should not affect tab completion. For instance,
-    # `ramble install []` and `ramble -d install --jobs 8 []` should both give the same
+    # `ramble info []` and `ramble -d info --verbose []` should both give the same
     # possible completions. Therefore, we need to ignore any flags in COMP_WORDS.
     local -a COMP_WORDS_NO_FLAGS
     local index=0
@@ -96,17 +96,17 @@ _bash_completion_ramble() {
     done
 
     # Options will be listed by a subfunction named after non-flag arguments.
-    # For example, `ramble -d install []` will call _ramble_install
-    # and `ramble compiler add []` will call _ramble_compiler_add
+    # For example, `ramble -d info []` will call _ramble_info
+    # and `ramble repo add []` will call _ramble_repo_add
     local subfunction=$(IFS='_'; echo "_${COMP_WORDS_NO_FLAGS[*]}")
 
     # Translate dashes to underscores, as dashes are not permitted in
-    # compatibility mode. See https://github.com/ramble/ramble/pull/4079
+    # shell function names in sh compatibility mode.
     subfunction=${subfunction//-/_}
 
     # However, the word containing the current cursor position needs to be
     # added regardless of whether or not it is a flag. This allows us to
-    # complete something like `ramble install --keep-st[]`
+    # complete something like `ramble workspace setup --dry-[]`
     COMP_WORDS_NO_FLAGS+=("${COMP_WORDS[$COMP_CWORD]}")
 
     # Since we have removed all words after COMP_CWORD, we can safely assume
@@ -115,11 +115,11 @@ _bash_completion_ramble() {
 
     # There is no guarantee that the cursor is at the end of the command line
     # when tab completion is invoked. For example, in the following situation:
-    #     `ramble -d [] install`
+    #     `ramble -d [] list`
     # if the user presses the TAB key, a list of valid flags should be listed.
     # Note that we cannot simply ignore everything after the cursor. In the
     # previous scenario, the user should expect to see a list of flags, but
-    # not of other subcommands. Obviously, `ramble -d list install` would be
+    # not of other subcommands. Obviously, `ramble -d info list` would be
     # invalid syntax. To accomplish this, we use the variable list_options
     # which is true if the current word starts with '-' or if the cursor is
     # not at the end of the line.
@@ -129,24 +129,24 @@ _bash_completion_ramble() {
         list_options=true
     fi
 
-    # In general, when evoking tab completion, the user is not expecting to
-    # see optional flags mixed in with subcommands or package names. Tab
+    # In general, when invoking tab completion, the user is not expecting to
+    # see optional flags mixed in with subcommands or object names. Tab
     # completion is used by those who are either lazy or just bad at spelling.
     # If someone doesn't remember what flag to use, seeing single letter flags
     # in their results won't help them, and they should instead consult the
     # documentation. However, if the user explicitly declares that they are
     # looking for a flag, we can certainly help them out.
-    #     `ramble install -[]`
+    #     `ramble list -[]`
     # and
-    #     `ramble install --[]`
+    #     `ramble list --[]`
     # should list all flags and long flags, respectively. Furthermore, if a
-    # subcommand has no non-flag completions, such as `ramble arch []`, it
+    # subcommand has no non-flag completions, such as `ramble on []`, it
     # should list flag completions.
 
     local cur=${COMP_WORDS_NO_FLAGS[$COMP_CWORD_NO_FLAGS]}
 
     # If the cursor is in the middle of the line, like:
-    #     `ramble -d [] install`
+    #     `ramble -d [] list`
     # COMP_WORDS will not contain the empty character, so we have to add it.
     if [[ "${COMP_LINE:$COMP_POINT:1}" == " " ]]
     then
@@ -215,18 +215,10 @@ _config_sections() {
     RAMBLE_COMPREPLY="$RAMBLE_CONFIG_SECTIONS"
 }
 
-_extensions() {
-    if [[ -z "${RAMBLE_EXTENSIONS:-}" ]]
-    then
-        RAMBLE_EXTENSIONS="$(ramble extensions)"
-    fi
-    RAMBLE_COMPREPLY="$RAMBLE_EXTENSIONS"
-}
-
 # Testing functions
 
 # Function for unit testing tab completion
-# Syntax: _ramble_completions ramble install py-
+# Syntax: _ramble_completions ramble list host
 _ramble_completions() {
     local COMP_CWORD COMP_KEY COMP_LINE COMP_POINT COMP_TYPE COMP_WORDS COMPREPLY
 

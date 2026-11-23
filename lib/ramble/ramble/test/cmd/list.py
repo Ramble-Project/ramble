@@ -41,15 +41,19 @@ def test_list_format_name_only():
     assert "hostname" in output
 
 
-@pytest.mark.maybeslow
-def test_list_format_version_json():
-    output = list("--format", "version_json")
-    assert '  {"name": "hostname"' in output
+def test_list_format_json():
+    import builtins
     import json
 
-    print(" Test output =")
-    print(output)
-    json.loads(output)
+    output = list("--format", "json")
+    data = json.loads(output)
+    assert isinstance(data, builtins.list)
+    assert {"name": "hostname"} in data
+
+    base_output = list("--type", "base_classes", "--format", "json")
+    base_data = json.loads(base_output)
+    assert isinstance(base_data, builtins.list)
+    assert {"name": "application-base"} in base_data
 
 
 @pytest.mark.maybeslow

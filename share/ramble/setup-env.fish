@@ -7,54 +7,24 @@
 #################################################################################
 #
 # This file is part of Ramble and sets up the ramble environment for the friendly
-# interactive shell (fish). This includes module support, and it also puts ramble
-# in your path. The script also checks that at least module support exists, and
-# provides suggestions if it doesn't. Source it like this:
+# interactive shell (fish). It adds ramble to your PATH and defines a shell
+# wrapper so workspace activation commands modify the current shell environment.
+# Source it like this:
 #
 #    source /path/to/ramble/share/ramble/setup-env.fish
 #
 #################################################################################
-# This is a wrapper around the ramble command that forwards calls to 'ramble load'
-# and 'ramble unload' to shell functions. This in turn allows them to be used to
-# invoke environment modules functions.
-#
-# 'ramble load' is smarter than just 'load' because it converts its arguments into
-# a unique ramble spec that is then passed to module commands. This allows the
-# user to load packages without knowing all their installation details.
-#
-# e.g., rather than requiring a full spec for libelf, the user can type:
-#
-#     ramble load libelf
-#
-# This will first find the available libelf modules and load a matching one. If
-# there are two versions of libelf, the user would need to be more specific,
-# e.g.:
-#
-#     ramble load libelf@0.8.13
-#
-# This is very similar to how regular ramble commands work and it avoids the need
-# to come up with a user-friendly naming scheme for ramble dotfiles.
+# This is a wrapper around the ramble command that intercepts workspace commands
+# that need to update environment variables in the current shell (such as
+# `ramble workspace activate`, `ramble workspace deactivate`, and
+# `ramble workspace create -a`).
 #################################################################################
 
-# prevent infinite recursion when ramble shells out (e.g., on cray for modules)
+# prevent infinite recursion when ramble shells out
 if test -n "$_rmb_initializing"
     exit 0
 end
 set -x _rmb_initializing true
-
-
-#
-# Test for STDERR-NOCARET feature: if this is off, fish will redirect stderr to
-# a file named in the string after `^`
-#
-
-
-if status test-feature stderr-nocaret
-else
-    echo "WARNING: you have not enabled the 'stderr-nocaret' feature."
-    echo "This means that you have to escape the caret (^) character when defining specs."
-    echo "Consider enabling stderr-nocaret: https://fishshell.com/docs/current/index.html#featureflags"
-end
 
 
 
@@ -79,8 +49,6 @@ function ramble -d "wrapper for the `ramble` command"
 
 function allocate_rmb_shared -d "allocate shared (global variables)"
     set -gx __rmb_remaining_args
-    set -gx __rmb_subcommand_args
-    set -gx __rmb_module_args
     set -gx __rmb_stat
     set -gx __rmb_stdout
     set -gx __rmb_stderr
@@ -90,8 +58,6 @@ end
 
 function delete_rmb_shared -d "deallocate shared (global variables)"
     set -e __rmb_remaining_args
-    set -e __rmb_subcommand_args
-    set -e __rmb_module_args
     set -e __rmb_stat
     set -e __rmb_stdout
     set -e __rmb_stderr
@@ -173,9 +139,9 @@ end
 
 
 #
-# GET_rmb_FLAGS, and GET_MOD_ARGS: support functions for extracting arguments and
-# flags. Note bash's `shift` operation is simulated by the `__rmb_remaining_args`
-# array which is roughly equivalent to `$@` in bash.
+# GET_rmb_FLAGS: support function for extracting leading flags. Note bash's
+# `shift` operation is simulated by the `__rmb_remaining_args` array which is
+# roughly equivalent to `$@` in bash.
 #
 
 function get_rmb_flags -d "return leading flags"
@@ -402,7 +368,7 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
 
 
     #
-    # Isolate subcommand and subcommand specs. Notes: [1] (cf. EOF)
+    # Isolate subcommand. Notes: [1] (cf. EOF)
     #
 
     set -l rmb_subcommand ""
@@ -411,8 +377,6 @@ function ramble_runner -d "Runner function for the `ramble` wrapper"
         set rmb_subcommand $__rmb_remaining_args[1]
         set __rmb_remaining_args (shift_args $__rmb_remaining_args)  # simulates bash shift
     end
-
-    set -l rmb_spec $__rmb_remaining_args
 
 
     #
@@ -597,10 +561,8 @@ end
 #################################################################################
 function ramble_pathadd -d "Add path to specified variable (defaults to PATH)"
     #
-    # Adds (existing only) paths to specified (defaults to PATH)
-    # variable. Does not warn attempting to add non-existing path. This is not a
-    # bug because the MODULEPATH setup tries add all possible compatible systems
-    # and therefore rmb_multi_pathadd relies on this function failing silently.
+    # Adds existing directory paths to the specified variable (defaults to PATH)
+    # without warning if the path does not exist.
     #
 
     # If no variable name is supplied, just append to PATH otherwise append to
@@ -640,21 +602,6 @@ function ramble_pathadd -d "Add path to specified variable (defaults to PATH)"
 end
 
 
-function rmb_multi_pathadd -d "Helper for adding module-style paths by incorporating compatible systems into pathadd" --inherit-variable _rmb_compatible_sys_types
-    #
-    # Calls ramble_pathadd in path inputs, adding all compatible system types
-    # (sourced from $_rmb_compatible_sys_types) to input paths.
-    #
-
-    for pth in $argv[2]
-        for systype in $_rmb_compatible_sys_types
-            ramble_pathadd $argv[1] "$pth/$systype"
-        end
-    end
-end
-
-
-
 #
 # Figure out where this file is. Below code only needs to work in fish
 #
@@ -682,7 +629,6 @@ for cmd in "$RAMBLE_PYTHON" python3 python
 end
 
 
-
 #
 # Find root directory and add bin to path.
 #
@@ -690,84 +636,6 @@ set -l rmb_share_dir (realpath (dirname $rmb_source_file))
 set -l rmb_prefix (realpath (dirname (dirname $rmb_share_dir)))
 ramble_pathadd PATH "$rmb_prefix/bin"
 set -xg RAMBLE_ROOT $rmb_prefix
-
-
-
-#
-# No need to determine which shell is being used (obviously it's fish)
-#
-set -xg RAMBLE_SHELL "fish"
-set -xg _rmb_shell "fish"
-
-
-
-
-#
-# Check whether we need environment-variables (module) <= `use` is not available
-#
-set -l need_module "no"
-if not functions -q use; and not functions -q module
-    set need_module "yes"
-end
-
-
-
-#
-# Make environment-modules available to shell
-#
-function rmb_apply_shell_vars -d "applies expressions of the type `a='b'` as `set a b`"
-
-    # convert `a='b' to array variable `a b`
-    set -l expr_token (string trim -c "'" (string split "=" $argv))
-
-    # run set command to takes, converting lists of type `a:b:c` to array
-    # variables `a b c` by splitting around the `:` character
-    set -xg $expr_token[1] (string split ":" $expr_token[2])
-end
-
-
-if test "$need_module" = "yes"
-    set -l rmb_shell_vars (command ramble sh,modules)
-
-    for rmb_var_expr in $rmb_shell_vars
-        rmb_apply_shell_vars $rmb_var_expr
-    end
-
-    # _rmb_module_prefix is set by ramble --print-sh-vars
-    if test "$_rmb_module_prefix" != "not_installed"
-        set -xg MODULE_PREFIX $_rmb_module_prefix
-        ramble_pathadd PATH "$MODULE_PREFIX/bin"
-    end
-
-else
-
-    set -l rmb_shell_vars (command ramble sh)
-
-    for rmb_var_expr in $rmb_shell_vars
-        rmb_apply_shell_vars $rmb_var_expr
-    end
-
-end
-
-if test "$need_module" = "yes"
-    function module -d "wrapper for the `module` command to point at ramble's modules instance" --inherit-variable MODULE_PREFIX
-        eval $MODULE_PREFIX/bin/modulecmd $RAMBLE_SHELL $argv
-    end
-end
-
-
-
-#
-# set module system roots
-#
-
-# Search of MODULESPATHS by trying all possible compatible system types as
-# module roots.
-if test -z "$MODULEPATH"
-    set -gx MODULEPATH
-end
-rmb_multi_pathadd MODULEPATH $_rmb_tcl_roots
-
 
 
 #

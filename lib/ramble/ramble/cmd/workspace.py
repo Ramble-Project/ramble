@@ -110,7 +110,7 @@ def workspace_activate_setup_parser(subparser):
         action="store_const",
         dest="shell",
         const="bat",
-        help="print bat commands to activate the environment",
+        help="print bat commands to activate the workspace",
     )
 
     subparser.add_argument(
@@ -240,14 +240,14 @@ def workspace_deactivate_setup_parser(subparser):
         action="store_const",
         dest="shell",
         const="fish",
-        help="print fish commands to activate the workspace",
+        help="print fish commands to deactivate the workspace",
     )
     shells.add_argument(
         "--bat",
         action="store_const",
         dest="shell",
         const="bat",
-        help="print bat commands to activate the environment",
+        help="print bat commands to deactivate the workspace",
     )
 
 
@@ -432,7 +432,7 @@ def workspace_remove_setup_parser(subparser):
 def workspace_remove(args):
     """Remove a *named* workspace.
 
-    This removes an environment managed by Ramble. Directory workspaces
+    This removes a workspace managed by Ramble. Directory workspaces
     should be removed manually.
     """
     read_workspaces = []

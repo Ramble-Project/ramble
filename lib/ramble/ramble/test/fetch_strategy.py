@@ -168,8 +168,9 @@ class TestURLFetchStrategy:
         mock_curl.returncode = 60  # Certificate error
         fetcher.stage.archive_file = None
 
-        with pytest.raises(FailedDownloadError, match="invalid certificate"):
+        with pytest.raises(FailedDownloadError, match="invalid certificate") as exc_info:
             fetcher._fetch_curl("http://example.com/foo.tar.gz")
+        assert "ramble -k" in str(exc_info.value)
 
     def test_fetch_curl_content_mismatch(
         self,

@@ -142,7 +142,6 @@ _positional_to_subroutine = {
     "filter": "_all_applications",
     "section": "_config_sections",
     "workspace": "_workspaces",
-    "keys": "_keys",
     "help_command": "_subcommands",
     "namespace": "_repos",
     "pytest": "_unit_tests",

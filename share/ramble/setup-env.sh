@@ -11,39 +11,20 @@
 ########################################################################
 #
 # This file is part of Ramble and sets up the ramble environment for bash,
-# zsh, and dash (sh).  This includes environment modules and lmod support,
-# and it also puts ramble in your path. The script also checks that at least
-# module support exists, and provides suggestions if it doesn't. Source
-# it like this:
+# zsh, and dash (sh). It adds ramble to your PATH, enables tab completion
+# (for bash and zsh), and defines a shell wrapper so workspace activation
+# commands modify the current shell environment. Source it like this:
 #
 #    . /path/to/ramble/share/ramble/setup-env.sh
 #
 ########################################################################
-# This is a wrapper around the ramble command that forwards calls to
-# 'ramble load' and 'ramble unload' to shell functions.  This in turn
-# allows them to be used to invoke environment modules functions.
-#
-# 'ramble load' is smarter than just 'load' because it converts its
-# arguments into a unique Ramble spec that is then passed to module
-# commands.  This allows the user to use packages without knowing all
-# their installation details.
-#
-# e.g., rather than requiring a full spec for libelf, the user can type:
-#
-#     ramble load libelf
-#
-# This will first find the available libelf module file and use a
-# matching one.  If there are two versions of libelf, the user would
-# need to be more specific, e.g.:
-#
-#     ramble load libelf@0.8.13
-#
-# This is very similar to how regular ramble commands work and it
-# avoids the need to come up with a user-friendly naming scheme for
-# ramble module files.
+# This is a wrapper around the ramble command that intercepts workspace
+# commands that need to update environment variables in the current shell
+# (such as `ramble workspace activate`, `ramble workspace deactivate`,
+# and `ramble workspace create -a`).
 ########################################################################
 
-# prevent infinite recursion when ramble shells out (e.g., on cray for modules)
+# prevent infinite recursion when ramble shells out
 if [ -n "${_rmb_initializing:-}" ]; then
     exit 0
 fi
@@ -90,8 +71,8 @@ _ramble_shell_wrapper() {
         shift
     fi
 
-    # Filter out use and unuse.  For any other commands, just run the
-    # command.
+    # Intercept workspace commands that modify the current shell environment.
+    # For any other commands, just run the command.
     case $_rmb_subcommand in
         "workspace")
             _rmb_arg=""
@@ -307,18 +288,6 @@ else
     fi
 fi
 _ramble_pathadd PATH "${_rmb_prefix%/}/bin"
-
-#
-# Check whether a function of the given name is defined
-#
-_ramble_fn_exists() {
-	LANG= type $1 2>&1 | grep -q 'function'
-}
-
-need_module="no"
-if ! _ramble_fn_exists use && ! _ramble_fn_exists module; then
-	need_module="yes"
-fi;
 
 # Define the ramble shell function with some informative no-ops, so when users
 # run `which ramble`, they see the path to ramble and where the function is from.

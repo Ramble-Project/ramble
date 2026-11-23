@@ -80,7 +80,7 @@ section_descriptions = {
 #: preferential command order for some sections (e.g., build pipeline is
 #: in execution order, not alphabetical)
 section_order = {
-    "basic": ["list", "info", "find"],
+    "basic": ["list", "info"],
 }
 
 #: Properties that commands are required to set.
@@ -244,7 +244,7 @@ class RambleArgumentParser(argparse.ArgumentParser):
         formatter.add_text(f"""{section_descriptions['help']}:
   ramble help --all       list all commands and options
   ramble help <command>   help on a specific command
-  ramble help --spec      help on the application specification syntax
+  ramble help --spec      help on the object specification syntax
   ramble docs             open https://ramble.readthedocs.io/ in a browser
 """)
 
