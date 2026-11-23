@@ -386,7 +386,7 @@ class TestGitFetchStrategy:
         assert parsed >= fetch_strategy.Version("1.8.5.2")
 
     def test_version_from_git_invalid(self):
-        """Test unparseable git --version output raises ValueError."""
+        """Test unparsable git --version output raises ValueError."""
         mock_git_exe = mock.MagicMock(return_value="unexpected output\n")
         with pytest.raises(ValueError, match="Could not parse git version"):
             fetch_strategy.GitFetchStrategy.version_from_git(mock_git_exe)
