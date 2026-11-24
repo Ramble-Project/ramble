@@ -86,11 +86,12 @@ def test_spack_info_software(app_query):
         assert field in out
 
 
-@pytest.mark.parametrize("app_query", ["wrfv3", "wrfv4"])
+@pytest.mark.parametrize("app_query,replacement", [("wrfv3", "wrf@3.9.1.1"), ("wrfv4", "wrf@4.2")])
 @deprecation.fail_if_not_removed
-def test_deprecated_spack_info_software(app_query):
+def test_deprecated_spack_info_software(app_query, replacement):
     expected_fields = (
         "Description:",
+        "deprecations",
         "executables",
         "pipelines",
         "setup:",
@@ -103,6 +104,14 @@ def test_deprecated_spack_info_software(app_query):
 
     for field in expected_fields:
         assert field in out
+    assert "deprecated_in: 0.7.0" in out
+    assert "removed_in: 0.8.0" in out
+    assert f"replacement: {replacement}" in out
+
+    short_out = info(app_query)
+    assert "deprecations:" in short_out
+    assert "deprecated in 0.7.0, removed in 0.8.0" in short_out
+    assert f"replacement: {replacement}" in short_out
 
 
 @pytest.mark.parametrize(
@@ -193,6 +202,23 @@ def _get_shared_outputs():
             "conflicts",
             "turn_on_required_directives=True",
             ["turn_on_required_directives conflicts with variant_default"],
+        ),
+        (
+            "deprecations",
+            [
+                "+turn_on_required_directives",
+                "0.7.0",
+                "99.0.0",
+                "new-info",
+                "Use new-info instead",
+            ],
+            [
+                "+turn_on_required_directives:",
+                "deprecated_in: 0.7.0",
+                "removed_in: 99.0.0",
+                "replacement: new-info",
+                "message: Use new-info instead",
+            ],
         ),
         ("object_variables", "obj_var_name", ["default_obj_val", "An obj var"]),
         ("required_vars", "required_var_name", ["A required var", "type.required"]),
@@ -473,6 +499,47 @@ def test_info_conflicts_pattern(mutable_mock_apps_repo):
     )
     assert "turn_on_required_directives=True" not in out
     assert "turn_on_required_directives conflicts with variant_default" not in out
+
+
+def test_info_deprecations_pattern(mutable_mock_apps_repo):
+    out = info(
+        "--type",
+        "applications",
+        "-v",
+        "--attrs",
+        "deprecations",
+        "-p",
+        "*turn_on_required_directives*",
+        "info",
+    )
+    assert "+turn_on_required_directives:" in out
+    assert "deprecated_in: 0.7.0" in out
+    assert "replacement: new-info" in out
+    assert "message: Use new-info instead" in out
+
+    out = info(
+        "--type",
+        "applications",
+        "-v",
+        "--attrs",
+        "deprecations",
+        "-p",
+        "*not_matching*",
+        "info",
+    )
+    assert "+turn_on_required_directives:" not in out
+    assert "replacement: new-info" not in out
+
+    out_lists = info(
+        "--type",
+        "applications",
+        "--attrs",
+        "deprecations",
+        "--format",
+        "lists",
+        "info",
+    )
+    assert "['when +turn_on_required_directives:" in out_lists
 
 
 def test_info_namespaced_spec(mutable_config, tmpdir):

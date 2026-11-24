@@ -595,6 +595,34 @@ used for this.
             msg="Validation does not support version 2.0 or higher",
         )
 
+^^^^^^^^^^^^^^^^^^^^
+Deprecations
+^^^^^^^^^^^^^^^^^^^^
+
+Deprecations can be declared on an entire object or on a conditional subset
+(such as a specific version, workload, or variant) using the ``deprecate``
+directive (:py:meth:`ramble.language.shared_language.deprecate`). Active
+deprecations emit a single warning per command during experiment validation and
+are displayed in ``ramble info``.
+
+.. code-block:: python
+
+    # Deprecate an entire object
+    deprecate(
+        deprecated_in="0.7.0",
+        removed_in="0.8.0",
+        replacement="wrf@4.2",
+    )
+
+    # Deprecate a specific version with an additional migration note
+    with when("@:3.9.1.1"):
+        deprecate(
+            deprecated_in="0.7.0",
+            removed_in="0.8.0",
+            replacement="wrf@4.2",
+            msg="Please migrate inputs to the unified WRF application.",
+        )
+
 
 .. _application-dev-conditional-logic:
 

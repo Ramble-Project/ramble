@@ -37,6 +37,7 @@ import ramble.config
 import ramble.paths
 import ramble.repository
 import ramble.util.colors as color
+import ramble.util.deprecations
 import ramble.util.lock as lk
 import ramble.util.version
 import ramble.workspace
@@ -655,16 +656,17 @@ def setup_main_options(args):
 
 def _invoke_command(command, parser, args, unknown_args):
     """Run a ramble command *without* setting ramble global options."""
-    try:
-        if ramble.cmd.common.arguments.allows_unknown_args(command):
-            return_val = command(parser, args, unknown_args)
-        else:
-            if unknown_args:
-                logger.die(f'unrecognized arguments: {" ".join(unknown_args)}')
-            return_val = command(parser, args)
-    except ramble.expander.WorkloadNotDefinedError as e:
-        logger.error(e)
-        return 1
+    with ramble.util.deprecations.deprecation_warning_context():
+        try:
+            if ramble.cmd.common.arguments.allows_unknown_args(command):
+                return_val = command(parser, args, unknown_args)
+            else:
+                if unknown_args:
+                    logger.die(f'unrecognized arguments: {" ".join(unknown_args)}')
+                return_val = command(parser, args)
+        except ramble.expander.WorkloadNotDefinedError as e:
+            logger.error(e)
+            return 1
 
     # Allow commands to return and error code if they want
     return 0 if return_val is None else return_val

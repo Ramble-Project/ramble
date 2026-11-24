@@ -9,9 +9,6 @@
 import os
 import re
 
-import deprecation
-
-import ramble
 from ramble.appkit import *
 from ramble.expander import Expander
 
@@ -27,29 +24,11 @@ class Wrfv4(ExecutableApplication):
 
     name = "wrfv4"
 
-    @deprecation.deprecated(
+    deprecate(
         deprecated_in="0.7.0",
         removed_in="0.8.0",
-        current_version=str(ramble.ramble_version),
-        details="The 'wrfv4' application is deprecated. Use the 'wrf' application (e.g., 'wrf@4.2') instead.",
+        replacement="wrf@4.2",
     )
-    def __init__(self, file_path):
-        super().__init__(file_path)
-
-    def set_variables_and_variants(
-        self, variables, variants, workspace, experiment_set
-    ):
-        target = experiment_set or workspace or type(self)
-        warned_attr = f"_{self.name}_deprecation_warned"
-        if not getattr(target, warned_attr, False):
-            setattr(target, warned_attr, True)
-            logger.warn(
-                "The 'wrfv4' application is deprecated and will be removed in v0.8.0. "
-                "Please use the 'wrf' application (e.g., 'wrf@4.2') instead."
-            )
-        super().set_variables_and_variants(
-            variables, variants, workspace, experiment_set
-        )
 
     maintainers("douglasjacobsen")
 
