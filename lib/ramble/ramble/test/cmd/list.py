@@ -56,6 +56,13 @@ def test_list_format_json():
     assert {"name": "application-base"} in base_data
 
 
+def test_list_format_version_json():
+    import json
+
+    output = list("--format", "version_json")
+    assert json.loads(output) == json.loads(list("--format", "json"))
+
+
 @pytest.mark.maybeslow
 def test_list_format_html():
     output = list("--format", "html")

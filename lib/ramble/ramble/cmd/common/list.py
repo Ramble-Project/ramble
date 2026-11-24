@@ -57,6 +57,12 @@ def json(obj_names, out, object_type):
 
 
 @formatter
+def version_json(obj_names, out, object_type):
+    """Print all objects in JSON format (alias for json)."""
+    json(obj_names, out, object_type)
+
+
+@formatter
 def html(obj_names, out, object_type):
     """Print out information on all objects in Sphinx HTML.
 
