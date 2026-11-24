@@ -19,7 +19,7 @@ from ramble.main import RambleCommand
 from ramble.util import json_util
 from ramble.util.logger import logger
 
-import spack.util.url as surl
+import spack.util.url as url_util
 
 description = "manage workspace deployments"
 section = "workspaces"
@@ -130,7 +130,7 @@ def deployment_pull(args):
         # Handle local relative path
         deployment_path = ramble.util.path.normalize_path_or_url(args.deployment_path)
 
-        remote_index_path = surl.join(
+        remote_index_path = url_util.join(
             deployment_path, ramble.pipeline.PushDeploymentPipeline.index_filename
         )
         local_index_path = os.path.join(ws.root, push_cls.index_filename)
@@ -162,7 +162,7 @@ def deployment_pull(args):
                     f"Deployment file '{file}' resolves outside of the workspace root '{ws.root}'."
                 )
 
-            src = surl.join(deployment_path, file)
+            src = url_util.join(deployment_path, file)
             if os.path.exists(dest):
                 fs.force_remove(dest)
 

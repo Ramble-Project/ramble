@@ -26,7 +26,7 @@ import ramble.caches
 import ramble.error
 import ramble.fetch_strategy as fs
 import ramble.mirror
-import ramble.util.lock
+import ramble.util.lock as lk
 from ramble.util.logger import logger
 
 import spack.util.url as url_util
@@ -72,7 +72,7 @@ class InputStage:
     """
 
     """Shared dict of all stage locks."""
-    stage_locks: Dict[str, ramble.util.lock.Lock] = {}
+    stage_locks: Dict[str, lk.Lock] = {}
 
     """Most staging is managed by Ramble.  DIYStage is one exception."""
     managed_by_ramble = True
@@ -161,7 +161,7 @@ class InputStage:
                 stage_lock_path = os.path.join(self.path, ".lock")
 
                 logger.debug(f"Creating stage lock {self.name}")
-                InputStage.stage_locks[self.name] = ramble.util.lock.Lock(
+                InputStage.stage_locks[self.name] = lk.Lock(
                     stage_lock_path, lock_id, 1, desc=self.name
                 )
 

@@ -12,8 +12,8 @@ import signal
 import ramble.creator
 import ramble.repository
 import ramble.spec
-import ramble.util.naming as nm
 from ramble.main import POSIX_SIGNAL_EXIT_OFFSET
+from ramble.util import naming
 from ramble.util.logger import logger
 
 description = "create a new application, modifier, or other object definition"
@@ -135,7 +135,7 @@ def run_interactive_wizard():
         if not name:
             continue
         try:
-            nm.validate_module_name(name)
+            naming.validate_module_name(name)
             break
         except Exception as e:
             print(

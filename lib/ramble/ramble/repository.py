@@ -33,7 +33,6 @@ import ramble.caches
 import ramble.config
 import ramble.spec
 import ramble.util.imp
-import ramble.util.naming as nm
 import ramble.util.path
 from ramble.object_types import (
     OBJECT_NAMES,
@@ -42,7 +41,7 @@ from ramble.object_types import (
     type_definitions,
     unified_config,
 )
-from ramble.util import json_util
+from ramble.util import json_util, naming
 from ramble.util.logger import logger
 
 global_namespace = "ramble"
@@ -322,7 +321,7 @@ class FastObjectChecker(Mapping):
             obj_dir = os.path.join(objects_path, obj_name)
 
             # Warn about invalid names that look like objects.
-            if not nm.valid_module_name(obj_name):
+            if not naming.valid_module_name(obj_name):
                 if not obj_name.startswith(".") and obj_name not in _ALL_ACCEPTED_CONFIGS:
                     logger.warn(
                         f"Skipping {object_type} "
@@ -567,7 +566,7 @@ class RepoPath:
 
     def __init__(self, *repos, object_type=default_type):
         self.repos = []
-        self.by_namespace = nm.NamespaceTrie()
+        self.by_namespace = naming.NamespaceTrie()
         self.object_abbrev = type_definitions[object_type]["abbrev"]
 
         self.base_namespace = f"{global_namespace}.{self.object_abbrev}"
@@ -880,7 +879,7 @@ class Repo:
         if import_name in self:
             return import_name
 
-        options = nm.possible_ramble_module_names(import_name)
+        options = naming.possible_ramble_module_names(import_name)
         options.remove(import_name)
         for name in options:
             if name in self:
@@ -1076,7 +1075,7 @@ class Repo:
                 f"Invalid namespace for {self.namespace} repo: {namespace}"
             )
 
-        class_name = nm.mod_to_class(obj_name)
+        class_name = naming.mod_to_class(obj_name)
         logger.debug(f" Class name = {class_name}")
         module = self._get_obj_module(obj_name)
 
