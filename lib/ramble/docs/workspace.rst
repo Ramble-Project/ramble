@@ -217,7 +217,7 @@ will activate a workspace until it is deactivated, while
 
 .. code-block:: console
 
-    $ ramble -D <path_to_workspace workspace ...
+    $ ramble -D <path_to_workspace> workspace ...
 
     or
 
@@ -249,11 +249,11 @@ at the desired configuration granularity.
     $ ramble config add 'config:enable_workspace_prompt:true'
 
 
-A filter group can also be persistently activated for a workspace session by passing the ``-fg`` / ``--filter-group`` flag to the ``activate`` command:
+A filter group can also be persistently activated for a workspace session by passing the ``--fg`` / ``--filter-group`` flag to the ``activate`` command:
 
 .. code-block:: console
 
-    $ ramble workspace activate <workspace_name> -fg small-scale
+    $ ramble workspace activate <workspace_name> --fg small-scale
 
 This will export the ``RAMBLE_ACTIVE_FILTER_GROUP`` environment variable to the shell, which will be used by subsequent workspace commands as the default filter group. Deactivating the workspace will unset this variable.
 
