@@ -6,6 +6,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import deprecation
 import pytest
 
 from ramble.main import RambleCommand
@@ -56,10 +57,12 @@ def test_list_format_json():
     assert {"name": "application-base"} in base_data
 
 
-def test_list_format_version_json():
+@deprecation.fail_if_not_removed
+def test_list_format_version_json(deprecated_call):
     import json
 
-    output = list("--format", "version_json")
+    with deprecated_call():
+        output = list("--format", "version_json")
     assert json.loads(output) == json.loads(list("--format", "json"))
 
 

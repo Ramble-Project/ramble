@@ -13,9 +13,12 @@ import os
 import sys
 from typing import Callable, Dict
 
+import deprecation
+
 from llnl.util.tty.colify import colify
 
 import ramble.repository
+from ramble import ramble_version
 from ramble.cmd.common import arguments
 from ramble.util import json_util, object_utils
 from ramble.util.logger import logger
@@ -56,9 +59,16 @@ def json(obj_names, out, object_type):
     out.write("\n")
 
 
+# TODO: remove in 0.8.0
 @formatter
+@deprecation.deprecated(
+    deprecated_in="0.7.0",
+    removed_in="0.8.0",
+    current_version=ramble_version,
+    details="Use --format json instead",
+)
 def version_json(obj_names, out, object_type):
-    """Print all objects in JSON format (alias for json)."""
+    """Print all objects in JSON format (deprecated alias for json)."""
     json(obj_names, out, object_type)
 
 
@@ -144,7 +154,8 @@ def setup_list_parser(subparser):
         "--format",
         default="name_only",
         choices=formatters,
-        help="format to be used to print the output [default: name_only]",
+        help="format to be used to print the output [default: name_only] "
+        "(version_json is a deprecated alias for json)",
     )
     subparser.add_argument(
         "--update",
