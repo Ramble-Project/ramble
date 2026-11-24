@@ -363,22 +363,9 @@ def configuration_dir(tmpdir_factory, linux_os):
     site_path = os.path.join(str(tmpdir), "site")
     shutil.copytree(test_config_path, site_path)
 
-    # Create temporary 'defaults', 'site' and 'user' folders
+    # Create temporary 'user' folder
     os.makedirs(os.path.join(str(tmpdir), "user"), exist_ok=True)
 
-    # Slightly modify config.yaml
-    solver = os.environ.get("SPACK_TEST_SOLVER", "original")
-    config_yaml_path = os.path.join(test_config_path, "config.yaml")
-    modules_root = tmpdir_factory.mktemp("share")
-    tcl_root = os.path.join(str(modules_root), "modules")
-    os.makedirs(tcl_root, exist_ok=True)
-    lmod_root = os.path.join(str(modules_root), "lmod")
-    os.makedirs(lmod_root, exist_ok=True)
-    with open(config_yaml_path, "r", encoding="utf-8") as f:
-        content = f.read().format(solver, str(tcl_root), str(lmod_root))
-    t_path = os.path.join(str(tmpdir), "site", "config.yaml")
-    with open(t_path, "w", encoding="utf-8") as f:
-        f.write(content)
     yield tmpdir
 
     # Once done, cleanup the directory

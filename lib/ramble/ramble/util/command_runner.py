@@ -197,7 +197,7 @@ class CommandRunner:
 
 
 class RunnerError(Exception):
-    """Raised when a problem occurs with a spack environment"""
+    """Raised when a problem occurs with a command runner"""
 
 
 class NoPathRunnerError(RunnerError):
