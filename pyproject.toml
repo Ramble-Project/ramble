@@ -237,6 +237,9 @@ select = [
 "spack.util.lock" = { msg = "Core Ramble code should not rely on spack.util.lock." }
 "spack.util.editor" = { msg = "Core Ramble code should not rely on spack.util.editor." }
 "spack.util.path" = { msg = "Core Ramble code should not rely on spack.util.path." }
+"spack.util.file_cache" = { msg = "Core Ramble code should not rely on spack.util.file_cache." }
+"spack.util.hash" = { msg = "Core Ramble code should not rely on spack.util.hash." }
+"spack.version" = { msg = "Core Ramble code should not rely on spack.version." }
 
 [tool.ruff.lint.per-file-ignores]
 "lib/ramble/ramble/*kit.py" = ["F403"]

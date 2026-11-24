@@ -289,7 +289,7 @@ class TestGitFetchStrategy:
         monkeypatch.setattr(
             fetch_strategy.GitFetchStrategy,
             "version_from_git",
-            mock.MagicMock(return_value=fetch_strategy.ver("2.51.0")),
+            mock.MagicMock(return_value=fetch_strategy.Version("2.51.0")),
         )
 
         f = fetch_strategy.GitFetchStrategy(git="https://example.com/repo.git")
@@ -368,6 +368,28 @@ class TestGitFetchStrategy:
             mock.call("checkout", "."),
             mock.call("clean", "-f"),
         ]
+
+    @pytest.mark.parametrize(
+        "version_output,expected",
+        [
+            ("git version 2.39.2\n", "2.39.2"),
+            ("git version 2.39.5 (Apple Git-154)\n", "2.39.5"),
+            ("git version 2.42.0.windows.1\n", "2.42.0"),
+            ("git version 2.40.0-rc0\n", "2.40.0"),
+        ],
+    )
+    def test_version_from_git(self, version_output, expected):
+        """Test parsing git version strings into ramble.util.version.Version."""
+        mock_git_exe = mock.MagicMock(return_value=version_output)
+        parsed = fetch_strategy.GitFetchStrategy.version_from_git(mock_git_exe)
+        assert parsed == fetch_strategy.Version(expected)
+        assert parsed >= fetch_strategy.Version("1.8.5.2")
+
+    def test_version_from_git_invalid(self):
+        """Test unparsable git --version output raises ValueError."""
+        mock_git_exe = mock.MagicMock(return_value="unexpected output\n")
+        with pytest.raises(ValueError, match="Could not parse git version"):
+            fetch_strategy.GitFetchStrategy.version_from_git(mock_git_exe)
 
 
 class TestVCSFetchStrategy:
