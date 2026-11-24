@@ -116,9 +116,9 @@ class TestURLFetchStrategy:
 
     @pytest.fixture
     def mock_tty(self, monkeypatch):
-        """Mock tty."""
+        """Mock logger msg_enabled."""
         mock_msg_enabled = mock.MagicMock(return_value=False)
-        monkeypatch.setattr(fetch_strategy.tty, "msg_enabled", mock_msg_enabled)
+        monkeypatch.setattr(fetch_strategy.logger, "msg_enabled", mock_msg_enabled)
         return mock_msg_enabled
 
     @pytest.fixture

@@ -29,7 +29,6 @@ import ruamel
 
 import llnl.util.lang
 import llnl.util.tty.colify
-from llnl.util import tty
 
 import ramble.cmd
 import ramble.cmd.common.arguments
@@ -583,9 +582,9 @@ def setup_main_options(args):
     warnings.showwarning = send_warning_to_tty
 
     # Set up environment based on args.
-    tty.set_verbose(args.verbose)
-    tty.set_debug(args.debug)
-    tty.set_stacktrace(args.stacktrace)
+    logger.set_verbose(args.verbose)
+    logger.set_debug(args.debug)
+    logger.set_stacktrace(args.stacktrace)
 
     # debug must be set first so that it can even affect behavior of
     # errors raised by ramble.config.
@@ -596,7 +595,7 @@ def setup_main_options(args):
         ramble.config.set("config:debug", True, scope="command_line")
         spack.util.environment.tracing_enabled = True
     if args.timestamp:
-        tty.set_timestamp(True)
+        logger.set_timestamp(True)
 
     # override lock configuration if passed on command line
     if args.locks is not None:

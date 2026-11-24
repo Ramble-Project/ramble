@@ -36,7 +36,6 @@ import sys
 import urllib.parse
 from typing import List, Optional, Type
 
-from llnl.util import tty
 from llnl.util.filesystem import (
     get_single_file,
     mkdirp,
@@ -443,7 +442,7 @@ class URLFetchStrategy(FetchStrategy):
         if not ramble.config.get("config:verify_ssl"):
             curl_args.append("-k")
 
-        if sys.stdout.isatty() and tty.msg_enabled():
+        if sys.stdout.isatty() and logger.msg_enabled():
             curl_args.append("-#")  # status bar when using a tty
         else:
             curl_args.append("-sS")  # show errors if fail

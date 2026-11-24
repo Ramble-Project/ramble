@@ -13,9 +13,8 @@ import platform
 import runpy
 import sys
 
-from llnl.util import tty
-
 import ramble
+from ramble.util.logger import logger
 
 description = "launch an interpreter as ramble would launch a command"
 section = "developer"
@@ -73,11 +72,11 @@ def python(parser, args, unknown_args):
         return
 
     if unknown_args:
-        tty.die("Unknown arguments:", " ".join(unknown_args))
+        logger.die("Unknown arguments:", " ".join(unknown_args))
 
     # Unexpected behavior from supplying both
     if args.python_command and args.python_args:
-        tty.die("You can only specify a command OR script, but not both.")
+        logger.die("You can only specify a command OR script, but not both.")
 
     # Run user choice of interpreter
     if args.python_interpreter == "ipython":
@@ -92,7 +91,7 @@ def ipython_interpreter(args):
     try:
         import IPython  # type: ignore[import]
     except ImportError:
-        tty.die("ipython is not installed, install and try again.")
+        logger.die("ipython is not installed, install and try again.")
 
     if "PYTHONSTARTUP" in os.environ:
         startup_file = os.environ["PYTHONSTARTUP"]

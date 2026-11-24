@@ -11,10 +11,9 @@ import os
 
 import pytest
 
-from llnl.util import tty
-
 import ramble.workspace
 from ramble.main import RambleCommand
+from ramble.util.logger import logger
 
 # everything here uses the mock_workspace_path
 pytestmark = pytest.mark.usefixtures(
@@ -74,7 +73,7 @@ def test_analyze_print(monkeypatch, make_workspace_from_config):
         msg_list.append(msg)
 
     # Assert whether the print is present or not
-    monkeypatch.setattr(tty, "msg", _msg)
+    monkeypatch.setattr(logger, "screen_msg", _msg)
 
     workspace("analyze", global_args=["-w", ws_name])
     assert not any(m.startswith("Results from the analysis pipeline") for m in msg_list)

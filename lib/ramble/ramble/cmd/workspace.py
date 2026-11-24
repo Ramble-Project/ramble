@@ -16,7 +16,6 @@ from typing import Callable, Dict
 
 import deprecation
 
-from llnl.util import tty
 from llnl.util.tty.colify import colified, colify
 
 import ramble.cmd
@@ -478,7 +477,7 @@ def workspace_remove(args):
     logger.debug(f"Removal args: {args}")
 
     if not args.yes_to_all:
-        answer = tty.get_yes_or_no(
+        answer = logger.get_yes_or_no(
             "Really remove %s %s?"
             % (
                 string.plural(len(args.rm_wrkspc), "workspace", show_n=False),
