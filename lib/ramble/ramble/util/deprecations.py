@@ -155,8 +155,8 @@ def emit_deprecation_warning(
 ) -> bool:
     """Emit Python and user-facing warnings for an active deprecation entry.
 
-    Emits a :class:`deprecation.DeprecatedWarning` (or
-    :class:`deprecation.UnsupportedWarning` once ``removed_in`` is reached)
+    Emits a ``deprecation.DeprecatedWarning`` (or
+    ``deprecation.UnsupportedWarning`` once ``removed_in`` is reached)
     via :func:`warnings.warn` so ``@deprecation.fail_if_not_removed`` catches
     expired deprecations, and logs a user-facing warning via ``logger.warn``
     when ``warn_user`` is True. Deduplicates emissions per unique deprecation
