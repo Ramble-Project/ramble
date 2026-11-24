@@ -281,7 +281,7 @@ class InputStage:
                 )
 
             # If this archive is normally fetched from a tarball URL,
-            # then use the same digest.  `spack mirror` ensures that
+            # then use the same digest.  `ramble workspace mirror` ensures that
             # the checksum will be the same.
             digest = None
             expand = True

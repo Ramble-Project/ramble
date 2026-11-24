@@ -27,6 +27,33 @@ _SETUP_ENV_FILE = {
 
 
 @pytest.mark.parametrize("shell", _SHELLS_TO_TEST)
+def test_shell_wrapper_source_clean(shell, tmpdir):
+    """Test that sourcing setup-env emits no errors on stderr."""
+    if not shutil.which(shell):
+        pytest.skip(f"{shell} not found")
+
+    setup_env = os.path.join(paths.share_path, _SETUP_ENV_FILE[shell])
+    test_script_path = str(tmpdir.join(f"test_source_clean.{shell}"))
+
+    prefix = 'set prompt=""\n' if shell == "tcsh" else ""
+    with open(test_script_path, "w", encoding="utf-8") as f:
+        f.write(f'{prefix}source "{setup_env}"\n')
+
+    process = subprocess.run(
+        [shell, test_script_path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        cwd=str(tmpdir),
+        env=os.environ.copy(),
+        check=False,
+    )
+
+    assert process.returncode == 0
+    assert process.stderr == ""
+
+
+@pytest.mark.parametrize("shell", _SHELLS_TO_TEST)
 def test_shell_wrapper_workspace_activate_missing(shell, tmpdir):
     """Test activation of missing workspace fails with proper exit code."""
     if not shutil.which(shell):

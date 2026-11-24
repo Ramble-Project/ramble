@@ -8,13 +8,14 @@
 
 #
 # This file is part of Ramble and sets up the ramble environment for
-# csh and tcsh.  This includes environment modules and lmod support, and
-# it also puts ramble in your path.  Source it like this:
+# csh and tcsh. It adds ramble to your PATH and defines a shell alias
+# so that workspace activation commands update the current shell.
+# Source it like this:
 #
 #    source /path/to/ramble/share/ramble/setup-env.csh
 #
 
-# prevent infinite recursion when ramble shells out (e.g., on cray for modules)
+# prevent infinite recursion when ramble shells out
 if ($?_rmb_initializing) then
     exit 0
 endif
@@ -86,7 +87,6 @@ end
 
 # Set variables needed by this script
 _ramble_pathadd PATH "$RAMBLE_ROOT/bin"
-eval `ramble csh`
 
 # done: unset sentinel variable as we're no longer initializing
 unsetenv _rmb_initializing

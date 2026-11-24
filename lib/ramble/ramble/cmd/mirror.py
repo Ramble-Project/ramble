@@ -48,7 +48,9 @@ def setup_parser(subparser):
     # Add
     add_parser = sp.add_parser("add", help=mirror_add.__doc__, description=mirror_add.__doc__)
     add_parser.add_argument("name", help="mnemonic name for mirror", metavar="mirror")
-    add_parser.add_argument("url", help="url of mirror directory from 'ramble mirror create'")
+    add_parser.add_argument(
+        "url", help="url of mirror directory (e.g., created by 'ramble workspace mirror')"
+    )
     add_parser.add_argument(
         "--scope",
         choices=scopes,
@@ -74,7 +76,9 @@ def setup_parser(subparser):
         "set-url", help=mirror_set_url.__doc__, description=mirror_set_url.__doc__
     )
     set_url_parser.add_argument("name", help="mnemonic name for mirror", metavar="mirror")
-    set_url_parser.add_argument("url", help="url of mirror directory from 'ramble mirror create'")
+    set_url_parser.add_argument(
+        "url", help="url of mirror directory (e.g., created by 'ramble workspace mirror')"
+    )
     set_url_parser.add_argument(
         "--push", action="store_true", help="set only the URL used for uploading new resources"
     )

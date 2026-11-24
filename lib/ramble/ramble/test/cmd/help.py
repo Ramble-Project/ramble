@@ -38,7 +38,8 @@ def test_help_spec():
     help_cmd = RambleCommand("help")
     output = help_cmd("--spec")
     assert "spec expression syntax:" in output
-    assert "application [constraint]" in output
+    assert "[namespace.][type.]name[@version]" in output
+    assert "builtin.app.hostname" in output
 
 
 @pytest.mark.parametrize("subcmd", ["config", "info", "list", "workspace", "help"])

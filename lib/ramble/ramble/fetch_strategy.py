@@ -170,7 +170,7 @@ class FetchStrategy:
         """A unique ID for the source.
 
         It is intended that a human could easily generate this themselves using
-        the information available to them in the Spack package.
+        the information available to them in the Ramble object definition.
 
         The returned value is added to the content which determines the full
         hash for a package using `str()`.
@@ -484,20 +484,20 @@ class URLFetchStrategy(FetchStrategy):
                 raise FailedDownloadError(url, f"URL {url} was not found!")
 
             elif curl.returncode == 60:
-                # This is a certificate error.  Suggest spack -k
+                # This is a certificate error.  Suggest ramble -k
                 raise FailedDownloadError(
                     url,
                     "Curl was unable to fetch due to invalid certificate. "
                     "This is either an attack, or your cluster's SSL "
                     "configuration is bad.  If you believe your SSL "
-                    "configuration is bad, you can try running spack -k, "
-                    "which will not check SSL certificates."
+                    "configuration is bad, you can try running ramble -k, "
+                    "which will not check SSL certificates. "
                     "Use this at your own risk.",
                 )
 
             else:
                 # This is some other curl error.  Curl will print the
-                # error, but print a spack message too
+                # error, but print a ramble message too
                 raise FailedDownloadError(url, "Curl failed with error %d" % curl.returncode)
 
         # Check if we somehow got an HTML file rather than the archive we
@@ -875,7 +875,7 @@ class GitFetchStrategy(VCSFetchStrategy):
             tag (str | None): A tag to fetch from the remote.
             bare (bool): Execute a "bare" git clone (--bare option to git)
         """
-        # Default to spack source path
+        # Default to stage source path
         dest = dest or self.stage.source_path
         logger.debug(f"Cloning git repository: {self._repo_info()}")
 

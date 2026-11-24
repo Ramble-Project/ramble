@@ -87,7 +87,7 @@ def yes_to_all():
 
 @arg
 def tags():
-    return Args("-t", "--tags", action="append", help="filter a package query by tags")
+    return Args("-t", "--tags", action="append", help="filter an object query by tags")
 
 
 @arg
