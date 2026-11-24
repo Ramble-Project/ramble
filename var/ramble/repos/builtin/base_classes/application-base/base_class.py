@@ -3066,6 +3066,18 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                 if workspace.check_cache(input_tuple):
                     continue
 
+                # Skip inputs that are already staged on disk
+                fetcher = input_conf["fetcher"]
+                if workspace.check_input_cache(
+                    input_path,
+                    url=fetcher.url,
+                    digest=fetcher.digest,
+                    expand=input_conf["expand"],
+                    extension=input_conf["extension"],
+                ):
+                    workspace.add_to_cache(input_tuple)
+                    continue
+
                 mirror_paths = ramble.mirror.mirror_archive_paths(
                     input_conf["fetcher"], os.path.join(self.name, input_file)
                 )
@@ -3094,6 +3106,21 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                                     stage.expand_archive()
                                 except spack.util.executable.ProcessError:
                                     pass
+
+                            target_path = (
+                                input_path
+                                if os.path.exists(input_path)
+                                else stage.archive_file
+                            )
+                            workspace.update_input_cache(
+                                input_path,
+                                target_path=target_path,
+                                url=fetcher.url,
+                                digest=fetcher.digest,
+                                expand=input_conf["expand"],
+                                extension=input_conf["extension"],
+                            )
+
                         except ramble.fetch_strategy.FetchError as e:
                             logger.all_msg(
                                 f"Failed fetching input {input_file} in application {self.name}"

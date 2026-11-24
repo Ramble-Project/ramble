@@ -111,6 +111,7 @@ LICENSES_FILE_NAME = "licenses.yaml"
 METADATA_FILE_NAME = "workspace_metadata.yaml"
 INVENTORY_FILE_NAME = "ramble_inventory.json"
 STATUS_FILE_NAME = "ramble_status.json"
+INPUT_CACHE_FILE_NAME = "ramble_input_cache.json"
 
 WORKSPACE_ALL_EXPERIMENTS_FILE = "all_experiments"
 
@@ -618,6 +619,8 @@ class Workspace:
         self.config_sections = {}
 
         self.install_cache = ramble.util.install_cache.SetCache()
+
+        self._input_cache = None
 
         # A per-package_manager dict mapping package spec to its install prefix.
         # This can be re-used by all experiments of the workspace.
@@ -2319,6 +2322,11 @@ cd "{experiment_run_dir}"
         return os.path.join(self.root, WORKSPACE_INPUT_PATH)
 
     @property
+    def input_cache_path(self):
+        """Path to the input cache file"""
+        return os.path.join(self.input_dir, INPUT_CACHE_FILE_NAME)
+
+    @property
     def software_dir(self):
         """Path to the software directory"""
         return os.path.join(self.root, WORKSPACE_SOFTWARE_PATH)
@@ -2906,6 +2914,77 @@ cd "{experiment_run_dir}"
 
     def add_to_cache(self, tupl):
         self.install_cache.add(tupl)
+
+    def _get_input_cache(self):
+        """Load and return the input cache dictionary."""
+        if self._input_cache is None:
+            self._input_cache = {}
+            if os.path.isfile(self.input_cache_path):
+                try:
+                    with open(self.input_cache_path, encoding="utf-8") as f:
+                        data = json_util.load(f)
+                    if isinstance(data, dict):
+                        self._input_cache = data
+                except (OSError, ValueError):
+                    self._input_cache = {}
+        return self._input_cache
+
+    @staticmethod
+    def _staged_input_state(target_path):
+        """Return lightweight filesystem state for target_path, or None if missing."""
+        if not target_path or not os.path.exists(target_path):
+            return None
+        if os.path.isdir(target_path):
+            entries = sorted(os.listdir(target_path))
+            if not entries:
+                return None
+            return {
+                "type": "dir",
+                "entries_hash": ramble.util.hashing.hash_json(entries),
+            }
+        if os.path.isfile(target_path):
+            st = os.stat(target_path)
+            return {
+                "type": "file",
+                "size": st.st_size,
+                "mtime_ns": st.st_mtime_ns,
+            }
+        return None
+
+    def check_input_cache(self, input_path, url, digest, expand, extension):
+        """Return True if input_path is already staged and matches cached metadata."""
+        entry = self._get_input_cache().get(input_path)
+        if not isinstance(entry, dict):
+            return False
+        if (
+            entry.get("url") != url
+            or entry.get("digest") != digest
+            or entry.get("expand") != bool(expand)
+            or entry.get("extension") != extension
+        ):
+            return False
+        state = self._staged_input_state(entry.get("target_path"))
+        return state is not None and state == entry.get("state")
+
+    def update_input_cache(self, input_path, target_path, url, digest, expand, extension):
+        """Record metadata for a staged input and persist it to disk."""
+        if self.dry_run:
+            return
+        state = self._staged_input_state(target_path)
+        if state is None:
+            return
+        cache = self._get_input_cache()
+        cache[input_path] = {
+            "url": url,
+            "digest": digest,
+            "expand": bool(expand),
+            "extension": extension,
+            "target_path": target_path,
+            "state": state,
+        }
+        fs.mkdirp(os.path.dirname(self.input_cache_path))
+        with fs.write_tmp_and_move(self.input_cache_path) as f:
+            json_util.dump(cache, f)
 
 
 def read(name):
