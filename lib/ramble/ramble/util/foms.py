@@ -201,6 +201,9 @@ def _get_literal_from_regex_cached(regex_str: str) -> str:
     except re.error:
         return ""
 
+    if tree.state.flags & re.IGNORECASE:
+        return ""
+
     current_literal = ""
     for node in tree:
         node_name = str(node[0])

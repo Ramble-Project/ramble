@@ -271,3 +271,20 @@ def test_success_criteria_fom_context_variable_expansion():
         formula="{value} > 0",
     )
     assert not crit_no_match.passed(app_inst=app_inst, fom_values=fom_values)
+
+
+def test_case_insensitive_criteria(tmp_path):
+    log_path = tmp_path / "log.out"
+    log_path.write_text("RUN COMPLETED: SUCCESS STRING\nFATAL ERROR: segfault\n", encoding="utf-8")
+
+    match_crit = ramble.success_criteria.SuccessCriteria(
+        name="ci-match", mode="string", match=r"(?i).*success string.*", file=str(log_path)
+    )
+    anti_crit = ramble.success_criteria.SuccessCriteria(
+        name="ci-anti", mode="string", anti_match=r"(?i).*fatal error.*", file=str(log_path)
+    )
+
+    remark_all([match_crit, anti_crit], log_path)
+
+    assert match_crit.ok()
+    assert not anti_crit.ok()
