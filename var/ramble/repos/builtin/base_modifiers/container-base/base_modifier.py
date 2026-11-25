@@ -147,6 +147,9 @@ class ContainerBase(BasicModifier):
         for env_var_set in app_inst._env_variable_sets:
             extract_names(env_var_set.items(), set_names)
 
+        for env_var_name in app_inst.selected_environment_variables:
+            set_names.add(env_var_name)
+
         for mod_inst in app_inst._modifier_instances:
             for env_var_mod in mod_inst.all_env_var_modifications():
                 set_names.add(env_var_mod.name)

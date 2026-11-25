@@ -1799,12 +1799,17 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
         self, warn_validation=True, die_on_validate_error=True
     ):
         expander = self.expander
+        app_variants = self.experiment_variants()
         for _, obj in self.objects():
             if not hasattr(obj, "conflicts") or not obj.conflicts:
                 continue
 
+            experiment_variants = obj.experiment_variants()
+            if obj is not self:
+                experiment_variants = experiment_variants.copy()
+                experiment_variants.merge_variants(app_variants)
+
             for when_set, conflict_list in obj.conflicts.items():
-                experiment_variants = obj.experiment_variants()
                 try:
                     when_active = expander.satisfies(
                         when_set, variant_set=experiment_variants
