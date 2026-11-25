@@ -195,13 +195,12 @@ def _get_literal_from_regex_cached(regex_str: str) -> str:
         return ""
 
     try:
+        if re.compile(regex_str).flags & re.IGNORECASE:
+            return ""
         tree = sre_parse.parse(regex_str)
     # re.error is renamed, but it's kept around for backward compatibility
     # See https://docs.python.org/3/library/re.html#exceptions
     except re.error:
-        return ""
-
-    if tree.state.flags & re.IGNORECASE:
         return ""
 
     current_literal = ""
