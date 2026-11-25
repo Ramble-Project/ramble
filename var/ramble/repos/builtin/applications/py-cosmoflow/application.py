@@ -8,8 +8,6 @@
 
 import os
 
-from ruamel import yaml
-
 import ramble.util.ramble_yaml as ryaml
 import ramble.util.yaml_generation
 from ramble.appkit import *
@@ -357,10 +355,9 @@ class PyCosmoflow(ExecutableApplication):
         )
 
         # Create string of yaml data.
-        config_str = yaml.dump(
+        config_str = ryaml.dump(
             config_data,
             default_flow_style=False,
-            width=ryaml.maxint,
             Dumper=ryaml.OrderedLineDumper,
         )
 

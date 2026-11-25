@@ -2415,7 +2415,7 @@ class Spec(object):
             stream: string or file object to read from.
         """
         try:
-            data = yaml.load(stream)
+            data = syaml.load(stream)
             return Spec.from_dict(data)
         except yaml.error.MarkedYAMLError as e:
             raise syaml.SpackYAMLError("error parsing YAML spec:", str(e)) from e

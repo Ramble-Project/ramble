@@ -38,6 +38,7 @@ import spack.spec
 import spack.tag
 import spack.util.naming as nm
 import spack.util.path
+import spack.util.spack_yaml as syaml
 from spack.util.executable import which
 
 #: Package modules are imported as spack.pkg.<repo-namespace>.<pkg-name>
@@ -1098,7 +1099,7 @@ class Repo(object):
         """Check for a YAML config file in this db's root directory."""
         try:
             with open(self.config_file) as reponame_file:
-                yaml_data = yaml.load(reponame_file)
+                yaml_data = syaml.load(reponame_file)
 
                 if (not yaml_data or 'repo' not in yaml_data or
                         not isinstance(yaml_data['repo'], dict)):

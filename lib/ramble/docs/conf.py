@@ -24,7 +24,6 @@ link_name = os.path.abspath("_ramble_root")
 if not os.path.exists(link_name):
     os.symlink(os.path.abspath("../../.."), link_name, target_is_directory=True)
 
-sys.path.insert(0, os.path.abspath("_ramble_root/lib/ramble/external"))
 sys.path.append(os.path.abspath("_ramble_root/lib/ramble/"))
 
 import ramble  # noqa: E402

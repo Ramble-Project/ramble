@@ -53,9 +53,6 @@ licensed_files = [
     # rst files in documentation
     r"lib/ramble/docs/(?!command_index|ramble|llnl).*\.rst$",
     r"lib/ramble/docs/.*\.py$",
-    # 2 files in external
-    r"lib/ramble/external/__init__.py$",
-    r"lib/ramble/external/ordereddict_backport.py$",
     # shell scripts in share (include the generated bash completion file)
     r"share/ramble/.*\.sh$",
     r"share/ramble/.*\.bash$",

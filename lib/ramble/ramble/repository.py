@@ -23,8 +23,6 @@ import sys
 import traceback
 import types
 
-from ruamel import yaml
-
 import llnl.util.filesystem as fs
 import llnl.util.lang
 from llnl.util.compat import Mapping
@@ -35,6 +33,7 @@ import ramble.spec
 import ramble.util.imp
 import ramble.util.naming as nm
 import ramble.util.path
+import ramble.util.ramble_yaml as ryaml
 from ramble.object_types import (
     OBJECT_NAMES,
     ObjectTypes,
@@ -891,7 +890,7 @@ class Repo:
         """Check for a YAML config file in this db's root directory."""
         try:
             with open(self.config_file, encoding="utf-8") as reponame_file:
-                yaml_data = yaml.safe_load(reponame_file)
+                yaml_data = ryaml.load(reponame_file)
 
                 if (
                     not yaml_data

@@ -23,7 +23,6 @@ exclude =
   etc/
   opt/
   share/
-  lib/ramble/external
   lib/ramble/spack
   lib/ramble/llnl
   __pycache__

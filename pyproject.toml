@@ -44,7 +44,6 @@ force-exclude = '''
   | etc
   | share
   | var
-  | lib/ramble/external
   | lib/ramble/spack
   | lib/ramble/llnl
   | __pycache__
@@ -56,7 +55,6 @@ profile = "black"
 line_length = 99
 filter_files = true
 skip_glob = [
-  "**/lib/ramble/external/**",
   "**/lib/ramble/llnl/**",
   "**/lib/ramble/spack/**",
 ]
@@ -91,7 +89,6 @@ omit = [
     "**/spack/lib/**",
     "**/spack/var/**",
     "lib/ramble/spack/**",
-    "lib/ramble/external/**",
     "lib/ramble/llnl/**",
     "share/**",
     # Perf tests don't run in the coverage CI build, so exclude them here.
@@ -129,7 +126,6 @@ omit = [
     "**/spack/lib/**",
     "**/spack/var/**",
     "lib/ramble/spack/**",
-    "lib/ramble/external/**",
     "lib/ramble/llnl/**",
     "share/**",
 ]
@@ -196,7 +192,6 @@ check_untyped_defs = true
 [tool.ruff]
 extend-include = ["bin/ramble"]
 extend-exclude = [
-  "lib/ramble/external",
   "lib/ramble/spack",
   "lib/ramble/llnl",
 ]

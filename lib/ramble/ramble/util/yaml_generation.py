@@ -26,7 +26,7 @@ Would translate to `foo.bar.baz = 1.0` in Ramble syntax.
 from collections import deque
 from typing import Any, Dict, Union
 
-from ruamel import yaml
+from ruamel.yaml.error import YAMLError
 
 import ramble.util.ramble_yaml as ryaml
 from ramble.util.logger import logger
@@ -45,7 +45,7 @@ def read_config_file(conf_path: str):
         logger.debug(f"Reading config from {conf_path}")
         try:
             config_dict = ryaml.load(base_conf)
-        except yaml.YAMLError:
+        except YAMLError:
             logger.die(f"YAML Error: Failed to load data from {conf_path}")
 
     return config_dict

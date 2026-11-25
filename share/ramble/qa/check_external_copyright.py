@@ -14,7 +14,6 @@ import sys
 # Packages with special locations
 _LOCATIONS = {
     "sbang": "bin/sbang",
-    "ruamel.yaml": "lib/ramble/external/ruamel",
 }
 
 
@@ -27,10 +26,6 @@ def main():
 
     if not os.path.exists(copyright_path):
         print(f"Error: COPYRIGHT file not found at {copyright_path}", file=sys.stderr)
-        return 1
-
-    if not os.path.isdir(external_dir):
-        print(f"Error: External directory not found at {external_dir}", file=sys.stderr)
         return 1
 
     copyright_packages = set()
@@ -57,12 +52,13 @@ def main():
         if os.path.exists(os.path.join(ramble_root, rel_path)):
             actual_relative_paths.add(rel_path)
 
-    for entry in os.listdir(external_dir):
-        if entry.startswith(("__", ".")):
-            continue
-        full_path = os.path.join(external_dir, entry)
-        rel_path = os.path.relpath(full_path, ramble_root)
-        actual_relative_paths.add(rel_path)
+    if os.path.isdir(external_dir):
+        for entry in os.listdir(external_dir):
+            if entry.startswith(("__", ".")):
+                continue
+            full_path = os.path.join(external_dir, entry)
+            rel_path = os.path.relpath(full_path, ramble_root)
+            actual_relative_paths.add(rel_path)
 
     errors = []
 
@@ -88,7 +84,7 @@ def main():
             print(f"  - {err}")
         return 1
 
-    print("Verification successful: COPYRIGHT matches lib/ramble/external packages.")
+    print("Verification successful: COPYRIGHT matches bundled external packages.")
     return 0
 
 

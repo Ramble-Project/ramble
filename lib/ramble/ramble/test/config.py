@@ -65,13 +65,12 @@ ramble:
 
 
 def test_unhashable_yaml_keys_coverage():
-    import io
-
-    from ruamel.yaml.nodes import MappingNode
+    import ruamel.yaml.constructor
+    from ruamel.yaml.nodes import MappingNode, ScalarNode
 
     import ramble.util.ramble_yaml as ryaml
 
-    loader = ryaml.OrderedLineLoader(io.StringIO())
+    loader = ryaml.OrderedLineLoader()
 
     # Mock construct_object to return custom keys dynamically with caching
     mock_keys = []
@@ -87,12 +86,6 @@ def test_unhashable_yaml_keys_coverage():
         def _yaml_set_kv_line_col(self, *args, **kwargs):
             pass
 
-        def __setitem__(self, key, value):
-            pass
-
-    from ruamel.yaml.nodes import ScalarNode
-
-    # Mock node having a start_mark for constructor warnings
     class MockMark:
         name = "test"
         line = 0
@@ -103,22 +96,10 @@ def test_unhashable_yaml_keys_coverage():
     node = MappingNode(tag="tag:yaml.org,2002:map", value=[(dummy, dummy)])
     node.start_mark = MockMark()
 
-    # 1. Key is a list containing unhashable dicts
-    # (exercising the inner nested try-except TypeError block)
-    mock_keys.append([{"a": 1}])
-    loader.construct_mapping(node, MockMap())
-
-    # 2. Key is a mapping (exercising the outer else block)
-    dummy2 = ScalarNode(tag="tag:yaml.org,2002:str", value="dummy2")
-    dummy2.start_mark = MockMark()
-    node2 = MappingNode(tag="tag:yaml.org,2002:map", value=[(dummy2, dummy2)])
-    node2.start_mark = MockMark()
-
-    mock_keys.append({"a": 1})
-    import ruamel.yaml.constructor
-
+    # Unhashable non-sequence/non-mapping key raises ConstructorError
+    mock_keys.append({"a"})
     with pytest.raises(ruamel.yaml.constructor.ConstructorError, match="found unhashable key"):
-        loader.construct_mapping(node2, MockMap())
+        loader.construct_mapping(node, MockMap())
 
 
 def test_ryaml_bool_validates_as_json_boolean():

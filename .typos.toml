@@ -2,7 +2,6 @@
 extend-exclude = [
     ".git/",
     # Copy of https://github.com/spack/spack/tree/develop/lib/spack
-    "lib/ramble/external/",
     "lib/ramble/llnl/",
     "lib/ramble/spack/",
 ]

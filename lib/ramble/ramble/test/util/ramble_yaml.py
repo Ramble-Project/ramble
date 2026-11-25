@@ -60,37 +60,11 @@ def test_load_and_override_keys(capsys):
     assert quoted_k == "quoted:" and quoted_k.override is False
     assert spec_k == "pkg@1.0:" and spec_k.override is False
 
-    # Exercise list-to-tuple hashable key conversion and duplicate detection
-    from ruamel.yaml.nodes import MappingNode, ScalarNode
-
-    loader = ryaml.OrderedLineLoader(io.StringIO())
-    loader.construct_object = lambda node, deep=False: ["a", "b"]
-
-    class _MockMark:
-        name = "list_keys.yaml"
-        line = 0
-        column = 0
-
-    class _MockMap(dict):
-        def _yaml_set_kv_line_col(self, *args, **kwargs):
-            pass
-
-        def __setitem__(self, key, value):
-            pass
-
-    k1 = ScalarNode(tag="tag:yaml.org,2002:str", value="k1")
-    k2 = ScalarNode(tag="tag:yaml.org,2002:str", value="k2")
-    k1.start_mark = _MockMark()
-    k2.start_mark = _MockMark()
-    map_node = MappingNode(tag="tag:yaml.org,2002:map", value=[(k1, k1), (k2, k2)])
-    map_node.start_mark = _MockMark()
-
-    # ConstructorError is expected from super().construct_mapping on raw list keys,
-    # after our duplicate-key check converts ["a", "b"] -> ("a", "b") and warns.
-    try:
-        loader.construct_mapping(map_node, _MockMap())
-    except Exception:
-        pass
+    # Exercise duplicate-key detection and last-wins overwrite (including sequence keys)
+    dup_str = io.StringIO("[a, b]: 1\n[a, b]: 2\n")
+    dup_str.name = "list_keys.yaml"
+    dup_data = ryaml.load_config(dup_str)
+    assert list(dup_data.values()) == [2]
     assert "Duplicate key \"('a', 'b')\" detected" in capsys.readouterr().err
 
 

@@ -9,8 +9,6 @@
 
 import os
 
-from ruamel import yaml
-
 import ramble.util.ramble_yaml as ryaml
 import ramble.util.yaml_generation
 from ramble.appkit import *
@@ -359,10 +357,9 @@ class PyNemo(BasePyNemo):
         )
 
         # Ensure all instances of ${data_dir} are replaced correctly
-        config_str = yaml.dump(
+        config_str = ryaml.dump(
             config_data,
             default_flow_style=False,
-            width=ryaml.maxint,
             Dumper=ryaml.OrderedLineDumper,
         )
 

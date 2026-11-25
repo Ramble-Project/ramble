@@ -8,8 +8,7 @@
 
 import os
 
-from ruamel import yaml
-
+import ramble.util.ramble_yaml as ryaml
 from ramble.experiment_result import ExperimentStatus
 from ramble.util import shell_utils
 from ramble.wmkit import *
@@ -231,7 +230,7 @@ class GoogleBatch(WorkflowManagerBase):
             return status
 
         with open(job_file, encoding="utf-8") as f:
-            job_data = yaml.safe_load(f)
+            job_data = ryaml.load(f)
 
         job_name = job_data["name"]
 
@@ -295,7 +294,7 @@ class GcloudRunner:
                 f"`gcloud batch jobs describe` returns error {e}. This is normal if the job has already been completed."
             )
 
-        yaml_status = yaml.safe_load(status_out)
+        yaml_status = ryaml.load(status_out)
         if (
             yaml_status
             and "status" in yaml_status

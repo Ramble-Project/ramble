@@ -16,3 +16,5 @@ types-PyYAML
 distro
 archspec
 jsonschema>=3.2
+ruamel.yaml>=0.17.21;python_version>"3.6"
+ruamel.yaml<=0.17.21;python_version<="3.6"

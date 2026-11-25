@@ -42,7 +42,7 @@ import sys
 from contextlib import contextmanager
 from typing import Any, Dict, List
 
-from ruamel import yaml
+import ruamel.yaml as yaml
 from ruamel.yaml.error import MarkedYAMLError
 
 import llnl.util.lang
@@ -1132,8 +1132,8 @@ def _mark_internal(data, name):
         d = ryaml.ryaml_type(data)
 
     if ryaml.markable(d):
-        d._start_mark = yaml.Mark(name, None, None, None, None, None)
-        d._end_mark = yaml.Mark(name, None, None, None, None, None)
+        d._start_mark = yaml.error.StringMark(name, None, None, None, None, None)
+        d._end_mark = yaml.error.StringMark(name, None, None, None, None, None)
 
     return d
 

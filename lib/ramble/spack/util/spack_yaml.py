@@ -20,7 +20,8 @@ import re
 from typing import List  # novm
 
 import ruamel.yaml as yaml
-from ruamel.yaml import RoundTripDumper, RoundTripLoader
+from ruamel.yaml.constructor import RoundTripConstructor, SafeConstructor
+from ruamel.yaml.representer import RoundTripRepresenter
 
 from llnl.util.compat import Mapping
 from llnl.util.tty.color import cextra, clen, colorize
@@ -135,13 +136,24 @@ def marked(obj):
             hasattr(obj, '_end_mark') and obj._end_mark)
 
 
-class OrderedLineLoader(RoundTripLoader):
-    """YAML loader specifically intended for reading Spack configuration
+class _SafeOverwriteConstructor(SafeConstructor):
+    """SafeConstructor that overwrites duplicate keys when allowed."""
+
+    def check_mapping_key(self, node, key_node, mapping, key, value):
+        if key in mapping and self.allow_duplicate_keys:
+            return True
+        return super(_SafeOverwriteConstructor, self).check_mapping_key(
+            node, key_node, mapping, key, value
+        )
+
+
+class OrderedLineLoader(RoundTripConstructor):
+    """YAML constructor specifically intended for reading Spack configuration
        files. It preserves order and line numbers. It also has special-purpose
        logic for handling dictionary keys that indicate a Spack config
        override: namely any key that contains an "extra" ':' character.
 
-       Mappings read in by this loader behave like an ordered dict.
+       Mappings read in by this constructor behave like an ordered dict.
        Sequences, mappings, and strings also have new attributes,
        ``_start_mark`` and ``_end_mark``, that preserve YAML line
        information in the output data.
@@ -157,6 +169,12 @@ class OrderedLineLoader(RoundTripLoader):
     # and fill in with mappings later.  We preserve this behavior.
     #
 
+    def check_mapping_key(self, node, key_node, mapping, key, value):
+        if key in mapping and self.allow_duplicate_keys:
+            return True
+        return super(OrderedLineLoader, self).check_mapping_key(
+            node, key_node, mapping, key, value
+        )
 
     def construct_yaml_bool(self, node):
         value = super(OrderedLineLoader, self).construct_yaml_bool(node)
@@ -209,10 +227,10 @@ OrderedLineLoader.add_constructor(
     'tag:yaml.org,2002:str', OrderedLineLoader.construct_yaml_str)
 
 
-class OrderedLineDumper(RoundTripDumper):
-    """Dumper that preserves ordering and formats ``syaml_*`` objects.
+class OrderedLineDumper(RoundTripRepresenter):
+    """Representer that preserves ordering and formats ``syaml_*`` objects.
 
-      This dumper preserves insertion ordering ``syaml_dict`` objects
+      This representer preserves insertion ordering of ``syaml_dict`` objects
       when they're written out.  It also has some custom formatters
       for ``syaml_*`` objects so that they are formatted like their
       regular Python equivalents, instead of ugly YAML pyobjects.
@@ -229,7 +247,6 @@ class OrderedLineDumper(RoundTripDumper):
             result.value = syaml_str("null")
         return result
 
-
     def represent_bool(self, data):
         if hasattr(data, 'string_val') and data.string_val:
             return self.represent_scalar('tag:yaml.org,2002:bool', data.string_val)
@@ -239,11 +256,13 @@ class OrderedLineDumper(RoundTripDumper):
         if hasattr(data, 'override') and data.override:
             data = data + ':'
         if len(data.splitlines()) > 1:
-            return super(OrderedLineDumper, self).represent_scalar('tag:yaml.org,2002:str', data, style='|')
+            return super(OrderedLineDumper, self).represent_scalar(
+                'tag:yaml.org,2002:str', data, style='|'
+            )
         return super(OrderedLineDumper, self).represent_str(data)
 
 
-class SafeDumper(RoundTripDumper):
+class SafeDumper(RoundTripRepresenter):
 
     def ignore_aliases(self, _data):
         """Make the dumper NEVER print YAML aliases."""
@@ -256,22 +275,76 @@ class SafeDumper(RoundTripDumper):
 
 
 # Make our special objects look like normal YAML ones.
-RoundTripDumper.add_representer(syaml_dict, RoundTripDumper.represent_dict)
-RoundTripDumper.add_representer(syaml_list, RoundTripDumper.represent_list)
-RoundTripDumper.add_representer(syaml_int, RoundTripDumper.represent_int)
-RoundTripDumper.add_representer(syaml_bool, RoundTripDumper.represent_bool)
-RoundTripDumper.add_representer(syaml_str, RoundTripDumper.represent_str)
+RoundTripRepresenter.add_representer(syaml_dict, RoundTripRepresenter.represent_dict)
+RoundTripRepresenter.add_representer(syaml_list, RoundTripRepresenter.represent_list)
+RoundTripRepresenter.add_representer(syaml_int, RoundTripRepresenter.represent_int)
+RoundTripRepresenter.add_representer(syaml_bool, RoundTripRepresenter.represent_bool)
+RoundTripRepresenter.add_representer(syaml_str, RoundTripRepresenter.represent_str)
 OrderedLineDumper.add_representer(syaml_bool, OrderedLineDumper.represent_bool)
 OrderedLineDumper.add_representer(syaml_str, OrderedLineDumper.represent_str)
+SafeDumper.add_representer(syaml_bool, SafeDumper.represent_bool)
 
 
 #: Max integer helps avoid passing too large a value to cyaml.
 maxint = 2 ** (ctypes.sizeof(ctypes.c_int) * 8 - 1) - 1
 
 
+def _dump_yaml(
+    data,
+    stream=None,
+    representer=None,
+    emitter=None,
+    default_flow_style=None,
+    width=None,
+    **kwargs,
+):
+    y = yaml.YAML(typ='rt')
+    if representer is not None:
+        y.Representer = representer
+    if emitter is not None:
+        y.Emitter = emitter
+    if default_flow_style is not None:
+        y.default_flow_style = default_flow_style
+    if width is not None:
+        y.width = width
+    for attr in (
+        'explicit_start',
+        'explicit_end',
+        'line_break',
+        'allow_unicode',
+        'canonical',
+        'default_style',
+        'version',
+        'tags',
+        'encoding',
+    ):
+        if attr in kwargs:
+            setattr(y, attr, kwargs.pop(attr))
+    if 'indent' in kwargs:
+        indent_val = kwargs.pop('indent')
+        if indent_val is not None:
+            y.indent(mapping=indent_val, sequence=indent_val)
+    if kwargs:
+        raise TypeError(
+            "Unexpected keyword arguments for YAML dump: %s" % ', '.join(sorted(kwargs))
+        )
+
+    if stream is None:
+        sio = io.StringIO()
+        y.dump(data, sio)
+        return sio.getvalue()
+    y.dump(data, stream)
+    return None
+
+
 def dump(obj, default_flow_style=False, stream=None, Dumper=SafeDumper):
-    return yaml.dump(obj, default_flow_style=default_flow_style, width=maxint,
-                     Dumper=Dumper, stream=stream)
+    return _dump_yaml(
+        obj,
+        stream=stream,
+        representer=Dumper,
+        default_flow_style=default_flow_style,
+        width=maxint,
+    )
 
 
 def file_line(mark):
@@ -282,22 +355,37 @@ def file_line(mark):
     return result
 
 
-#: Global for interactions between LineAnnotationDumper and dump_annotated().
-#: This is nasty but YAML doesn't give us many ways to pass arguments --
-#: yaml.dump() takes a class (not an instance) and instantiates the dumper
-#: itself, so we can't just pass an instance
+#: Global for interactions between LineAnnotationEmitter and dump_annotated().
 _annotations = []  # type: List[str]
 
 
-class LineAnnotationDumper(OrderedLineDumper):
-    """Dumper that generates per-line annotations.
+class LineAnnotationRepresenter(OrderedLineDumper):
+    """Representer that passes ``syaml_str`` values through with marks."""
+
+    def represent_data(self, data):
+        """Force syaml_str to be passed through with marks."""
+        result = super(LineAnnotationRepresenter, self).represent_data(data)
+        if data is None:
+            result.value = syaml_str("null")
+        elif isinstance(result.value, str):
+            result.value = syaml_str(result.value)
+        if markable(result.value):
+            mark(result.value, data)
+        return result
+
+
+_BaseEmitter = getattr(yaml.emitter, 'RoundTripEmitter', yaml.emitter.Emitter)
+
+
+class LineAnnotationEmitter(_BaseEmitter):
+    """Emitter that generates per-line annotations.
 
     Annotations are stored in the ``_annotations`` global.  After one
     dump pass, the strings in ``_annotations`` will correspond one-to-one
-    with the lines output by the dumper.
+    with the lines output by the emitter.
 
-    LineAnnotationDumper records blame information after each line is
-    generated. As each line is parsed, it saves file/line info for each
+    LineAnnotationEmitter records blame information after each line is
+    generated. As each line is emitted, it saves file/line info for each
     object printed. At the end of each line, it creates an annotation
     based on the saved mark and stores it in ``_annotations``.
 
@@ -308,29 +396,18 @@ class LineAnnotationDumper(OrderedLineDumper):
     saved = None
 
     def __init__(self, *args, **kwargs):
-        super(LineAnnotationDumper, self).__init__(*args, **kwargs)
+        super(LineAnnotationEmitter, self).__init__(*args, **kwargs)
         del _annotations[:]
         self.colors = 'KgrbmcyGRBMCY'
         self.filename_colors = {}
 
     def process_scalar(self):
-        super(LineAnnotationDumper, self).process_scalar()
+        super(LineAnnotationEmitter, self).process_scalar()
         if marked(self.event.value):
             self.saved = self.event.value
 
-    def represent_data(self, data):
-        """Force syaml_str to be passed through with marks."""
-        result = super(LineAnnotationDumper, self).represent_data(data)
-        if data is None:
-            result.value = syaml_str("null")
-        elif isinstance(result.value, str):
-            result.value = syaml_str(data)
-        if markable(result.value):
-            mark(result.value, data)
-        return result
-
-    def write_line_break(self):
-        super(LineAnnotationDumper, self).write_line_break()
+    def write_line_break(self, data=None):
+        super(LineAnnotationEmitter, self).write_line_break(data)
         if self.saved is None:
             _annotations.append(colorize('@K{---}'))
             return
@@ -358,28 +435,48 @@ def load_config(*args, **kwargs):
     """Load but modify the loader instance so that it will add __line__
        attributes to the returned object."""
     kwargs['Loader'] = OrderedLineLoader
-    return yaml.load(*args, **kwargs)
+    return load(*args, **kwargs)
 
 
-def load(*args, **kwargs):
-    return yaml.load(*args, **kwargs)
+def load(stream, Loader=None, version=None, preserve_quotes=None):
+    if Loader is None:
+        y = yaml.YAML(typ='safe', pure=True)
+        y.Constructor = _SafeOverwriteConstructor
+    else:
+        if issubclass(Loader, RoundTripConstructor):
+            y = yaml.YAML(typ='rt')
+        else:
+            y = yaml.YAML(typ='safe', pure=True)
+        y.Constructor = Loader
+    y.allow_duplicate_keys = True
+    if version is not None:
+        y.version = version
+    if preserve_quotes is not None:
+        y.preserve_quotes = preserve_quotes
+    return y.load(stream)
 
 
-def dump_config(*args, **kwargs):
+def dump_config(data, stream=None, **kwargs):
     blame = kwargs.pop('blame', False)
 
     if blame:
-        return dump_annotated(*args, **kwargs)
+        return dump_annotated(data, stream=stream, **kwargs)
     else:
-        kwargs['Dumper'] = OrderedLineDumper
-        return yaml.dump(*args, **kwargs)
+        dumper = kwargs.pop('Dumper', OrderedLineDumper)
+        return _dump_yaml(data, stream=stream, representer=dumper, **kwargs)
 
 
-def dump_annotated(data, stream=None, *args, **kwargs):
-    kwargs['Dumper'] = LineAnnotationDumper
+def dump_annotated(data, stream=None, **kwargs):
+    kwargs.pop('Dumper', None)
 
     sio = io.StringIO()
-    yaml.dump(data, sio, *args, **kwargs)
+    _dump_yaml(
+        data,
+        stream=sio,
+        representer=LineAnnotationRepresenter,
+        emitter=LineAnnotationEmitter,
+        **kwargs,
+    )
 
     # write_line_break() is not called by YAML for empty lines, so we
     # skip empty lines here with \n+.
@@ -391,7 +488,7 @@ def dump_annotated(data, stream=None, *args, **kwargs):
         getvalue = stream.getvalue
 
     # write out annotations and lines, accounting for color
-    width = max(clen(a) for a in _annotations)
+    width = max(clen(a) for a in _annotations) if _annotations else 0
     formats = ['%%-%ds  %%s\n' % (width + cextra(a)) for a in _annotations]
 
     for f, a, l in zip(formats, _annotations, lines):

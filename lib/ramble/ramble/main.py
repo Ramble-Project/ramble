@@ -25,7 +25,8 @@ import traceback
 import warnings
 
 import jsonschema
-import ruamel
+from ruamel.yaml.parser import ParserError
+from ruamel.yaml.scanner import ScannerError
 
 import llnl.util.lang
 import llnl.util.tty.colify
@@ -982,7 +983,7 @@ def _main(argv=None):
         except jsonschema.exceptions.ValidationError as e:
             e.print_context()
             workspace_format_error = e
-        except (ruamel.yaml.parser.ParserError, ruamel.yaml.scanner.ScannerError) as e:
+        except (ParserError, ScannerError) as e:
             workspace_format_error = e
 
     # ------------------------------------------------------------------------

@@ -7,7 +7,6 @@
 # except according to those terms.
 
 import pytest
-from ruamel import yaml
 
 import ramble.expander
 import ramble.util.ramble_yaml as ryaml
@@ -33,10 +32,9 @@ def yaml_config(tmpdir_factory):
 
     path = str(tmpdir_factory.mktemp("config.yaml").join("config"))
     with open(path, "w+", encoding="utf-8") as f:
-        yaml.dump(
+        ryaml.dump(
             test_data,
             default_flow_style=False,
-            width=ryaml.maxint,
             Dumper=ryaml.OrderedLineDumper,
             stream=f,
         )

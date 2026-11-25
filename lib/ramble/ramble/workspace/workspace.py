@@ -16,7 +16,7 @@ import shutil
 from collections import defaultdict
 from typing import Optional, Set
 
-from ruamel import yaml
+import ruamel.yaml as yaml
 
 import llnl.util.filesystem as fs
 from llnl.util import tty
@@ -1335,7 +1335,7 @@ cd "{experiment_run_dir}"
                 else:
                     column = 0
 
-            start_mark = yaml.error.Mark(None, None, None, column, None, None)
+            start_mark = yaml.error.CommentMark(column)
 
             comment_list.append(
                 yaml.tokens.CommentToken(comment_start + comment + "\n", start_mark, None)

@@ -31,14 +31,9 @@ text in the license header:
 External Packages
 -------------------
 
-Ramble bundles most external dependencies in lib/ramble/external. It also
-includes the sbang tool directly in bin/sbang. These packages are covered
-by various permissive licenses. A summary listing follows. See the
-license included with each package for full details.
-
-PackageName: ruamel.yaml
-PackageHomePage: https://yaml.readthedocs.io/
-PackageLicenseDeclared: MIT
+Ramble includes the sbang tool directly in bin/sbang. This package is covered
+by a permissive license. A summary listing follows. See the license included
+with the package for full details.
 
 PackageName: sbang
 PackageHomePage: https://github.com/spack/sbang

@@ -1063,8 +1063,8 @@ def _mark_internal(data, name):
         d = syaml.syaml_type(data)
 
     if syaml.markable(d):
-        d._start_mark = yaml.Mark(name, None, None, None, None, None)
-        d._end_mark = yaml.Mark(name, None, None, None, None, None)
+        d._start_mark = yaml.error.StringMark(name, None, None, None, None, None)
+        d._end_mark = yaml.error.StringMark(name, None, None, None, None, None)
 
     return d
 

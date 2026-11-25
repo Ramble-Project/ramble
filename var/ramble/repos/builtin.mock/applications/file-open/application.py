@@ -8,8 +8,7 @@
 
 import os
 
-from ruamel import yaml
-
+import ramble.util.ramble_yaml as ryaml
 from ramble.appkit import *
 
 
@@ -29,5 +28,5 @@ class FileOpen(ExecutableApplication):
             os.path.join("file-open", "my", "config.yaml"), workspace
         )
         with open(config_path, encoding="utf-8") as conf:
-            yaml.safe_load(conf)
+            ryaml.load(conf)
             logger.info(f"Config loaded from {config_path}")

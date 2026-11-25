@@ -22,6 +22,7 @@ import spack.config
 import spack.hash_types as ht
 import spack.spec
 import spack.util.spack_json as sjson
+import spack.util.spack_yaml as syaml
 from spack.error import SpackError
 
 is_windows = sys.platform == 'win32'
@@ -508,7 +509,7 @@ class YamlViewExtensionsLayout(ExtensionsLayout):
                 by_hash = self.layout.specs_by_hash()
                 exts = {}
                 with open(path) as ext_file:
-                    yaml_file = yaml.load(ext_file)
+                    yaml_file = syaml.load(ext_file)
                     for entry in yaml_file['extensions']:
                         name = next(iter(entry))
                         dag_hash = entry[name]['hash']
@@ -546,13 +547,13 @@ class YamlViewExtensionsLayout(ExtensionsLayout):
 
         # write tmp file
         with tmp:
-            yaml.dump({
+            syaml.dump({
                 'extensions': [
                     {ext.name: {
                         'hash': ext.dag_hash(),
                         'path': str(ext.prefix)
                     }} for ext in sorted(extensions.values())]
-            }, tmp, default_flow_style=False, encoding='utf-8')
+            }, default_flow_style=False, stream=tmp)
 
         # Atomic update by moving tmpfile on top of old one.
         fs.rename(tmp.name, path)

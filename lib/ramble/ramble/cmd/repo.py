@@ -14,6 +14,7 @@ import ramble.cmd.common.arguments
 import ramble.config
 import ramble.repository
 import ramble.util.colors as color
+import ramble.util.ramble_yaml as ryaml
 from ramble.util.logger import logger
 
 description = "manage Ramble repositories"
@@ -222,7 +223,7 @@ def repo_add(args):
 
         try:
             with open(repo_config_file, encoding="utf-8") as f:
-                yaml_data = ramble.repository.yaml.safe_load(f)
+                yaml_data = ryaml.load(f)
                 if (
                     not yaml_data
                     or "repo" not in yaml_data

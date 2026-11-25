@@ -10,8 +10,9 @@ import glob
 import json
 import os
 
-from ruamel import yaml
+from ruamel.yaml.error import YAMLError
 
+import ramble.util.ramble_yaml as ryaml
 from ramble.appkit import *
 from ramble.expander import Expander
 from ramble.util import stats
@@ -299,9 +300,9 @@ class Maxtext(ExecutableApplication):
 
         with open(base_config, encoding="utf-8") as conf:
             try:
-                config_data = yaml.safe_load(conf)
+                config_data = ryaml.load(conf)
                 logger.debug(f"Loaded config as dict: \n{config_data}")
-            except yaml.YAMLError:
+            except YAMLError:
                 logger.die(
                     "YAML Error: Failed to load config file: {base_config}"
                 )
@@ -316,14 +317,14 @@ class Maxtext(ExecutableApplication):
         if os.path.exists(model_config):
             with open(model_config, encoding="utf-8") as conf:
                 try:
-                    model_config_data = yaml.safe_load(conf)
+                    model_config_data = ryaml.load(conf)
                     logger.debug(
                         f"Loaded config as dict: \n{model_config_data}"
                     )
 
                     for var_name, var_val in model_config_data.items():
                         config_data[var_name] = var_val
-                except yaml.YAMLError:
+                except YAMLError:
                     logger.die("YAML Error: Failed to load config file.")
 
         # Set config options prefixed with 'maxtext.' from Ramble variables in config_data
@@ -357,7 +358,7 @@ class Maxtext(ExecutableApplication):
             if model_config_data:
                 config_out.write(f"\n# {model_config}")
             config_out.write("\n")
-            yaml.dump(config_data, config_out, default_flow_style=True)
+            ryaml.dump(config_data, default_flow_style=True, stream=config_out)
 
     def _prepare_analysis(self, workspace, app_inst):
         """Reads JSON metrics_files output from MaxText and formats them in a new file
