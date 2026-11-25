@@ -9,7 +9,6 @@
 import ast
 import collections
 import functools
-import itertools
 import math
 import operator
 import random
@@ -18,7 +17,7 @@ import string
 import sys
 from contextlib import contextmanager
 from enum import Enum
-from typing import Any, Callable, Dict, FrozenSet, List, Optional, Pattern, Set, Union
+from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Pattern, Set, Union
 
 import ramble.config
 import ramble.error
@@ -102,12 +101,13 @@ def _ast_parse(in_str):
         return None
 
 
-def _and(a, b):
-    return a and b
-
-
-def _or(a, b):
-    return a or b
+def _short_circuit(values: Iterable[Any], stop_when: bool) -> Any:
+    result = None
+    for val in values:
+        result = val
+        if bool(result) is stop_when:
+            return result
+    return result
 
 
 def _join_str(seq, sep=","):
@@ -197,8 +197,8 @@ supported_math_operators: Dict[Any, Callable[..., Any]] = {
     ast.GtE: operator.ge,
     ast.Lt: operator.lt,
     ast.LtE: operator.le,
-    ast.And: _and,
-    ast.Or: _or,
+    ast.And: functools.partial(_short_circuit, stop_when=False),
+    ast.Or: functools.partial(_short_circuit, stop_when=True),
     ast.Mod: operator.mod,
     ast.BitAnd: operator.and_,
     ast.BitOr: operator.or_,
@@ -1212,14 +1212,7 @@ class Expander:
         """Handle a boolean operator node in the ast"""
         try:
             op = supported_math_operators[type(node.op)]
-
-            result = self.eval_math(node.values[0], expansion_vars=expansion_vars)
-
-            for value in itertools.islice(node.values, 1, None):
-                result = op(result, self.eval_math(value, expansion_vars=expansion_vars))
-
-            return result
-
+            return op(self.eval_math(v, expansion_vars=expansion_vars) for v in node.values)
         except TypeError:
             self.__dbg_syntax_error("Unsupported operand type in boolean operator", node)
         except KeyError:
@@ -1240,23 +1233,16 @@ class Expander:
 
         # Try to evaluate the comparison logic, if not return the node as is.
         try:
-            cur_left = self.eval_math(node.left, expansion_vars=expansion_vars)
 
-            op = supported_math_operators[type(node.ops[0])]
-            cur_right = self.eval_math(node.comparators[0], expansion_vars=expansion_vars)
-
-            result = op(cur_left, cur_right)
-
-            if len(node.ops) > 1:
-                cur_left = cur_right
-                for comp, right in itertools.islice(zip(node.ops, node.comparators), 1, None):
+            def _eval_pairs():
+                cur_left = self.eval_math(node.left, expansion_vars=expansion_vars)
+                for comp, right in zip(node.ops, node.comparators):
                     op = supported_math_operators[type(comp)]
                     cur_right = self.eval_math(right, expansion_vars=expansion_vars)
-
-                    result = result and op(cur_left, cur_right)
-
+                    yield op(cur_left, cur_right)
                     cur_left = cur_right
-            return result
+
+            return _short_circuit(_eval_pairs(), stop_when=False)
         except TypeError:
             self.__dbg_syntax_error("Unsupported operand type in binary comparison operator", node)
         except KeyError:
@@ -1385,16 +1371,18 @@ class Expander:
             if isinstance(operand, str):
                 if isinstance(slice_node, ast.Slice):
 
-                    def _get_with_default(s_node, attr, default):
-                        v_node = getattr(s_node, attr)
+                    def _eval_bound(v_node):
                         if v_node is None:
-                            return default
+                            return None
                         return self.eval_math(v_node, expansion_vars=expansion_vars)
 
-                    lower = _get_with_default(slice_node, "lower", 0)
-                    upper = _get_with_default(slice_node, "upper", len(operand))
-                    step = _get_with_default(slice_node, "step", 1)
-                    return operand[slice(lower, upper, step)]
+                    return operand[
+                        slice(
+                            _eval_bound(slice_node.lower),
+                            _eval_bound(slice_node.upper),
+                            _eval_bound(slice_node.step),
+                        )
+                    ]
                 elif operand in active_vars and isinstance(active_vars[operand], dict):
                     op_dict = self.expand_var_name(operand, extra_vars=active_vars, typed=True)
 
