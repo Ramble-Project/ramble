@@ -279,3 +279,61 @@ def test_workspace_create_preserves_unchanged_yaml(tmpdir):
     ws_cmd("create", "-d", str(ws_dir))
 
     assert cfg_file.read() == original_yaml
+
+
+def test_workspace_input_cache_dir(tmpdir):
+    """Verify directory-based input cache hits and invalidation."""
+    ws_dir = str(tmpdir.join("ws"))
+    staged_dir = tmpdir.mkdir("staged_dir")
+    staged_dir.join("a.txt").write("hello")
+
+    ws = workspace.Workspace(ws_dir, False)
+    ws.update_input_cache("/in/dir", str(staged_dir), "file:///a.tar.gz", "abc", True, "tar.gz")
+    assert os.path.isfile(ws.input_cache_path)
+
+    # Reload from disk: matching config and directory entries hit the cache
+    ws_reload = workspace.Workspace(ws_dir, False)
+    assert ws_reload.check_input_cache("/in/dir", "file:///a.tar.gz", "abc", True, "tar.gz")
+
+    # Unknown path, changed digest, or modified directory entries miss the cache
+    assert not ws_reload.check_input_cache("/other", "file:///a.tar.gz", "abc", True, "tar.gz")
+    assert not ws_reload.check_input_cache("/in/dir", "file:///a.tar.gz", "xyz", True, "tar.gz")
+    staged_dir.join("b.txt").write("world")
+    assert not ws_reload.check_input_cache("/in/dir", "file:///a.tar.gz", "abc", True, "tar.gz")
+
+
+def test_workspace_input_cache_file(tmpdir):
+    """Verify file-based input cache hits and invalidation."""
+    ws_dir = str(tmpdir.join("ws"))
+    staged_file = tmpdir.join("single.cfg")
+    staged_file.write("cfg=1")
+
+    ws = workspace.Workspace(ws_dir, False)
+    ws.update_input_cache("/in/file", str(staged_file), "file:///single.cfg", "def", False, None)
+
+    ws_reload = workspace.Workspace(ws_dir, False)
+    assert ws_reload.check_input_cache("/in/file", "file:///single.cfg", "def", False, None)
+
+    staged_file.write("cfg=12")
+    assert not ws_reload.check_input_cache("/in/file", "file:///single.cfg", "def", False, None)
+
+
+def test_workspace_input_cache_edge_cases(tmpdir):
+    """Verify dry-run, empty directory, and corrupted JSON handling."""
+    ws_dir = str(tmpdir.join("ws"))
+    empty_dir = str(tmpdir.mkdir("empty_dir"))
+
+    # Missing path, empty directory, or dry_run should not write a cache file
+    ws_dry = workspace.Workspace(ws_dir, True)
+    ws_dry.update_input_cache("/in/dir", empty_dir, "file:///a.tar.gz", None, True, "tar.gz")
+
+    ws = workspace.Workspace(ws_dir, False)
+    ws.update_input_cache("/in/dir", None, "file:///a.tar.gz", None, True, "tar.gz")
+    ws.update_input_cache("/in/dir", empty_dir, "file:///a.tar.gz", None, True, "tar.gz")
+    assert not os.path.exists(ws.input_cache_path)
+
+    # Corrupted JSON falls back cleanly to a cache miss
+    os.makedirs(ws.input_dir, exist_ok=True)
+    with open(ws.input_cache_path, "w", encoding="utf-8") as f:
+        f.write("{invalid-json")
+    assert not ws.check_input_cache("/in/dir", "file:///a.tar.gz", None, True, "tar.gz")
