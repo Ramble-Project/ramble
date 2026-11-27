@@ -791,6 +791,7 @@ An archive can be automatically uploaded to a mirror using:
 
 When Ramble creates an archive, it will collect the following files:
   * All files in ``$workspace/configs``
+  * Shared files in ``$workspace/shared`` (excluding secrets unless ``--include-secrets`` is passed, and excluding ``bootstrapped_utilities`` unless ``--include-utilities`` is passed)
   * Generated files for each software environment. (i.e. Each ``spack.yaml`` for spack environments)
 
 For each experiment, the following are collected:

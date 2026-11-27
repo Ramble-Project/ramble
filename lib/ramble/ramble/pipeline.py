@@ -6,13 +6,14 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+import fnmatch
 import glob
 import itertools
 import os
 import shlex
 import shutil
 import stat
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 import llnl.util.filesystem as fs
 from llnl.util.tty.colify import colify
@@ -280,6 +281,100 @@ class Pipeline:
                 dest = os.path.join(dest_dir, filename)
                 shutil.copyfile(src, dest)
 
+    def _get_utility_archive_excludes(self, util_name):
+        """Return list of (pattern, expander) exclude entries for a bootstrapped utility."""
+        raw_excludes = []
+        seen: Set[Tuple[str, Optional[int]]] = set()
+        matched_instances = False
+
+        if getattr(self, "_experiment_set", None) is not None:
+            for _, app_inst, _ in self._experiment_set.filtered_experiments(self.filters):
+                for util_inst in getattr(app_inst, "_utility_instances", []):
+                    if util_inst.name != util_name:
+                        continue
+                    matched_instances = True
+                    expander = getattr(app_inst, "expander", None)
+                    for when_set, patterns in getattr(util_inst, "archive_excludes", {}).items():
+                        if util_inst.satisfy_when(when_set):
+                            for pat in patterns.values():
+                                key = (pat, id(expander))
+                                if key not in seen:
+                                    seen.add(key)
+                                    raw_excludes.append((pat, expander))
+
+        if not matched_instances:
+            import ramble.repository
+
+            try:
+                util_inst = ramble.repository.get(
+                    util_name, ramble.repository.ObjectTypes.utilities
+                )
+            except Exception:
+                util_inst = None
+
+            if util_inst is not None:
+                fallback_expander = ramble.expander.Expander({}, None)
+                for when_set, patterns in getattr(util_inst, "archive_excludes", {}).items():
+                    if fallback_expander.satisfies(when_set, util_inst.object_variants):
+                        for pat in patterns.values():
+                            key = (pat, None)
+                            if key not in seen:
+                                seen.add(key)
+                                raw_excludes.append((pat, None))
+
+        return raw_excludes
+
+    def _copy_bootstrapped_utilities(self, dest_tools_dir):
+        """Copy shared/bootstrapped_utilities into dest_tools_dir, omitting archive_excludes."""
+        tools_dir = os.path.join(self.workspace.shared_dir, "bootstrapped_utilities")
+        if not os.path.exists(tools_dir):
+            return
+
+        for util_name in os.listdir(tools_dir):
+            util_path = os.path.join(tools_dir, util_name)
+            if os.path.isfile(util_path):
+                fs.mkdirp(dest_tools_dir)
+                shutil.copy(util_path, os.path.join(dest_tools_dir, util_name))
+                continue
+            if not os.path.isdir(util_path):
+                continue
+
+            raw_excludes = self._get_utility_archive_excludes(util_name)
+
+            for version_name in os.listdir(util_path):
+                version_dir = os.path.join(util_path, version_name)
+                if os.path.isfile(version_dir):
+                    target_util_dir = os.path.join(dest_tools_dir, util_name)
+                    fs.mkdirp(target_util_dir)
+                    shutil.copy(version_dir, os.path.join(target_util_dir, version_name))
+                    continue
+                if not os.path.isdir(version_dir):
+                    continue
+
+                source_dir = os.path.join(version_dir, "source")
+                rel_patterns = _compile_utility_excludes(
+                    raw_excludes, util_name, version_dir, source_dir
+                )
+
+                for root, dirs, files in os.walk(version_dir):
+                    dirs[:] = [
+                        d
+                        for d in dirs
+                        if not _is_utility_path_excluded(
+                            os.path.join(root, d), version_dir, rel_patterns
+                        )
+                    ]
+                    for name in files:
+                        src = os.path.join(root, name)
+                        if not os.path.isfile(src) or _is_utility_path_excluded(
+                            src, version_dir, rel_patterns
+                        ):
+                            continue
+                        rel_file = os.path.relpath(src, tools_dir)
+                        dest = os.path.join(dest_tools_dir, rel_file)
+                        fs.mkdirp(os.path.dirname(dest))
+                        shutil.copy(src, dest)
+
 
 class AnalyzePipeline(Pipeline):
     """Class for the analyze pipeline"""
@@ -372,6 +467,7 @@ class ArchivePipeline(Pipeline):
         archive_prefix=None,
         upload_url=None,
         include_secrets=False,
+        include_utilities=False,
         archive_patterns=None,
     ):
         super().__init__(workspace, filters)
@@ -379,6 +475,7 @@ class ArchivePipeline(Pipeline):
         self.create_tar = create_tar
         self.upload_url = upload_url
         self.include_secrets = include_secrets
+        self.include_utilities = include_utilities
         self.archive_prefix = archive_prefix
         self.archive_name: Optional[str] = None
         self.archive_patterns = archive_patterns.copy() if archive_patterns else []
@@ -397,6 +494,7 @@ class ArchivePipeline(Pipeline):
 
         archive_path = os.path.join(self.workspace.archive_dir, self.archive_name)
         fs.mkdirp(archive_path)
+        self.workspace._latest_archive = self.archive_name
 
         self._copy_workspace_root_files(self.workspace, archive_path)
 
@@ -445,15 +543,14 @@ class ArchivePipeline(Pipeline):
                     fs.mkdirp(target_dir)
                     shutil.copyfile(src, dest)
 
-        # Copy tools directory
-        tools_dir = os.path.join(self.workspace.shared_dir, "bootstrapped_utilities")
-        if os.path.exists(tools_dir):
+        # Copy bootstrapped utilities only when explicitly requested
+        if self.include_utilities:
             archive_tools = os.path.join(
                 self.workspace.latest_archive_path,
                 ramble.workspace.WORKSPACE_SHARED_PATH,
                 "bootstrapped_utilities",
             )
-            _copy_tree(tools_dir, archive_tools)
+            self._copy_bootstrapped_utilities(archive_tools)
 
         for pattern in itertools.chain(
             self.archive_patterns,
@@ -517,6 +614,8 @@ class ArchivePipeline(Pipeline):
                 # Record upload URL to workspace metadata
                 self.workspace.update_metadata("archive_url", remote_dir_path)
                 self.workspace.write_metadata()
+
+        self.workspace._latest_archive = None
 
 
 class MirrorPipeline(Pipeline):
@@ -796,7 +895,13 @@ class PushDeploymentPipeline(Pipeline):
     legacy_object_repo_name = "object_repo"
 
     def __init__(
-        self, workspace, filters, create_tar=False, upload_url=None, deployment_name=None
+        self,
+        workspace,
+        filters,
+        create_tar=False,
+        upload_url=None,
+        deployment_name=None,
+        include_utilities=False,
     ):
         super().__init__(workspace, filters)
 
@@ -804,6 +909,7 @@ class PushDeploymentPipeline(Pipeline):
 
         self.action_string = "Pushing deployment of"
         self.create_tar = create_tar
+        self.include_utilities = include_utilities
         self.force_inventory = True
 
         if upload_url:
@@ -854,14 +960,13 @@ class PushDeploymentPipeline(Pipeline):
         aux_software_dir = os.path.join(configs_dir, ramble.workspace.AUXILIARY_SOFTWARE_DIR_NAME)
         fs.mkdirp(aux_software_dir)
 
-        tools_dir = os.path.join(self.workspace.shared_dir, "bootstrapped_utilities")
-        if os.path.exists(tools_dir):
+        if self.include_utilities:
             deployment_tools = os.path.join(
                 self.workspace.named_deployment,
                 ramble.workspace.WORKSPACE_SHARED_PATH,
                 "bootstrapped_utilities",
             )
-            _copy_tree(tools_dir, deployment_tools)
+            self._copy_bootstrapped_utilities(deployment_tools)
 
         super()._execute()
 
@@ -915,6 +1020,47 @@ class PushDeploymentPipeline(Pipeline):
         if self.upload_url:
             remote_base = self.upload_url + "/" + self.deployment_name
             logger.all_msg(f"  Deployment uploaded to: {remote_base}")
+
+
+def _compile_utility_excludes(raw_excludes, util_name, version_dir, source_dir):
+    """Resolve utility archive_exclude patterns relative to version_dir."""
+    rel_patterns = set()
+    path_token = f"{{utility::{util_name}::path}}"
+
+    for pat, expander in raw_excludes:
+        if not pat:
+            continue
+        expanded = pat.replace(path_token, source_dir)
+        if expander is not None:
+            expanded = expander.expand_var(expanded)
+        expanded = expanded.rstrip(os.sep)
+        if not expanded:
+            continue
+
+        if os.path.isabs(expanded):
+            rel = os.path.relpath(os.path.normpath(expanded), version_dir)
+        else:
+            rel = os.path.normpath(os.path.join("source", expanded))
+
+        if rel != ".." and not rel.startswith(".." + os.sep):
+            rel_patterns.add(rel)
+
+    return rel_patterns
+
+
+def _is_utility_path_excluded(candidate_path, version_dir, rel_patterns):
+    """Return True if candidate_path matches any utility archive_exclude pattern."""
+    if not rel_patterns:
+        return False
+
+    rel_candidate = os.path.relpath(candidate_path, version_dir)
+    for rp in rel_patterns:
+        if fnmatch.fnmatchcase(rel_candidate, rp):
+            return True
+        if not glob.has_magic(rp) and rel_candidate.startswith(rp + os.sep):
+            return True
+
+    return False
 
 
 def _copy_tree(src_dir, dest_dir):

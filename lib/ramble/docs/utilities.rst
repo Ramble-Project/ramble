@@ -64,3 +64,18 @@ You can globally disable the bootstrapping of all utilities by modifying your Ra
     bootstrap_utilities: False
 
 If bootstrapping is disabled, and the required utility is not found on the system, Ramble will halt with an error indicating the missing dependency.
+
+-------------------------------------
+Archiving and Deploying Utilities
+-------------------------------------
+
+To avoid bloating archives and deployments with cloned utility repositories or compiled binaries (such as packages installed into a bootstrapped Spack's ``opt`` directory), ``$workspace/shared/bootstrapped_utilities`` is omitted by default during ``ramble workspace archive`` and ``ramble deployment push``.
+
+To include bootstrapped utilities, pass ``--include-utilities``:
+
+.. code-block:: console
+
+  $ ramble workspace archive --include-utilities
+  $ ramble deployment push --include-utilities
+
+When ``--include-utilities`` is specified, any paths matching ``archive_exclude`` directives on the utility definition (such as ``opt``, build stages, and caches for ``spack``) are automatically skipped.

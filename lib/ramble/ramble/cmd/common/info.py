@@ -37,6 +37,7 @@ obj_attribute_map = {
     "known_versions": None,
     "software_specs": None,
     "archive_patterns": None,
+    "archive_excludes": None,
     "success_criteria": None,
     "target_shells": "shell_support_pattern",
     "templates": None,

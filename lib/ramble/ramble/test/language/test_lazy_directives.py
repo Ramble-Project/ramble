@@ -731,6 +731,7 @@ def test_utility_base_lazy_initialization():
         "bootstrappable",
         "missing_error_messages",
         "provided_executables",
+        "archive_excludes",
     ]:
         assert attr not in util.__dict__
 
