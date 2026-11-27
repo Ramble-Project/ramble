@@ -78,7 +78,14 @@ subcommands = [
     "manage",
 ]
 
-manage_commands = ["experiments", "software", "includes", "modifiers", "filter-groups"]
+manage_commands = [
+    "experiments",
+    "software",
+    "includes",
+    "modifiers",
+    "filter-groups",
+    "variables",
+]
 
 
 def workspace_activate_setup_parser(subparser):
@@ -2249,6 +2256,142 @@ def workspace_manage_filter_groups_list(ws, args):
 
 def workspace_manage_filter_groups_blame(ws, args):
     ramble.config.config.print_section("filter_groups", blame=True)
+
+
+def workspace_manage_variables_setup_parser(subparser):
+    """manage workspace variables"""
+    actions = subparser.add_mutually_exclusive_group(required=True)
+    actions.add_argument(
+        "--list", "-l", action="store_true", help="whether to print existing variables"
+    )
+
+    actions.add_argument(
+        "--add",
+        action="store_true",
+        help="whether to add new variables, defined by --variable",
+    )
+
+    actions.add_argument(
+        "--remove",
+        action="store_true",
+        help="whether to remove existing variables by index or pattern",
+    )
+
+    subparser.add_argument(
+        "--variable-index",
+        "-i",
+        dest="remove_index",
+        default=None,
+        type=int,
+        metavar="INDEX",
+        help="index of variable to remove, only used with --remove",
+    )
+
+    subparser.add_argument(
+        "--variable",
+        "-v",
+        dest="variables",
+        action="append",
+        metavar="VAR",
+        default=None,
+        help="variable to manage. Given as 'name=value' when adding, or a variable name/glob "
+        "pattern when removing (defaults to '*' when removing). Can be given multiple times.",
+    )
+
+    subparser.add_argument(
+        "--scope",
+        "-s",
+        dest="scope",
+        metavar="SCOPE",
+        default=None,
+        help="scope of variables to manage. Can be a glob when removing. Of the form "
+        "<application_name>:<workload_name>:<experiment_name> or 'workspace' to "
+        "manage workspace variables. Defaults to 'workspace' when adding.",
+    )
+
+    subparser.add_argument(
+        "--overwrite",
+        "-o",
+        dest="overwrite",
+        action="store_true",
+        help="whether to overwrite variables that already exist in the scope",
+    )
+
+    subparser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="whether to print the config without editing it, or to edit it directly.",
+    )
+
+
+def workspace_manage_variables(args):
+    """Execute workspace manage variables command"""
+
+    if args.add and not args.variables:
+        logger.die(
+            "ramble workspace manage variables --add requires --variable. "
+            "See `ramble workspace manage variables -h`."
+        )
+
+    if args.remove:
+        if args.remove_index is not None:
+            conflicting = [
+                flag
+                for flag, value in (
+                    ("--scope", args.scope),
+                    ("--variable", args.variables),
+                )
+                if value is not None
+            ]
+            if conflicting:
+                logger.die(
+                    "ramble workspace manage variables --remove accepts --variable-index or "
+                    f"{'/'.join(conflicting)}, but not both. "
+                    "See `ramble workspace manage variables -h`."
+                )
+        elif args.scope is None:
+            logger.die(
+                "ramble workspace manage variables --remove requires --variable-index or --scope. "
+                "See `ramble workspace manage variables -h`."
+            )
+
+    ws = ramble.cmd.require_active_workspace(cmd_name="workspace manage variables")
+
+    if args.remove:
+        with ws.write_transaction():
+            removed = ws.remove_variables(
+                remove_index=args.remove_index,
+                scope_pattern=args.scope,
+                name_patterns=args.variables,
+                dry_run=args.dry_run,
+            )
+
+            if args.dry_run:
+                ws.print_config()
+
+            if removed >= 1:
+                plural = "" if removed == 1 else "s"
+                logger.msg(f"Removed {removed} variable{plural} from workspace.")
+            else:
+                logger.msg("No matching variables found. 0 variables removed from workspace.")
+
+    elif args.add:
+        with ws.write_transaction():
+            added = ws.add_variables(
+                definitions=args.variables,
+                scope=args.scope,
+                overwrite=args.overwrite,
+                dry_run=args.dry_run,
+            )
+
+            if args.dry_run:
+                ws.print_config()
+
+            plural = "" if added == 1 else "s"
+            logger.msg(f"Added {added} variable{plural} to workspace.")
+    elif args.list:
+        with ws.read_transaction():
+            ws.print_variables()
 
 
 def workspace_generate_config_setup_parser(subparser):

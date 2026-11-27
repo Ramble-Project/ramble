@@ -14,7 +14,7 @@ import os
 import re
 import shutil
 from collections import defaultdict
-from typing import Optional, Set
+from typing import List, Optional, Set
 
 from ruamel import yaml
 
@@ -2470,6 +2470,223 @@ cd "{experiment_run_dir}"
         if base_section is None:
             logger.die(f"No scope matches requested scope of {scope}")
         return base_section
+
+    def index_variables(self):
+        """Construct a list of all variables in this workspace, and their associated scope.
+
+        Returns:
+            list[tuple]: List of tuples, of the form (scope, name, value)
+        """
+        base_section = self._get_scope_section("workspace")
+        ws_vars = base_section.get(namespace.variables) or {}
+        var_list = [("workspace", name, value) for name, value in ws_vars.items()]
+
+        for workloads, application_context in self.all_applications():
+            app_scope = application_context.context_name
+            app_vars = application_context.variables or {}
+            var_list.extend((app_scope, name, value) for name, value in app_vars.items())
+
+            for experiments, workload_context in self.all_workloads(workloads):
+                wl_scope = f"{app_scope}:{workload_context.context_name}"
+                wl_vars = workload_context.variables or {}
+                var_list.extend((wl_scope, name, value) for name, value in wl_vars.items())
+
+                for _, experiment_context in self.all_experiments(experiments):
+                    exp_scope = f"{wl_scope}:{experiment_context.context_name}"
+                    exp_vars = experiment_context.variables or {}
+                    var_list.extend((exp_scope, name, value) for name, value in exp_vars.items())
+        return var_list
+
+    def print_variables(self):
+        """Print an indexed list of all variables in this workspace"""
+        var_list = self.index_variables()
+
+        logger.all_msg(f"Workspace contains {len(var_list)} variables.")
+        logger.all_msg(
+            "Additional variables may come from other config scopes or object definitions.\n\n"
+        )
+
+        prev_scope = None
+        for idx, (scope, name, value) in enumerate(var_list):
+            if scope != prev_scope:
+                if prev_scope is not None:
+                    logger.all_msg("")
+                logger.all_msg(f"Variable scope: {scope}")
+                prev_scope = scope
+            logger.all_msg(f"{idx}: {name} = {value}")
+
+    def add_variables(
+        self,
+        definitions: List[str],
+        scope: Optional[str] = None,
+        overwrite: bool = False,
+        dry_run: bool = False,
+    ):
+        """Add variables to this workspace within a single scope
+
+        Args:
+            definitions: Variable definitions to add, each of the form 'name=value'.
+                         A value of the form '[a, b, c]' is stored as a list.
+            scope: Scope to add variables within. Defaults to the workspace scope.
+            overwrite: Whether to overwrite variables that already exist in the scope.
+            dry_run: Whether to print the config instead of editing it, or to edit it directly.
+
+        Returns:
+            int: Number of variables added to workspace
+        """
+        if not definitions:
+            raise RambleWorkspaceError(
+                "Cannot add variables without any definitions. "
+                "Definitions should be of the form 'name=value'."
+            )
+
+        if scope is None:
+            scope = "workspace"
+
+        # Parse and validate every definition before touching the config, so a
+        # failed add leaves the workspace configuration untouched.
+        new_vars = {}
+        for definition in definitions:
+            m = _DEF_REGEX.search(definition)
+            name = definition[: m.start()].strip() if m else ""
+            if m is None or not name:
+                raise RambleWorkspaceError(
+                    f"Invalid variable definition provided: {definition!r}. "
+                    "Accepted form is 'name=value'."
+                )
+
+            if keywords.is_reserved(name):
+                raise RambleWorkspaceError(
+                    f"Cannot add variable '{name}'. This name is reserved by ramble."
+                )
+
+            value = list_str_to_list(definition[m.end() :])
+            if isinstance(value, str):
+                value = strip_quotes(value)
+            new_vars[name] = value
+
+        base_section = self._get_scope_section(scope)
+
+        if base_section is None:
+            raise RambleWorkspaceError(
+                f"No scope matches requested scope of {scope}. "
+                "This workspace does not define any applications."
+            )
+
+        existing_vars = base_section.get(namespace.variables) or {}
+        existing_names = [name for name in new_vars if name in existing_vars]
+        if existing_names and not overwrite:
+            raise RambleWorkspaceError(
+                f"Variables {existing_names} already exist in scope '{scope}'. "
+                "To overwrite, use '--overwrite'."
+            )
+
+        if not base_section.get(namespace.variables):
+            base_section[namespace.variables] = syaml.syaml_dict()
+        base_section[namespace.variables].update(new_vars)
+
+        if not dry_run:
+            self.write_config(CONFIG_SECTION)
+        return len(new_vars)
+
+    def remove_variables(
+        self,
+        remove_index: Optional[int] = None,
+        scope_pattern: Optional[str] = None,
+        name_patterns: Optional[List[str]] = None,
+        dry_run: bool = False,
+    ):
+        """Remove an arbitrary number of variables from this workspace based
+        on some input arguments.
+
+        Variables are selected either by index or by pattern, never both.
+
+        Args:
+            remove_index: Index of variable to remove. Indices match ordering
+                          from the output of print_variables. Cannot be
+                          combined with the pattern arguments.
+            scope_pattern: Pattern to select which scopes to remove variables from.
+            name_patterns: List of patterns to select which variable names should
+                           be removed. Defaults to ['*'] when scope_pattern is given.
+            dry_run: Whether to print the config instead of editing it, or to
+                     edit it directly.
+
+        Returns:
+            int: Number of variables removed
+        """
+        given_patterns = [
+            arg_name
+            for arg_name, pattern in (
+                ("scope_pattern", scope_pattern),
+                ("name_patterns", name_patterns),
+            )
+            if pattern is not None
+        ]
+
+        if remove_index is not None and given_patterns:
+            raise RambleWorkspaceError(
+                "Variables can be removed by index or by pattern, but not both. "
+                f"Given index {remove_index!r} along with {', '.join(given_patterns)}."
+            )
+
+        var_list = self.index_variables()
+        to_remove = []
+
+        if remove_index is not None:
+            if isinstance(remove_index, bool) or not isinstance(remove_index, int):
+                raise RambleWorkspaceError(
+                    "Cannot remove a variable without an integer index. "
+                    f"Given index was {remove_index!r}"
+                )
+
+            if not var_list:
+                raise RambleWorkspaceError(
+                    f"Cannot remove variable index {remove_index}. "
+                    "This workspace contains no variables."
+                )
+
+            if remove_index < 0 or remove_index >= len(var_list):
+                valid_str = (
+                    "Valid index is 0."
+                    if len(var_list) == 1
+                    else f"Valid indices are 0-{len(var_list) - 1}."
+                )
+                raise RambleWorkspaceError(
+                    f"Variable index {remove_index} is outside of the range of variables. "
+                    f"{valid_str} "
+                    "Use `ramble workspace manage variables --list` to see indices."
+                )
+
+            scope, name, _ = var_list[remove_index]
+            to_remove.append((scope, name))
+
+        if scope_pattern is not None:
+            patterns = name_patterns if name_patterns is not None else ["*"]
+
+            for scope, name, _ in var_list:
+                if fnmatch.fnmatch(scope, scope_pattern) and any(
+                    fnmatch.fnmatch(name, p) for p in patterns
+                ):
+                    to_remove.append((scope, name))
+
+        removed = 0
+
+        for scope, name in to_remove:
+            base_section = self._get_scope_section(scope)
+
+            if base_section is not None and namespace.variables in base_section:
+                base_vars = base_section[namespace.variables]
+                if name in base_vars:
+                    removed += 1
+                    del base_vars[name]
+
+                if not base_section[namespace.variables]:
+                    del base_section[namespace.variables]
+
+        if removed > 0 and not dry_run:
+            self.write_config(CONFIG_SECTION)
+
+        return removed
 
     def index_modifiers(self):
         """Construct a list of all modifiers in this workspace, and their associated scope.
