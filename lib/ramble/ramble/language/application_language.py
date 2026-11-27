@@ -296,19 +296,29 @@ def workload_variable(
         track_used (bool): True if the variable should be tracked as used,
                            False if not. Can help with allowing lists without vectorizing
                            experiments.
-        when (list | None): List of when conditions to apply to directive
+        when (list | None): List of when conditions to apply to directive. A
+                            ``workload_name=`` condition selects the workload when none of
+                            workload, workloads, workload_group, or workload_defaults are
+                            given.
         environment_variable_name (str | None): If not None, an environment variable of this name
                                                 will be defined with the value of this variable.
     """
 
     def _execute_workload_variable(app):
-        # Always apply passes workload/workloads
-        all_workloads = ramble.language.language_helpers.merge_definitions(
-            workload, workloads, app.workloads, "workload", "workloads", "workload_variable"
-        )
-
         when_list = ramble.language.language_helpers.build_when_list(
             when, app, name, "workload_variable"
+        )
+
+        # A `workload_name=` when condition identifies the workload when none is given
+        when_workload = ramble.language.language_helpers.workload_name_from_when(when_list)
+
+        single_workload = workload
+        if when_workload and not any([workload, workloads, workload_group, workload_defaults]):
+            single_workload = when_workload
+
+        # Always apply passes workload/workloads
+        all_workloads = ramble.language.language_helpers.merge_definitions(
+            single_workload, workloads, app.workloads, "workload", "workloads", "workload_variable"
         )
 
         if environment_variable_name is not None:
@@ -434,7 +444,10 @@ def workload_variable(
                                     )
 
         if not all_workloads and workload_group is None:
-            raise DirectiveError("A workload or workload group is required")
+            raise DirectiveError(
+                f"Directive workload_variable for variable '{name}' requires a workload, "
+                "workload group, or a `workload_name=` when condition"
+            )
 
     return _execute_workload_variable
 

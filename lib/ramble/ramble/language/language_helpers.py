@@ -519,3 +519,22 @@ def is_when_impossible(when_list):
     if conflict:
         return True, conflict
     return False, None
+
+
+def workload_name_from_when(when_list):
+    """Extract the workload selected by a ``workload_name=`` when condition
+
+    Args:
+        when_list (list): list of when conditions
+
+    Returns:
+        str | None: Workload name if the conditions constrain ``workload_name``,
+        None otherwise
+    """
+    if not when_list:
+        return None
+
+    variants, _, _ = _parse_when(frozenset(when_list))
+    if not variants:
+        return None
+    return variants.get("workload_name")
