@@ -1722,6 +1722,9 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
     def validate_experiment(
         self, warn_validation=True, die_on_validate_error=True
     ):
+        self._check_object_deprecations(
+            warn_validation=warn_validation,
+        )
 
         mpi_required = self.is_mpi_required(self.expander.workload_name)
 
@@ -1848,6 +1851,47 @@ class ApplicationBase(ObjectMixin, metaclass=DirectiveMeta):
                         raise ObjectValidationError(err_msg)
                     elif warn_validation:
                         logger.warn(err_msg)
+
+    def _check_object_deprecations(self, warn_validation=True):
+        import ramble.util.deprecations
+
+        expander = self.expander
+        warned_set = ramble.util.deprecations.get_active_warned_set(
+            fallback_owner=self.experiment_set
+        )
+
+        for _, obj in self.objects(include_utilities=True):
+            if not hasattr(obj, "deprecations") or not obj.deprecations:
+                continue
+
+            experiment_variants = None
+            for when_set, deprecation_list in obj.deprecations.items():
+                if when_set:
+                    if experiment_variants is None:
+                        experiment_variants = obj.experiment_variants()
+                    try:
+                        when_active = expander.satisfies(
+                            when_set, variant_set=experiment_variants
+                        )
+                    except ramble.expander.ExpanderError:
+                        when_active = False
+
+                    if not when_active:
+                        continue
+
+                for dep in deprecation_list:
+                    msg = dep["message"]
+                    expanded_msg = (
+                        expander.expand_var(msg) if msg is not None else None
+                    )
+                    ramble.util.deprecations.emit_deprecation_warning(
+                        obj_name=obj.name,
+                        obj_type=getattr(obj, "origin_type", "object"),
+                        deprecation_entry=dep,
+                        expanded_msg=expanded_msg,
+                        warn_user=warn_validation,
+                        warned_set=warned_set,
+                    )
 
     def _generate_cleanup_cmd(self, key):
         commands = []

@@ -631,5 +631,10 @@ ramble:
 """
     _, ws_name = make_workspace_from_config(test_config)
     output = workspace("info", global_args=["-w", ws_name])
-    assert output.count(f"The '{app_name}' application is deprecated") == 1
-    assert replacement in output
+    assert (
+        output.count(
+            f"The '{app_name}' application is deprecated as of v0.7.0 "
+            f"and will be removed in v0.8.0. Please use '{replacement}' instead."
+        )
+        == 1
+    )

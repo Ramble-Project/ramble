@@ -1089,6 +1089,113 @@ def conflict(
     return _execute_conflicts
 
 
+@shared_directive("deprecations")
+def deprecate(
+    deprecated_in: Optional[str] = None,
+    removed_in: Optional[str] = None,
+    replacement: Optional[str] = None,
+    msg: Optional[str] = None,
+    when: Optional[Union[str, List[str]]] = None,
+    **kwargs,
+):
+    """Defines a deprecation notice for this object or a conditional subset of it.
+
+    Can be placed at the top level of an object definition to deprecate the entire
+    object, or inside a ``with when(...):`` block (or with a ``when=`` argument)
+    to deprecate a specific version, workload, or variant combination.
+
+    Args:
+        deprecated_in: Ramble version in which this object/feature was deprecated
+            (e.g., ``"0.7.0"``). If omitted, the deprecation is active immediately.
+        removed_in: Ramble version in which this object/feature is scheduled to be
+            removed (e.g., ``"0.8.0"``). Requires ``deprecated_in`` to be set.
+        replacement: Optional recommended replacement (e.g., ``"wrf@4.2"``).
+        msg: Optional supplementary migration message shown to users alongside the
+            standard deprecation details.
+        when: Optional condition or list of conditions under which this deprecation
+            applies (e.g., ``"@:3.9.1.1"``, ``"workload_name=old"``, ``"+legacy"``).
+    """
+
+    def _execute_deprecate(obj):
+        from packaging.version import InvalidVersion, Version
+
+        origin_str = f"{getattr(obj, 'origin_type', 'object')} '{obj.name}'"
+
+        if deprecated_in is None and removed_in is not None:
+            raise ramble.language.language_base.DirectiveError(
+                f"Directive 'deprecate' in {origin_str} cannot specify 'removed_in' "
+                "without also specifying 'deprecated_in'."
+            )
+
+        parsed_deprecated_in = None
+        if deprecated_in is not None:
+            if not isinstance(deprecated_in, str):
+                raise ramble.language.language_base.DirectiveError(
+                    f"Directive 'deprecate' in {origin_str} requires 'deprecated_in' "
+                    f"to be a version string, got {type(deprecated_in).__name__}."
+                )
+            try:
+                parsed_deprecated_in = Version(deprecated_in)
+            except InvalidVersion:
+                raise ramble.language.language_base.DirectiveError(
+                    f"Directive 'deprecate' in {origin_str} received invalid "
+                    f"'deprecated_in' version '{deprecated_in}'."
+                ) from None
+
+        if removed_in is not None:
+            if not isinstance(removed_in, str):
+                raise ramble.language.language_base.DirectiveError(
+                    f"Directive 'deprecate' in {origin_str} requires 'removed_in' "
+                    f"to be a version string, got {type(removed_in).__name__}."
+                )
+            try:
+                parsed_removed_in = Version(removed_in)
+            except InvalidVersion:
+                raise ramble.language.language_base.DirectiveError(
+                    f"Directive 'deprecate' in {origin_str} received invalid "
+                    f"'removed_in' version '{removed_in}'."
+                ) from None
+
+            if parsed_deprecated_in is not None and parsed_removed_in < parsed_deprecated_in:
+                raise ramble.language.language_base.DirectiveError(
+                    f"Directive 'deprecate' in {origin_str} has 'removed_in' "
+                    f"({removed_in}) earlier than 'deprecated_in' ({deprecated_in})."
+                )
+
+        if replacement is not None and not isinstance(replacement, str):
+            raise ramble.language.language_base.DirectiveError(
+                f"Directive 'deprecate' in {origin_str} requires 'replacement' "
+                f"to be a string, got {type(replacement).__name__}."
+            )
+
+        if msg is not None and not isinstance(msg, str):
+            raise ramble.language.language_base.DirectiveError(
+                f"Directive 'deprecate' in {origin_str} requires 'msg' "
+                f"to be a string, got {type(msg).__name__}."
+            )
+
+        directive_id = replacement or deprecated_in or "deprecate"
+        when_list = ramble.language.language_helpers.build_when_list(
+            when, obj, directive_id, "deprecate"
+        )
+
+        when_key = frozenset(when_list)
+        if when_key not in obj.deprecations:
+            obj.deprecations[when_key] = []
+
+        entry = {
+            "deprecated_in": deprecated_in,
+            "removed_in": removed_in,
+            "replacement": replacement,
+            "message": msg,
+            "when": when_list,
+        }
+        if entry not in obj.deprecations[when_key]:
+            obj.deprecations[when_key].append(entry)
+
+    return _execute_deprecate
+
+
 @shared_directive(dicts=("object_variables", "object_environment_variables", "validators"))
 def variable(
     name: str,

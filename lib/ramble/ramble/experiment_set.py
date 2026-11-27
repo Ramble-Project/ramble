@@ -12,7 +12,7 @@ import os
 import sys
 from enum import Enum
 from functools import partial
-from typing import Set
+from typing import Any, Set
 
 import ramble.config
 import ramble.context
@@ -55,6 +55,7 @@ class ExperimentSet:
         self.rendered_experiments = set()
         self._context = {}
         self._filtered_experiments_cache = {}
+        self._warned_deprecations: Set[Any] = set()
 
         for context in self._contexts:
             self._context[context] = ramble.context.Context()

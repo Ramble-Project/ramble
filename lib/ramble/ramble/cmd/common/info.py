@@ -23,6 +23,7 @@ from ramble.util.logger import logger
 supported_formats = enum.Enum("supported_formats", ["text", "lists"])
 
 obj_attribute_map = {
+    "deprecations": None,
     "maintainers": None,
     "tags": None,
     "pipelines": None,
@@ -356,6 +357,58 @@ def _print_conflicts(obj, attr, verbose=False, pattern="*", format=supported_for
             color.cprint("")
 
 
+def _print_deprecations(obj, attr, verbose=False, pattern="*", format=supported_formats.text):
+    """Print deprecations defined on the object"""
+    import ramble.util.deprecations
+
+    internal_attr_name = _map_attr_name(attr)
+    internal_attr = getattr(obj, internal_attr_name)
+    if isinstance(internal_attr, dict) and internal_attr:
+        internal_attr = _unpack_when_set_if_needed(internal_attr)
+    elif not internal_attr:
+        internal_attr = []
+    print_attribute_header(attr, verbose)
+
+    indentation = " " * 4
+
+    if not verbose:
+        summaries = []
+        for dep in internal_attr:
+            summary = ramble.util.deprecations.format_deprecation_summary(dep)
+            if summary not in summaries:
+                summaries.append(summary)
+        to_print = [s for s in summaries if not pattern or fnmatch.fnmatch(s, pattern)]
+        if format == supported_formats.lists:
+            color.cprint(f"    {to_print}")
+        elif format == supported_formats.text:
+            for item in to_print:
+                color.cprint(f"{indentation}{item}")
+            color.cprint("")
+    else:
+        for dep in internal_attr:
+            scope = ", ".join(dep["when"]) if dep["when"] else "Unconditional"
+            summary = ramble.util.deprecations.format_deprecation_summary(dep)
+            if pattern and not (
+                fnmatch.fnmatch(scope, pattern) or fnmatch.fnmatch(summary, pattern)
+            ):
+                continue
+            color_scope = color.section_title(scope)
+            color.cprint(f"{color_scope}:")
+            if dep["deprecated_in"]:
+                color_key = color.nested_1("deprecated_in")
+                color.cprint(f"{indentation}{color_key}: {dep['deprecated_in']}")
+            if dep["removed_in"]:
+                color_key = color.nested_1("removed_in")
+                color.cprint(f"{indentation}{color_key}: {dep['removed_in']}")
+            if dep["replacement"]:
+                color_key = color.nested_1("replacement")
+                color.cprint(f"{indentation}{color_key}: {dep['replacement']}")
+            if dep["message"]:
+                color_key = color.nested_1("message")
+                color.cprint(f"{indentation}{color_key}: {dep['message']}")
+            color.cprint("")
+
+
 def print_single_attribute(obj, attr, verbose=False, pattern="*", format=supported_formats.text):
     """Handle printing a single attribute
 
@@ -372,6 +425,9 @@ def print_single_attribute(obj, attr, verbose=False, pattern="*", format=support
         return
     elif attr == "conflicts":
         _print_conflicts(obj, attr, verbose, pattern, format=format)
+        return
+    elif attr == "deprecations":
+        _print_deprecations(obj, attr, verbose, pattern, format=format)
         return
     elif isinstance(internal_attr, dict):
         internal_attr = _unpack_when_set_if_needed(internal_attr)

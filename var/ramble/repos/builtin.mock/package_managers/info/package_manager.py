@@ -154,6 +154,14 @@ class Info(PackageManagerBase):
         msg="turn_on_required_directives conflicts with variant_default",
     )
 
+    deprecate(
+        deprecated_in="0.7.0",
+        removed_in="99.0.0",
+        replacement="new-info",
+        msg="Use new-info instead",
+        when=["+turn_on_required_directives"],
+    )
+
     # Package manager language
     package_manager_variable(
         "pm_var_name",
